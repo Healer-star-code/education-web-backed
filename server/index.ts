@@ -2,6 +2,7 @@ import './loadEnv.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
+import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
   abortSession,
@@ -118,6 +119,14 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/skills') {
       const cwd = url.searchParams.get('cwd') ?? undefined
       sendJson(res, 200, { skills: await listSkills(cwd) })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/skills') {
+      const body = await readJson<CreateSkillPayload & { cwd?: string }>(req)
+      const cwd = body.cwd ?? process.env.V3_WEB_DEFAULT_CWD ?? process.cwd()
+      const skill = await createProjectSkill(cwd, body)
+      sendJson(res, 200, { skill })
       return
     }
 

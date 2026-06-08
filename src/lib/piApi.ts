@@ -108,10 +108,25 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   return es
 }
 
+export interface CreateSkillPayload {
+  cwd?: string
+  name: string
+  description: string
+  content: string
+}
+
 export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   const query = cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''
   const data = await requestJson<{ skills: SkillInfo[] }>(`/api/skills${query}`)
   return data.skills
+}
+
+export async function createSkill(payload: CreateSkillPayload): Promise<SkillInfo> {
+  const data = await requestJson<{ skill: SkillInfo }>('/api/skills', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+  return data.skill
 }
 
 export async function listTools(sessionId: string): Promise<ToolInfo[]> {
