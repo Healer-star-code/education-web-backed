@@ -11,15 +11,6 @@ export interface ChatInputHandle {
   insertText: (text: string) => void
 }
 
-const MOCK_PHRASES = [
-  '请帮我讲一下勾股定理',
-  '什么是三角函数',
-  '用Python怎么写循环',
-  '帮我出一道物理题',
-  '英语过去式怎么变',
-  '解释一下牛顿第二定律',
-]
-
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   onSend, isStreaming, placeholder,
 }, ref) {
@@ -272,6 +263,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    const drawingCtx = ctx
     const w = canvas.width
     const h = canvas.height
     const bars = 5
@@ -279,17 +271,17 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     const gap = (w - bars * barW) / (bars - 1)
     let t = 0
     function draw() {
-      ctx.clearRect(0, 0, w, h)
+      drawingCtx.clearRect(0, 0, w, h)
       for (let i = 0; i < bars; i++) {
         const phase = t * 0.08 + i * 1.2
         const amp = (Math.sin(phase) + 1) / 2
         const barH = 4 + amp * (h - 8)
         const x = i * (barW + gap)
         const y = (h - barH) / 2
-        ctx.fillStyle = `rgba(239, 68, 68, ${0.5 + amp * 0.5})`
-        ctx.beginPath()
-        ctx.roundRect(x, y, barW, barH, 1.5)
-        ctx.fill()
+        drawingCtx.fillStyle = `rgba(239, 68, 68, ${0.5 + amp * 0.5})`
+        drawingCtx.beginPath()
+        drawingCtx.roundRect(x, y, barW, barH, 1.5)
+        drawingCtx.fill()
       }
       t++
       waveAnimRef.current = requestAnimationFrame(draw)

@@ -10,7 +10,6 @@ import {
   type AgentSessionEvent,
   type SessionInfo as PiSessionInfo,
 } from '@earendil-works/pi-coding-agent'
-import type { AgentMessage } from '@earendil-works/pi-agent-core'
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
@@ -51,7 +50,7 @@ function extractTextContent(content: unknown): string {
     .join('')
 }
 
-function toWebMessage(message: AgentMessage, index: number): WebMessage | null {
+function toWebMessage(message: unknown, index: number): WebMessage | null {
   if (!isRecord(message)) return null
   const role = message.role
   if (role !== 'user' && role !== 'assistant') return null
