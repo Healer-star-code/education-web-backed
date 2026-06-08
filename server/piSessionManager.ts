@@ -1,8 +1,11 @@
 import {
   AuthStorage,
   createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
   ModelRegistry,
   SessionManager,
+  SettingsManager,
   type AgentSession,
   type AgentSessionEvent,
   type SessionInfo as PiSessionInfo,
@@ -218,8 +221,18 @@ export function setTools(sessionId: string, toolNames: string[]): void {
   managed.session.setActiveToolsByName(toolNames)
 }
 
-export function listSkills(): SkillInfo[] {
-  return []
+export async function listSkills(cwd = DEFAULT_CWD): Promise<SkillInfo[]> {
+  const agentDir = getAgentDir()
+  const settingsManager = SettingsManager.create(cwd, agentDir)
+  const loader = new DefaultResourceLoader({ cwd, agentDir, settingsManager })
+  await loader.reload()
+  const { skills } = loader.getSkills()
+  return skills.map((skill) => ({
+    name: skill.name,
+    description: skill.description,
+    source: skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath,
+    enabled: !skill.disableModelInvocation,
+  }))
 }
 
 export function disposeAllSessions(): void {

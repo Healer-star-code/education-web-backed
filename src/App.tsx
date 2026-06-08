@@ -5,6 +5,7 @@ import { mockSessions, mockFileTree } from './mockData'
 import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
+import { SkillsPanel } from './components/SkillsPanel'
 import { listSessions } from './lib/piApi'
 
 const STREAM_TEXT = 'web 模拟版本1'
@@ -48,6 +49,7 @@ export default function App() {
   const [fontSize, setFontSize] = useState(14)
   const [mode, setMode] = useState<'young' | 'senior'>('young')
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [skillsOpen, setSkillsOpen] = useState(false)
   const chatInputRef = useRef<ChatInputHandle | null>(null)
 
   useEffect(() => {
@@ -193,6 +195,21 @@ export default function App() {
             </button>
             <div style={{ flex: 1 }} />
             <button
+              onClick={() => setSkillsOpen(!skillsOpen)}
+              title="Skills"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                height: 32, padding: '0 10px', marginRight: 4,
+                background: skillsOpen ? 'var(--bg-selected)' : 'var(--bg-hover)',
+                border: skillsOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: 7, color: skillsOpen ? 'var(--accent)' : 'var(--text-muted)',
+                cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
+                fontSize: 12, fontWeight: 600,
+              }}
+            >
+              Skills
+            </button>
+            <button
               onClick={() => setSettingsOpen(!settingsOpen)}
               title="设置"
               style={{
@@ -236,6 +253,12 @@ export default function App() {
           </div>
         </div>
       </div>
+      {skillsOpen && (
+        <SkillsPanel
+          cwd={selectedCwd}
+          onClose={() => setSkillsOpen(false)}
+        />
+      )}
       {settingsOpen && (
         <SettingsPanel
           isDark={isDark}

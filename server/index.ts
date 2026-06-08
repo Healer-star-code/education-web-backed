@@ -115,7 +115,8 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/skills') {
-      sendJson(res, 200, { skills: listSkills() })
+      const cwd = url.searchParams.get('cwd') ?? undefined
+      sendJson(res, 200, { skills: await listSkills(cwd) })
       return
     }
 
