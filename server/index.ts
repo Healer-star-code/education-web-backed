@@ -1,5 +1,19 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
+import { addSseClient } from './sse.ts'
+import type { PromptPayload } from './types.ts'
+import {
+  abortSession,
+  createWebSession,
+  disposeAllSessions,
+  getMessages,
+  listSessions,
+  listSkills,
+  listTools,
+  openWebSession,
+  sendPrompt,
+  setTools,
+} from './piSessionManager.ts'
 
 const PORT = Number(process.env.V3_WEB_SERVER_PORT ?? 30142)
 
@@ -26,6 +40,17 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
   return (raw ? JSON.parse(raw) : {}) as T
 }
 
+function getSessionAction(pathname: string, suffix: string): string | undefined {
+  if (!pathname.startsWith('/api/sessions/') || !pathname.endsWith(suffix)) return undefined
+  return decodeURIComponent(pathname.slice('/api/sessions/'.length, -suffix.length))
+}
+
+function getToolsSessionId(pathname: string): string | undefined {
+  if (!pathname.startsWith('/api/tools/')) return undefined
+  const id = pathname.slice('/api/tools/'.length)
+  return id ? decodeURIComponent(id) : undefined
+}
+
 const server = createServer(async (req, res) => {
   try {
     if (req.method === 'OPTIONS') {
@@ -40,9 +65,69 @@ const server = createServer(async (req, res) => {
       return
     }
 
-    if (req.method === 'POST' && url.pathname === '/api/echo') {
-      const body = await readJson<unknown>(req)
-      sendJson(res, 200, { ok: true, body })
+    if (req.method === 'POST' && url.pathname === '/api/sessions') {
+      const body = await readJson<{ cwd?: string; sessionFile?: string }>(req)
+      const session = body.sessionFile ? await openWebSession(body.sessionFile) : await createWebSession(body.cwd)
+      sendJson(res, 200, { session })
+      return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/sessions') {
+      const cwd = url.searchParams.get('cwd') ?? undefined
+      sendJson(res, 200, { sessions: await listSessions(cwd) })
+      return
+    }
+
+    if (req.method === 'GET') {
+      const sessionId = getSessionAction(url.pathname, '/events')
+      if (sessionId) {
+        const cleanup = addSseClient(sessionId, res)
+        req.on('close', cleanup)
+        return
+      }
+    }
+
+    if (req.method === 'GET') {
+      const sessionId = getSessionAction(url.pathname, '/messages')
+      if (sessionId) {
+        sendJson(res, 200, { messages: getMessages(sessionId) })
+        return
+      }
+    }
+
+    if (req.method === 'POST') {
+      const sessionId = getSessionAction(url.pathname, '/prompt')
+      if (sessionId) {
+        const body = await readJson<PromptPayload>(req)
+        await sendPrompt(sessionId, body.message, body.images)
+        sendJson(res, 200, { ok: true })
+        return
+      }
+    }
+
+    if (req.method === 'POST') {
+      const sessionId = getSessionAction(url.pathname, '/abort')
+      if (sessionId) {
+        await abortSession(sessionId)
+        sendJson(res, 200, { ok: true })
+        return
+      }
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/skills') {
+      sendJson(res, 200, { skills: listSkills() })
+      return
+    }
+
+    const toolsSessionId = getToolsSessionId(url.pathname)
+    if (toolsSessionId && req.method === 'GET') {
+      sendJson(res, 200, { tools: listTools(toolsSessionId) })
+      return
+    }
+    if (toolsSessionId && req.method === 'POST') {
+      const body = await readJson<{ toolNames?: string[] }>(req)
+      setTools(toolsSessionId, body.toolNames ?? [])
+      sendJson(res, 200, { ok: true })
       return
     }
 
@@ -54,4 +139,13 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`v3-web SDK server listening on http://localhost:${PORT}`)
+})
+
+process.once('SIGINT', () => {
+  disposeAllSessions()
+  process.exit(0)
+})
+process.once('SIGTERM', () => {
+  disposeAllSessions()
+  process.exit(0)
 })
