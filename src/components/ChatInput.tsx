@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect, type KeyboardEvent } from 'react'
-import type { MessageAttachment } from '../mockData'
+import type { LocalAttachment } from '../mockData'
 
 interface Props {
-  onSend: (message: string, attachments?: MessageAttachment[]) => void
+  onSend: (message: string, attachments?: LocalAttachment[]) => void
   isStreaming?: boolean
   placeholder?: string
 }
@@ -34,7 +34,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const shouldKeepRecordingRef = useRef(false)
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
-  const [attachments, setAttachments] = useState<{ name: string; url: string; progress: number; id: number }[]>([])
+  const [attachments, setAttachments] = useState<LocalAttachment[]>([])
 
   function createRecognition() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -157,13 +157,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }
       if (msg || currentAttachments.length > 0) {
         const readyAttachments = currentAttachments.filter((a) => a.progress >= 100)
-        const payload: MessageAttachment[] = readyAttachments.map((a) => ({
-          id: a.id,
-          name: a.name,
-          url: a.url,
-          type: 'image',
-        }))
-        onSend(msg, payload.length > 0 ? payload : undefined)
+        onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
       }
     } else {
       startRecording()
@@ -205,8 +199,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     const total = files.length
     let completed = 0
     for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       const id = Date.now() + i
-      const entry = { name: files[i].name, url: URL.createObjectURL(files[i]), progress: 0, id }
+      const entry = { name: file.name, url: URL.createObjectURL(file), file, progress: 0, id }
       setAttachments((prev) => [...prev, entry])
       const steps = [10, 25, 40, 60, 75, 90, 100]
       steps.forEach((p, si) => {
@@ -240,13 +235,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (!msg && attachments.length === 0) return
     if (isStreaming) return
     const readyAttachments = attachments.filter((a) => a.progress >= 100)
-    const payload: MessageAttachment[] = readyAttachments.map((a) => ({
-      id: a.id,
-      name: a.name,
-      url: a.url,
-      type: 'image',
-    }))
-    onSend(msg, payload.length > 0 ? payload : undefined)
+    onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
     setValue('')
     setAttachments([])
     if (textareaRef.current) {

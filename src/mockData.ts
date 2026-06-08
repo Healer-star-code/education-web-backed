@@ -18,6 +18,14 @@ export interface MessageAttachment {
   type: 'image'
 }
 
+export interface LocalAttachment {
+  id: number
+  name: string
+  url: string
+  file: File
+  progress: number
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
