@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { SessionInfo, Message, FileNode, MessageAttachment } from '../mockData'
+import type { SessionInfo, Message, FileNode, MessageAttachment, LocalAttachment } from '../mockData'
 import { mockMessages } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
+import { fileToBase64 } from '../lib/image'
+import { connectSessionEvents, createSession, sendPrompt, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
   session: SessionInfo | null
@@ -33,101 +35,122 @@ const TYPEWRITER_PHRASES = [
   'rubber-duck with me.',
 ]
 
-function generateResponse(userInput: string): string {
-  const responses = [
-    `好的，关于"${userInput.slice(0, 30)}${userInput.length > 30 ? '...' : ''}"这个问题，我来给你详细分析一下：
-
-## 核心概念
-
-1. **基础原理**：这个问题涉及教育领域的关键知识点
-2. **教学建议**：可以通过互动式教学来帮助学生理解
-3. **实践应用**：结合实际案例进行讲解效果更好
-
-\`\`\`python
-def explain_concept():
-    print("这是一个概念演示")
-    return {"status": "ok", "message": "理解成功"}
-\`\`\`
-
-> **教学提示**：建议使用分步讲解的方式，让学生逐步理解。
-
-需要我进一步展开某个部分吗？`,
-
-    `这是一个很好的问题。从教育角度来看：
-
-## 教学方法建议
-
-| 方法 | 适用场景 | 效果 |
-|------|----------|------|
-| 案例教学 | 概念引入 | 很好 |
-| 小组讨论 | 深入理解 | 较好 |
-| 实践操作 | 技能掌握 | 很好 |
-
-**关键点**：
-- 先理解概念
-- 再动手实践
-- 最后总结归纳
-
-有什么具体的方面需要我详细展开吗？`,
-
-    `关于这个问题，我有以下几点建议：
-
-### 1. 教学设计
-- **引入阶段**：用生活实例激发兴趣
-- **讲解阶段**：分步骤、有层次
-- **练习阶段**：由浅入深
-
-### 2. 示例代码
-\`\`\`typescript
-function createQuiz(questions: string[]) {
-  return {
-    title: "课堂测验",
-    questions: questions.map(q => ({
-      text: q,
-      difficulty: 'medium'
-    }))
-  };
+interface ToolEventView {
+  id: string
+  label: string
+  status: 'running' | 'done' | 'error'
 }
-\`\`\`
 
-### 3. 总结
-通过以上方法，可以有效帮助学生理解和掌握知识点。`,
-  ]
-
-  return responses[Math.floor(Math.random() * responses.length)]
+function toMessageAttachments(attachments: LocalAttachment[] | undefined): MessageAttachment[] | undefined {
+  if (!attachments || attachments.length === 0) return undefined
+  return attachments.map((att) => ({
+    id: att.id,
+    name: att.name,
+    url: att.url,
+    type: 'image',
+  }))
 }
 
 export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [hasSent, setHasSent] = useState(false)
   const [streaming, setStreaming] = useState(false)
+  const [toolEvents, setToolEvents] = useState<ToolEventView[]>([])
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const sdkSessionIdRef = useRef<string | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
+  const currentAssistantIdRef = useRef<string | null>(null)
 
-  const handleSend = useCallback((text: string, attachments?: MessageAttachment[]) => {
+  const handleAgentEvent = useCallback((event: WebAgentEvent) => {
+    switch (event.type) {
+      case 'agent_start':
+        setStreaming(true)
+        setError(null)
+        break
+      case 'assistant_delta': {
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) return
+        setMessages((prev) => prev.map((msg) => (
+          msg.id === assistantId ? { ...msg, content: msg.content + event.delta } : msg
+        )))
+        break
+      }
+      case 'tool_start':
+        setToolEvents((prev) => [...prev, { id: event.toolCallId, label: event.toolName, status: 'running' }])
+        break
+      case 'tool_end':
+        setToolEvents((prev) => prev.map((tool) => (
+          tool.id === event.toolCallId ? { ...tool, status: event.isError ? 'error' : 'done' } : tool
+        )))
+        break
+      case 'agent_end':
+        setStreaming(false)
+        currentAssistantIdRef.current = null
+        break
+      case 'error':
+        setError(event.message)
+        setStreaming(false)
+        break
+    }
+  }, [])
+
+  const connectEvents = useCallback((sessionId: string) => {
+    if (eventSourceRef.current) return
+    eventSourceRef.current = connectSessionEvents(sessionId, handleAgentEvent)
+    eventSourceRef.current.onerror = () => {
+      setError('与 SDK 后端的事件连接已断开')
+    }
+  }, [handleAgentEvent])
+
+  const ensureSdkSession = useCallback(async () => {
+    if (sdkSessionIdRef.current) return sdkSessionIdRef.current
+    const cwd = newSessionCwd ?? session?.cwd ?? selectedCwd ?? undefined
+    const created = await createSession(cwd)
+    sdkSessionIdRef.current = created.id
+    connectEvents(created.id)
+    return created.id
+  }, [connectEvents, newSessionCwd, selectedCwd, session?.cwd])
+
+  const handleSend = useCallback(async (text: string, attachments?: LocalAttachment[]) => {
+    const userAttachments = toMessageAttachments(attachments)
     const userMsg: Message = {
       id: 'u' + Date.now(),
       role: 'user',
       content: text,
-      attachments,
+      attachments: userAttachments,
+      timestamp: new Date().toISOString(),
+    }
+    const assistantId = 'a' + Date.now()
+    const assistantMsg: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
       timestamp: new Date().toISOString(),
     }
 
-    setMessages(prev => [...prev, userMsg])
+    setMessages((prev) => [...prev, userMsg, assistantMsg])
     setHasSent(true)
     setStreaming(true)
+    setToolEvents([])
+    setError(null)
+    currentAssistantIdRef.current = assistantId
 
-    setTimeout(() => {
-      const aiMsg: Message = {
-        id: 'a' + Date.now(),
-        role: 'assistant',
-        content: generateResponse(text || (attachments && attachments.length > 0 ? '这张图片' : '')),
-        timestamp: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, aiMsg])
+    try {
+      const sessionId = await ensureSdkSession()
+      const images = attachments ? await Promise.all(attachments.map((att) => fileToBase64(att.file))) : undefined
+      await sendPrompt(sessionId, { message: text, images })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setError(message)
       setStreaming(false)
-    }, 600 + Math.random() * 1000)
-  }, [])
+      currentAssistantIdRef.current = null
+      setMessages((prev) => prev.map((msg) => (
+        msg.id === assistantId ? { ...msg, content: `调用 Pi SDK 失败：${message}` } : msg
+      )))
+    }
+  }, [ensureSdkSession])
 
   useEffect(() => {
     if (session) {
@@ -137,18 +160,28 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
       setMessages([])
       setHasSent(false)
     }
-  }, [session?.id])
+    sdkSessionIdRef.current = null
+    currentAssistantIdRef.current = null
+    eventSourceRef.current?.close()
+    eventSourceRef.current = null
+  }, [session?.id, newSessionCwd])
+
+  useEffect(() => {
+    return () => {
+      eventSourceRef.current?.close()
+      eventSourceRef.current = null
+    }
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, toolEvents])
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd
   const showChat = session !== null || newSessionCwd !== null
   const isEmptyNew = !!(session === null && newSessionCwd)
   const isNewSession = !!(session && !hasSent)
 
-  // State A: No session, no cwd - initial empty
   if (!showChat && !selectedCwd) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
@@ -164,7 +197,6 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
     )
   }
 
-  // State B: Cwd selected, no session - ready for new session
   if (!showChat && selectedCwd) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
@@ -177,7 +209,6 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
     )
   }
 
-  // State C: Welcome screen for new session or session with no messages
   if (isEmptyNew || isNewSession) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
@@ -201,10 +232,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  web <span style={{ color: 'var(--text)' }}>v0.6.13</span>
+                  web <span style={{ color: 'var(--text)' }}>mock-v1</span>
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  pi <span style={{ color: 'var(--text)' }}>v0.78.0</span>
+                  sdk <span style={{ color: 'var(--text)' }}>pi</span>
                 </span>
               </div>
             </div>
@@ -215,10 +246,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
     )
   }
 
-  // State D: Session with messages
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
-      {/* Header */}
       <div style={{
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 10,
@@ -235,12 +264,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
         )}
       </div>
 
-      {/* Messages */}
       <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', paddingTop: 16 }}>
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px' }}>
           {messages.map((m) => (
             <MessageView key={m.id} message={m} />
           ))}
+          {toolEvents.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginBottom: 10 }}>
+              {toolEvents.map((tool) => (
+                <span key={tool.id} style={{ fontSize: 12, color: tool.status === 'error' ? '#ef4444' : 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+                  {tool.status === 'running' ? '正在调用' : tool.status === 'done' ? '已完成' : '调用失败'} {tool.label}
+                </span>
+              ))}
+            </div>
+          )}
           {streaming && (
             <div style={{ padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
               <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Thinking...</span>
@@ -254,11 +291,11 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
               </span>
             </div>
           )}
+          {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>{error}</div>}
           <div ref={messagesEndRef} />
         </div>
       </div>
 
-      {/* Input */}
       <ChatInput ref={chatInputRef} onSend={handleSend} isStreaming={streaming} />
     </div>
   )
