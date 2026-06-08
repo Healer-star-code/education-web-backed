@@ -16,8 +16,10 @@ export function parseDirectoryDialogOutput(output: string): string | null {
   throw new Error(`Unexpected directory dialog output: ${line}`)
 }
 
-export async function selectDirectoryWithWindowsDialog(): Promise<string | null> {
-  const script = `
+export function createDirectoryDialogScript(): string {
+  return `
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
+$OutputEncoding = [Console]::OutputEncoding
 Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
 $dialog.Description = '选择 AI 要操作的项目文件夹'
@@ -29,6 +31,10 @@ if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
   'CANCELLED'
 }
 `
+}
+
+export async function selectDirectoryWithWindowsDialog(): Promise<string | null> {
+  const script = createDirectoryDialogScript()
 
   const { stdout } = await execFileAsync('powershell.exe', [
     '-NoProfile',

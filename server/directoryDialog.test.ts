@@ -1,6 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseDirectoryDialogOutput } from './directoryDialog.ts'
+import { createDirectoryDialogScript, parseDirectoryDialogOutput } from './directoryDialog.ts'
+
+test('directory dialog script forces UTF-8 stdout for Chinese paths', () => {
+  assert.match(createDirectoryDialogScript(), /Console\]::OutputEncoding = \[System\.Text\.UTF8Encoding\]::new\(\)/)
+})
 
 test('parseDirectoryDialogOutput returns the selected Windows path', () => {
   assert.equal(
