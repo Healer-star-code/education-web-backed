@@ -6,6 +6,7 @@ import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { listSessions } from './lib/piApi'
+import { upsertSession } from './lib/sessionState'
 
 const STREAM_TEXT = 'web 模拟版本1'
 const DEFAULT_CWD = import.meta.env.VITE_PI_DEFAULT_CWD as string | undefined
@@ -73,9 +74,9 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  useEffect(() => {
+  const loadSessionsForCwd = useCallback((cwd: string | null) => {
     let cancelled = false
-    listSessions()
+    listSessions(cwd ?? undefined)
       .then((loaded) => {
         if (cancelled) return
         setSessions(loaded)
@@ -90,6 +91,8 @@ export default function App() {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => loadSessionsForCwd(selectedCwd), [loadSessionsForCwd, selectedCwd])
+
   const handleSelectSession = useCallback((session: SessionInfo) => {
     setNewSessionCwd(null)
     setSelectedSession(session)
@@ -103,10 +106,16 @@ export default function App() {
 
   const handleCwdChange = useCallback((cwd: string | null) => {
     setSelectedCwd(cwd)
+    setSessions([])
+    setSessionLoadError(null)
     if (cwd) {
       setSelectedSession(null)
       setNewSessionCwd(null)
     }
+  }, [])
+
+  const handleSessionCreated = useCallback((session: SessionInfo) => {
+    setSessions((current) => upsertSession(current, session))
   }, [])
 
   const showChat = selectedSession !== null || newSessionCwd !== null
@@ -240,6 +249,7 @@ export default function App() {
                 selectedCwd={selectedCwd}
                 newSessionCwd={newSessionCwd}
                 chatInputRef={chatInputRef}
+                onSessionCreated={handleSessionCreated}
               />
             ) : showPlaceholder ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 15 }}>

@@ -11,6 +11,7 @@ interface Props {
   selectedCwd: string | null
   newSessionCwd: string | null
   chatInputRef: React.RefObject<ChatInputHandle | null>
+  onSessionCreated?: (session: SessionInfo) => void
 }
 
 const TYPEWRITER_PHRASES = [
@@ -49,7 +50,7 @@ function toMessageAttachments(attachments: LocalAttachment[] | undefined): Messa
   }))
 }
 
-export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: Props) {
+export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, onSessionCreated }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [hasSent, setHasSent] = useState(false)
   const [streaming, setStreaming] = useState(false)
@@ -58,6 +59,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const sdkSessionIdRef = useRef<string | null>(null)
+  const sdkSessionInfoRef = useRef<SessionInfo | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentAssistantIdRef = useRef<string | null>(null)
 
@@ -103,12 +105,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
   }, [handleAgentEvent])
 
   const ensureSdkSession = useCallback(async () => {
-    if (sdkSessionIdRef.current) return sdkSessionIdRef.current
+    if (sdkSessionIdRef.current && sdkSessionInfoRef.current) return sdkSessionInfoRef.current
     const cwd = newSessionCwd ?? session?.cwd ?? selectedCwd ?? undefined
     const created = await createSession(cwd)
     sdkSessionIdRef.current = created.id
+    sdkSessionInfoRef.current = created
     connectEvents(created.id)
-    return created.id
+    return created
   }, [connectEvents, newSessionCwd, selectedCwd, session?.cwd])
 
   const handleSend = useCallback(async (text: string, attachments?: LocalAttachment[]) => {
@@ -136,9 +139,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
     currentAssistantIdRef.current = assistantId
 
     try {
-      const sessionId = await ensureSdkSession()
+      const sdkSession = await ensureSdkSession()
+      onSessionCreated?.({
+        ...sdkSession,
+        firstMessage: sdkSession.firstMessage || text,
+        messageCount: Math.max(sdkSession.messageCount, 1),
+        modified: new Date().toISOString(),
+      })
       const images = attachments ? await Promise.all(attachments.map((att) => fileToBase64(att.file))) : undefined
-      await sendPrompt(sessionId, { message: text, images })
+      await sendPrompt(sdkSession.id, { message: text, images })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
@@ -148,11 +157,12 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
         msg.id === assistantId ? { ...msg, content: `调用 Pi SDK 失败：${message}` } : msg
       )))
     }
-  }, [ensureSdkSession])
+  }, [ensureSdkSession, onSessionCreated])
 
   useEffect(() => {
     let cancelled = false
     sdkSessionIdRef.current = null
+    sdkSessionInfoRef.current = null
     currentAssistantIdRef.current = null
     eventSourceRef.current?.close()
     eventSourceRef.current = null
@@ -166,6 +176,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
           .then(async (opened) => {
             if (cancelled) return
             sdkSessionIdRef.current = opened.id
+            sdkSessionInfoRef.current = opened
             connectEvents(opened.id)
             const loadedMessages = await getMessages(opened.id)
             if (cancelled) return
