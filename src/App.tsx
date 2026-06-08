@@ -5,6 +5,7 @@ import { mockSessions, mockFileTree } from './mockData'
 import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
+import { listSessions } from './lib/piApi'
 
 const STREAM_TEXT = 'web 模拟版本1'
 
@@ -38,6 +39,7 @@ function StreamTitle() {
 }
 
 export default function App() {
+  const [sessions, setSessions] = useState<SessionInfo[]>(mockSessions)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
@@ -66,6 +68,20 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    listSessions()
+      .then((loaded) => {
+        if (cancelled || loaded.length === 0) return
+        setSessions(loaded)
+        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? null)
+      })
+      .catch(() => {
+        setSessions(mockSessions)
+      })
+    return () => { cancelled = true }
   }, [])
 
   const handleSelectSession = useCallback((session: SessionInfo) => {
@@ -106,7 +122,7 @@ export default function App() {
         }}>
           <div style={{ width: 230, minWidth: 230, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <Sidebar
-              sessions={mockSessions}
+              sessions={sessions}
               selectedId={selectedSession?.id ?? null}
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}

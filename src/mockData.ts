@@ -7,6 +7,7 @@ export interface SessionInfo {
   messageCount: number
   firstMessage: string
   parentSessionId?: string
+  sessionFile?: string
   error?: boolean
   orphaned?: boolean
 }

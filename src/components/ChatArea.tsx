@@ -5,7 +5,7 @@ import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
 import { fileToBase64 } from '../lib/image'
-import { connectSessionEvents, createSession, sendPrompt, type WebAgentEvent } from '../lib/piApi'
+import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
   session: SessionInfo | null
@@ -153,18 +153,42 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
   }, [ensureSdkSession])
 
   useEffect(() => {
-    if (session) {
+    let cancelled = false
+    sdkSessionIdRef.current = null
+    currentAssistantIdRef.current = null
+    eventSourceRef.current?.close()
+    eventSourceRef.current = null
+
+    if (session?.sessionFile) {
+      setMessages([])
+      setHasSent(true)
+      createSession(undefined, session.sessionFile)
+        .then(async (opened) => {
+          if (cancelled) return
+          sdkSessionIdRef.current = opened.id
+          connectEvents(opened.id)
+          const loadedMessages = await getMessages(opened.id)
+          if (cancelled) return
+          setMessages(loadedMessages.map((msg) => ({
+            id: msg.id,
+            role: msg.role,
+            content: msg.content,
+            timestamp: msg.timestamp,
+          })))
+        })
+        .catch(() => {
+          if (!cancelled) setMessages(mockMessages)
+        })
+    } else if (session) {
       setMessages(mockMessages)
       setHasSent(true)
     } else {
       setMessages([])
       setHasSent(false)
     }
-    sdkSessionIdRef.current = null
-    currentAssistantIdRef.current = null
-    eventSourceRef.current?.close()
-    eventSourceRef.current = null
-  }, [session?.id, newSessionCwd])
+
+    return () => { cancelled = true }
+  }, [connectEvents, session, newSessionCwd])
 
   useEffect(() => {
     return () => {
