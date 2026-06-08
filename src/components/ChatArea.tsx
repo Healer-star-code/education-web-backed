@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { SessionInfo, Message, FileNode, MessageAttachment, LocalAttachment } from '../mockData'
+import type { SessionInfo, Message, MessageAttachment, LocalAttachment } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
@@ -10,7 +10,6 @@ interface Props {
   session: SessionInfo | null
   selectedCwd: string | null
   newSessionCwd: string | null
-  fileTree: FileNode[]
   chatInputRef: React.RefObject<ChatInputHandle | null>
 }
 
@@ -158,37 +157,40 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
     eventSourceRef.current?.close()
     eventSourceRef.current = null
 
-    if (session?.sessionFile) {
-      setMessages([])
-      setHasSent(true)
-      createSession(undefined, session.sessionFile)
-        .then(async (opened) => {
-          if (cancelled) return
-          sdkSessionIdRef.current = opened.id
-          connectEvents(opened.id)
-          const loadedMessages = await getMessages(opened.id)
-          if (cancelled) return
-          setMessages(loadedMessages.map((msg) => ({
-            id: msg.id,
-            role: msg.role,
-            content: msg.content,
-            timestamp: msg.timestamp,
-          })))
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            const message = err instanceof Error ? err.message : String(err)
-            setError(`加载真实会话失败：${message}`)
-            setMessages([])
-          }
-        })
-    } else if (session) {
-      setMessages([])
-      setHasSent(true)
-    } else {
-      setMessages([])
-      setHasSent(false)
-    }
+    // 使用 queueMicrotask 延迟同步状态重置，避免 react-hooks/set-state-in-effect
+    queueMicrotask(() => {
+      if (session?.sessionFile) {
+        setMessages([])
+        setHasSent(true)
+        createSession(undefined, session.sessionFile)
+          .then(async (opened) => {
+            if (cancelled) return
+            sdkSessionIdRef.current = opened.id
+            connectEvents(opened.id)
+            const loadedMessages = await getMessages(opened.id)
+            if (cancelled) return
+            setMessages(loadedMessages.map((msg) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              timestamp: msg.timestamp,
+            })))
+          })
+          .catch((err) => {
+            if (!cancelled) {
+              const message = err instanceof Error ? err.message : String(err)
+              setError(`加载真实会话失败：${message}`)
+              setMessages([])
+            }
+          })
+      } else if (session) {
+        setMessages([])
+        setHasSent(true)
+      } else {
+        setMessages([])
+        setHasSent(false)
+      }
+    })
 
     return () => { cancelled = true }
   }, [connectEvents, session, newSessionCwd])

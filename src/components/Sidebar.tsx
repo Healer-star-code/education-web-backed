@@ -1,18 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import type { SessionInfo, FileNode } from '../mockData'
-import { FileExplorer } from './FileExplorer'
+import type { SessionInfo } from '../mockData'
 
 interface Props {
   sessions: SessionInfo[]
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
   onNewSession: () => void
-  fileTree: FileNode[]
   selectedCwd: string | null
   onCwdChange: (cwd: string | null) => void
   sessionLoadError?: string | null
   onOpenSkills?: () => void
-  onOpenFile: (path: string, name: string) => void
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -104,9 +101,8 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, fileTree, selectedCwd, onCwdChange, sessionLoadError, onOpenSkills, onOpenFile }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, onCwdChange, sessionLoadError, onOpenSkills }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [explorerOpen, setExplorerOpen] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -337,55 +333,6 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, f
         ))}
       </div>
 
-      {/* File Explorer section */}
-      {selectedCwd && (
-        <div
-          style={{
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            flex: explorerOpen ? '1 1 0' : '0 0 auto',
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <button
-              onClick={() => setExplorerOpen((v) => !v)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                flex: 1,
-                padding: '6px 10px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textAlign: 'left',
-              }}
-            >
-              <svg
-                width="9" height="9" viewBox="0 0 10 10" fill="none"
-                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-                style={{ transform: explorerOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}
-              >
-                <polyline points="3 2 7 5 3 8" />
-              </svg>
-              Explorer
-            </button>
-          </div>
-          {explorerOpen && (
-            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-              <FileExplorer tree={fileTree} onOpenFile={onOpenFile} />
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Bottom Skills button */}
       <div style={{ padding: '8px', flexShrink: 0 }}>

@@ -132,14 +132,10 @@ export default function App() {
               selectedId={selectedSession?.id ?? null}
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
-              fileTree={[]}
               selectedCwd={selectedCwd}
               onCwdChange={handleCwdChange}
               sessionLoadError={sessionLoadError}
               onOpenSkills={() => setSkillsOpen(true)}
-              onOpenFile={(filePath, fileName) => {
-                console.log('Open file:', filePath, fileName)
-              }}
             />
           </div>
         </div>
@@ -243,7 +239,6 @@ export default function App() {
                 session={selectedSession}
                 selectedCwd={selectedCwd}
                 newSessionCwd={newSessionCwd}
-                fileTree={[]}
                 chatInputRef={chatInputRef}
               />
             ) : showPlaceholder ? (
