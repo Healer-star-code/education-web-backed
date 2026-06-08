@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import type { SessionInfo } from '../mockData'
+import { selectDirectory } from '../lib/piApi'
 
 interface Props {
   sessions: SessionInfo[]
@@ -103,6 +104,8 @@ function PiAgentTitle() {
 
 export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, onCwdChange, sessionLoadError, onOpenSkills }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [selectingDirectory, setSelectingDirectory] = useState(false)
+  const [directoryError, setDirectoryError] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -121,6 +124,23 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
     : sessions
 
   const sessionTree = buildSessionTree(filteredSessions)
+
+  async function handleCustomPath() {
+    if (selectingDirectory) return
+    setSelectingDirectory(true)
+    setDirectoryError(null)
+    try {
+      const selectedPath = await selectDirectory()
+      if (selectedPath) {
+        onCwdChange(selectedPath)
+        setDropdownOpen(false)
+      }
+    } catch (err) {
+      setDirectoryError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSelectingDirectory(false)
+    }
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -289,7 +309,8 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                 </button>
               ))}
               <button
-                onClick={() => setDropdownOpen(false)}
+                onClick={handleCustomPath}
+                disabled={selectingDirectory}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -299,7 +320,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                   background: 'none',
                   border: 'none',
                   color: 'var(--text-muted)',
-                  cursor: 'pointer',
+                  cursor: selectingDirectory ? 'wait' : 'pointer',
                   textAlign: 'left',
                   fontSize: 11,
                 }}
@@ -308,11 +329,16 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                   <line x1="5" y1="1" x2="5" y2="9" />
                   <line x1="1" y1="5" x2="9" y2="5" />
                 </svg>
-                <span>Custom path...</span>
+                <span>{selectingDirectory ? 'Opening picker...' : 'Custom path...'}</span>
               </button>
             </div>
           )}
         </div>
+        {directoryError && (
+          <div style={{ marginTop: 6, color: '#dc2626', fontSize: 11, lineHeight: 1.4 }}>
+            {directoryError}
+          </div>
+        )}
       </div>
 
       {/* Session list */}

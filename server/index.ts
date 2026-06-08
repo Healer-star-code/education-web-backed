@@ -2,6 +2,7 @@ import './loadEnv.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
+import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
 import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
@@ -64,6 +65,12 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, { ok: true, service: 'v3-web-sdk-server' })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/dialog/select-directory') {
+      const selectedPath = await selectDirectoryWithWindowsDialog()
+      sendJson(res, 200, { path: selectedPath })
       return
     }
 

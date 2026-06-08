@@ -67,6 +67,14 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   return data
 }
 
+export async function selectDirectory(): Promise<string | null> {
+  const data = await requestJson<{ path: string | null }>('/api/dialog/select-directory', {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+  return data.path
+}
+
 export async function createSession(cwd?: string, sessionFile?: string): Promise<WebSessionInfo> {
   const data = await requestJson<{ session: WebSessionInfo }>('/api/sessions', {
     method: 'POST',
