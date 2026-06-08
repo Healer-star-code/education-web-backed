@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { SessionInfo, Message, FileNode, MessageAttachment, LocalAttachment } from '../mockData'
-import { mockMessages } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
@@ -176,11 +175,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
             timestamp: msg.timestamp,
           })))
         })
-        .catch(() => {
-          if (!cancelled) setMessages(mockMessages)
+        .catch((err) => {
+          if (!cancelled) {
+            const message = err instanceof Error ? err.message : String(err)
+            setError(`加载真实会话失败：${message}`)
+            setMessages([])
+          }
         })
     } else if (session) {
-      setMessages(mockMessages)
+      setMessages([])
       setHasSent(true)
     } else {
       setMessages([])
@@ -203,7 +206,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd
   const showChat = session !== null || newSessionCwd !== null
-  const isEmptyNew = !!(session === null && newSessionCwd)
+  const isEmptyNew = !!(session === null && newSessionCwd && !hasSent)
   const isNewSession = !!(session && !hasSent)
 
   if (!showChat && !selectedCwd) {

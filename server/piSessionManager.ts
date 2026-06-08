@@ -16,6 +16,8 @@ import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
 
 const DEFAULT_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write']
 const DEFAULT_CWD = process.env.V3_WEB_DEFAULT_CWD ?? process.cwd()
+const DEFAULT_PROVIDER = process.env.PI_PROVIDER ?? 'deepseek'
+const DEFAULT_MODEL_ID = process.env.PI_MODEL ?? 'deepseek-v4-pro'
 
 interface ManagedSession {
   session: AgentSession
@@ -33,6 +35,19 @@ export interface WebMessage {
 const sessions = new Map<string, ManagedSession>()
 const authStorage = AuthStorage.create()
 const modelRegistry = ModelRegistry.create(authStorage)
+
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY ?? process.env.OPENAI_API_KEY
+if (deepseekApiKey) {
+  authStorage.setRuntimeApiKey('deepseek', deepseekApiKey)
+}
+
+function getDefaultModel() {
+  const model = modelRegistry.find(DEFAULT_PROVIDER, DEFAULT_MODEL_ID)
+  if (!model) {
+    throw new Error(`Model not found: ${DEFAULT_PROVIDER}/${DEFAULT_MODEL_ID}`)
+  }
+  return model
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -130,6 +145,7 @@ export async function createWebSession(cwd = DEFAULT_CWD): Promise<WebSessionInf
     cwd,
     authStorage,
     modelRegistry,
+    model: getDefaultModel(),
     sessionManager,
     tools: DEFAULT_TOOLS,
   })
@@ -155,6 +171,7 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
     cwd,
     authStorage,
     modelRegistry,
+    model: getDefaultModel(),
     sessionManager,
     tools: DEFAULT_TOOLS,
   })

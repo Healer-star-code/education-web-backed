@@ -10,6 +10,8 @@ interface Props {
   fileTree: FileNode[]
   selectedCwd: string | null
   onCwdChange: (cwd: string | null) => void
+  sessionLoadError?: string | null
+  onOpenSkills?: () => void
   onOpenFile: (path: string, name: string) => void
 }
 
@@ -102,7 +104,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, fileTree, selectedCwd, onCwdChange, onOpenFile }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, fileTree, selectedCwd, onCwdChange, sessionLoadError, onOpenSkills, onOpenFile }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [explorerOpen, setExplorerOpen] = useState(true)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -320,8 +322,8 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, f
       {/* Session list */}
       <div style={{ flex: '1 1 0', overflowY: 'auto', padding: '0', minHeight: 80 }}>
         {filteredSessions.length === 0 && (
-          <div style={{ padding: '16px 14px', color: 'var(--text-muted)', fontSize: 12 }}>
-            No sessions found
+          <div style={{ padding: '16px 14px', color: sessionLoadError ? '#dc2626' : 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
+            {sessionLoadError ? `真实后端连接失败：${sessionLoadError}` : '暂无真实会话'}
           </div>
         )}
         {sessionTree.map((node) => (
@@ -389,6 +391,9 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, f
       <div style={{ padding: '8px', flexShrink: 0 }}>
         <button
           title="Skills"
+          onClick={() => {
+            if (selectedCwd) onOpenSkills?.()
+          }}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             height: 32, padding: 0, background: 'none', border: 'none',

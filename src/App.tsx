@@ -1,7 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ChatArea } from './components/ChatArea'
-import { mockSessions, mockFileTree } from './mockData'
 import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
@@ -9,6 +8,7 @@ import { SkillsPanel } from './components/SkillsPanel'
 import { listSessions } from './lib/piApi'
 
 const STREAM_TEXT = 'web 模拟版本1'
+const DEFAULT_CWD = import.meta.env.VITE_PI_DEFAULT_CWD as string | undefined
 
 function StreamTitle() {
   const [chars, setChars] = useState(0)
@@ -40,9 +40,10 @@ function StreamTitle() {
 }
 
 export default function App() {
-  const [sessions, setSessions] = useState<SessionInfo[]>(mockSessions)
+  const [sessions, setSessions] = useState<SessionInfo[]>([])
+  const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
-  const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
+  const [selectedCwd, setSelectedCwd] = useState<string | null>(DEFAULT_CWD ?? null)
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDark, setIsDark] = useState(false)
@@ -76,12 +77,15 @@ export default function App() {
     let cancelled = false
     listSessions()
       .then((loaded) => {
-        if (cancelled || loaded.length === 0) return
+        if (cancelled) return
         setSessions(loaded)
-        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? null)
+        setSessionLoadError(null)
+        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? DEFAULT_CWD ?? null)
       })
-      .catch(() => {
-        setSessions(mockSessions)
+      .catch((error) => {
+        if (cancelled) return
+        setSessions([])
+        setSessionLoadError(error instanceof Error ? error.message : '无法连接真实 Pi SDK 后端')
       })
     return () => { cancelled = true }
   }, [])
@@ -128,9 +132,11 @@ export default function App() {
               selectedId={selectedSession?.id ?? null}
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
-              fileTree={mockFileTree}
+              fileTree={[]}
               selectedCwd={selectedCwd}
               onCwdChange={handleCwdChange}
+              sessionLoadError={sessionLoadError}
+              onOpenSkills={() => setSkillsOpen(true)}
               onOpenFile={(filePath, fileName) => {
                 console.log('Open file:', filePath, fileName)
               }}
@@ -237,12 +243,12 @@ export default function App() {
                 session={selectedSession}
                 selectedCwd={selectedCwd}
                 newSessionCwd={newSessionCwd}
-                fileTree={mockFileTree}
+                fileTree={[]}
                 chatInputRef={chatInputRef}
               />
             ) : showPlaceholder ? (
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 15 }}>
-                请从侧边栏选择一个会话
+                {sessions.length === 0 ? '暂无真实会话，点击侧边栏 New 创建真实 SDK 会话' : '请从侧边栏选择一个会话'}
               </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>

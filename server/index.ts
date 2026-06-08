@@ -1,3 +1,4 @@
+import './loadEnv.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
