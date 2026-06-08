@@ -154,7 +154,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
           <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 12 }}>
-            教育智能体
+            web 模拟版本1
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
             请从侧边栏选择项目目录开始
@@ -194,7 +194,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef }: 
               fontFamily: 'var(--font-mono)',
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.4 }}>
-                <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>教育智能体</span>
+                <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>web 模拟版本1</span>
                 <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   <Typewriter phrases={TYPEWRITER_PHRASES} />
                 </span>

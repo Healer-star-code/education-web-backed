@@ -97,7 +97,7 @@ function buildSessionTree(sessions: SessionInfo[]): SessionTreeNode[] {
 function PiAgentTitle() {
   return (
     <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: 'var(--text)' }}>
-      教育智能体
+      web 模拟版本1
     </span>
   )
 }

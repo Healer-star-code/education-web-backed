@@ -6,7 +6,7 @@ import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 
-const STREAM_TEXT = '教育智能体'
+const STREAM_TEXT = 'web 模拟版本1'
 
 function StreamTitle() {
   const [chars, setChars] = useState(0)
