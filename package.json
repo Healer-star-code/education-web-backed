@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "node --experimental-strip-types server/index.ts",
+    "typecheck": "tsc --noEmit",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

@@ -1,0 +1,40 @@
+export interface ApiImagePayload {
+  name: string
+  mimeType: string
+  data: string
+}
+
+export interface PromptPayload {
+  message: string
+  images?: ApiImagePayload[]
+}
+
+export interface WebSessionInfo {
+  id: string
+  cwd: string
+  sessionFile?: string
+  created: string
+  modified: string
+  firstMessage: string
+  messageCount: number
+  name?: string
+  parentSessionId?: string
+}
+
+export interface SkillInfo {
+  name: string
+  description: string
+  source: string
+  enabled: boolean
+}
+
+export type WebAgentEvent =
+  | { type: 'connected'; sessionId: string }
+  | { type: 'agent_start' }
+  | { type: 'assistant_delta'; delta: string }
+  | { type: 'assistant_message_end' }
+  | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }
+  | { type: 'tool_update'; toolCallId: string; toolName: string; partialResult: unknown }
+  | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | { type: 'agent_end' }
+  | { type: 'error'; message: string }
