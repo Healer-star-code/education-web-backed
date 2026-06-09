@@ -1,7 +1,11 @@
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, normalize, sep } from 'node:path'
 import { appDir } from './env.ts'
+
+function normalizePath(p: string): string {
+  return normalize(p).replace(/[/\\]+/g, sep)
+}
 
 export interface RecentPath {
   path: string
@@ -47,8 +51,9 @@ export function listRecentPaths(): RecentPath[] {
   }))
 }
 
-export function upsertRecentPath(path: string, name?: string): RecentPath {
+export function upsertRecentPath(rawPath: string, name?: string): RecentPath {
   const database = getDb()
+  const path = normalizePath(rawPath)
   const now = Date.now()
   const dirName = name || path.split(/[/\\]/).filter(Boolean).pop() || path
 
@@ -63,8 +68,9 @@ export function upsertRecentPath(path: string, name?: string): RecentPath {
   return { path, name: dirName, timeCreated: now, timeUpdated: now }
 }
 
-export function removeRecentPath(path: string): boolean {
+export function removeRecentPath(rawPath: string): boolean {
   const database = getDb()
+  const path = normalizePath(rawPath)
   const result = database.prepare('DELETE FROM recent_path WHERE path = ?').run(path)
   return result.changes > 0
 }

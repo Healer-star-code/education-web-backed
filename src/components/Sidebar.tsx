@@ -105,7 +105,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   }, [])
 
   const filteredSessions = selectedCwd
-    ? sessions.filter((s) => s.cwd === selectedCwd)
+    ? sessions.filter((s) => s.cwd.replace(/[/\\]+/g, '/') === selectedCwd.replace(/[/\\]+/g, '/'))
     : sessions
 
   const sessionTree = buildSessionTree(filteredSessions)
