@@ -3,6 +3,7 @@ import type { SessionInfo, Message, MessageAttachment, LocalAttachment } from '.
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
+import { ToolCallCard, type ToolEventView } from './ToolCallCard'
 import { fileToBase64 } from '../lib/image'
 import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
 
@@ -33,12 +34,6 @@ const TYPEWRITER_PHRASES = [
   'make it pretty.',
   'rubber-duck with me.',
 ]
-
-interface ToolEventView {
-  id: string
-  label: string
-  status: 'running' | 'done' | 'error'
-}
 
 function toMessageAttachments(attachments: LocalAttachment[] | undefined): MessageAttachment[] | undefined {
   if (!attachments || attachments.length === 0) return undefined
@@ -309,18 +304,23 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           {messages.map((m) => (
             <MessageView key={m.id} message={m} />
           ))}
+          {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>{error}</div>}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {(toolEvents.length > 0 || streaming) && (
+        <div style={{
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg-panel)',
+          padding: '8px 16px',
+          flexShrink: 0,
+        }}>
           {toolEvents.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, marginBottom: 10 }}>
-              {toolEvents.map((tool) => (
-                <span key={tool.id} style={{ fontSize: 12, color: tool.status === 'error' ? '#ef4444' : 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-                  {tool.status === 'running' ? '正在调用' : tool.status === 'done' ? '已完成' : '调用失败'} {tool.label}
-                </span>
-              ))}
-            </div>
+            <ToolCallCard tools={toolEvents} />
           )}
           {streaming && (
-            <div style={{ padding: '4px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>Thinking...</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: toolEvents.length > 0 ? 6 : 0 }}>
               <span style={{ display: 'inline-flex', gap: 3 }}>
                 {[0, 1, 2].map((i) => (
                   <span key={i} style={{
@@ -329,12 +329,11 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                   }} />
                 ))}
               </span>
+              <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
             </div>
           )}
-          {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>{error}</div>}
-          <div ref={messagesEndRef} />
         </div>
-      </div>
+      )}
 
       <ChatInput ref={chatInputRef} onSend={handleSend} isStreaming={streaming} />
     </div>
