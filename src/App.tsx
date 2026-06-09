@@ -45,6 +45,15 @@ export default function App() {
   const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
   const [selectedCwd, setSelectedCwd] = useState<string | null>(DEFAULT_CWD ?? null)
+  const [recentCwds, setRecentCwds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pi-recent-cwds')
+      const parsed = saved ? JSON.parse(saved) : []
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  })
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDark, setIsDark] = useState(false)
@@ -111,6 +120,11 @@ export default function App() {
     if (cwd) {
       setSelectedSession(null)
       setNewSessionCwd(null)
+      setRecentCwds((prev) => {
+        const next = [cwd, ...prev.filter((c) => c !== cwd)].slice(0, 10)
+        localStorage.setItem('pi-recent-cwds', JSON.stringify(next))
+        return next
+      })
     }
   }, [])
 
@@ -142,6 +156,7 @@ export default function App() {
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
               selectedCwd={selectedCwd}
+              recentCwds={recentCwds}
               onCwdChange={handleCwdChange}
               sessionLoadError={sessionLoadError}
               onOpenSkills={() => setSkillsOpen(true)}

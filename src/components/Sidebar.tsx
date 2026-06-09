@@ -8,6 +8,7 @@ interface Props {
   onSelectSession: (s: SessionInfo) => void
   onNewSession: () => void
   selectedCwd: string | null
+  recentCwds: string[]
   onCwdChange: (cwd: string | null) => void
   sessionLoadError?: string | null
   onOpenSkills?: () => void
@@ -25,21 +26,6 @@ function formatRelativeTime(dateStr: string): string {
   if (hours < 24) return `${hours}h ago`
   if (days < 7) return `${days}d ago`
   return date.toLocaleDateString()
-}
-
-function getRecentCwds(sessions: SessionInfo[]): string[] {
-  const latestByCwd = new Map<string, string>()
-  for (const s of sessions) {
-    if (!s.cwd) continue
-    const prev = latestByCwd.get(s.cwd)
-    if (!prev || s.modified > prev) {
-      latestByCwd.set(s.cwd, s.modified)
-    }
-  }
-  return [...latestByCwd.entries()]
-    .sort((a, b) => b[1].localeCompare(a[1]))
-    .slice(0, 5)
-    .map(([cwd]) => cwd)
 }
 
 function shortenCwd(cwd: string): string {
@@ -102,7 +88,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, onCwdChange, sessionLoadError, onOpenSkills }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -118,7 +104,6 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const recentCwds = getRecentCwds(sessions)
   const filteredSessions = selectedCwd
     ? sessions.filter((s) => s.cwd === selectedCwd)
     : sessions
