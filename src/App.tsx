@@ -91,6 +91,15 @@ export default function App() {
         setSessions(loaded)
         setSessionLoadError(null)
         setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? DEFAULT_CWD ?? null)
+        if (cwd) {
+          if (loaded.length > 0) {
+            setSelectedSession(loaded[0])
+            setNewSessionCwd(null)
+          } else {
+            setSelectedSession(null)
+            setNewSessionCwd(cwd)
+          }
+        }
       })
       .catch((error) => {
         if (cancelled) return
@@ -117,9 +126,9 @@ export default function App() {
     setSelectedCwd(cwd)
     setSessions([])
     setSessionLoadError(null)
+    setSelectedSession(null)
+    setNewSessionCwd(null)
     if (cwd) {
-      setSelectedSession(null)
-      setNewSessionCwd(null)
       setRecentCwds((prev) => {
         const next = [cwd, ...prev.filter((c) => c !== cwd)].slice(0, 10)
         localStorage.setItem('pi-recent-cwds', JSON.stringify(next))
