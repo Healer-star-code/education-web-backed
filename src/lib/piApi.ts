@@ -137,6 +137,34 @@ export async function createSkill(payload: CreateSkillPayload): Promise<SkillInf
   return data.skill
 }
 
+export interface RecentPathInfo {
+  path: string
+  name: string
+  timeCreated: number
+  timeUpdated: number
+}
+
+export async function listRecentPaths(): Promise<RecentPathInfo[]> {
+  const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths')
+  return data.paths
+}
+
+export async function addRecentPath(path: string): Promise<RecentPathInfo[]> {
+  const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths', {
+    method: 'POST',
+    body: JSON.stringify({ path, action: 'add' }),
+  })
+  return data.paths
+}
+
+export async function removeRecentPath(path: string): Promise<RecentPathInfo[]> {
+  const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths', {
+    method: 'POST',
+    body: JSON.stringify({ path, action: 'remove' }),
+  })
+  return data.paths
+}
+
 export async function listTools(sessionId: string): Promise<ToolInfo[]> {
   const data = await requestJson<{ tools: ToolInfo[] }>(`/api/tools/${encodeURIComponent(sessionId)}`)
   return data.tools

@@ -4,6 +4,7 @@ import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
 import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
+import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
   abortSession,
@@ -65,6 +66,25 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'GET' && url.pathname === '/api/health') {
       sendJson(res, 200, { ok: true, service: 'v3-web-sdk-server' })
+      return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/recent-paths') {
+      sendJson(res, 200, { paths: listRecentPaths() })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/recent-paths') {
+      const body = await readJson<{ path?: string; action?: 'add' | 'remove' }>(req)
+      if (body.action === 'remove' && body.path) {
+        removeRecentPath(body.path)
+        sendJson(res, 200, { paths: listRecentPaths() })
+      } else if (body.path) {
+        upsertRecentPath(body.path)
+        sendJson(res, 200, { paths: listRecentPaths() })
+      } else {
+        sendJson(res, 400, { error: 'path is required' })
+      }
       return
     }
 
@@ -160,10 +180,12 @@ server.listen(PORT, () => {
 })
 
 process.once('SIGINT', () => {
+  closeRecentPathsDb()
   disposeAllSessions()
   process.exit(0)
 })
 process.once('SIGTERM', () => {
+  closeRecentPathsDb()
   disposeAllSessions()
   process.exit(0)
 })

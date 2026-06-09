@@ -5,7 +5,7 @@ import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
-import { listSessions } from './lib/piApi'
+import { listSessions, listRecentPaths, addRecentPath } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
 const STREAM_TEXT = 'web 模拟版本1'
@@ -45,15 +45,13 @@ export default function App() {
   const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
   const [selectedCwd, setSelectedCwd] = useState<string | null>(DEFAULT_CWD ?? null)
-  const [recentCwds, setRecentCwds] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('pi-recent-cwds')
-      const parsed = saved ? JSON.parse(saved) : []
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return []
-    }
-  })
+  const [recentCwds, setRecentCwds] = useState<string[]>([])
+  useEffect(() => {
+    listRecentPaths()
+      .then((paths) => setRecentCwds(paths.map((p) => p.path)))
+      .catch(() => {})
+  }, [])
+
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDark, setIsDark] = useState(false)
@@ -129,11 +127,9 @@ export default function App() {
     setSelectedSession(null)
     setNewSessionCwd(null)
     if (cwd) {
-      setRecentCwds((prev) => {
-        const next = [cwd, ...prev.filter((c) => c !== cwd)].slice(0, 10)
-        localStorage.setItem('pi-recent-cwds', JSON.stringify(next))
-        return next
-      })
+      addRecentPath(cwd)
+        .then((paths) => setRecentCwds(paths.map((p) => p.path)))
+        .catch(() => {})
     }
   }, [])
 
