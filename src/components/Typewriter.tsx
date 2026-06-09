@@ -21,8 +21,10 @@ export function Typewriter({ phrases }: Props) {
     if (!deleting && text === current) {
       timeout = setTimeout(() => setDeleting(true), 1800)
     } else if (deleting && text === '') {
-      setDeleting(false)
-      setPhraseIdx((i) => (i + 1) % phrases.length)
+      queueMicrotask(() => {
+        setDeleting(false)
+        setPhraseIdx((i) => (i + 1) % phrases.length)
+      })
     } else {
       const next = deleting ? current.slice(0, text.length - 1) : current.slice(0, text.length + 1)
       timeout = setTimeout(() => setText(next), deleting ? 28 : 55)

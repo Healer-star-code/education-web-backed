@@ -16,9 +16,11 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   const [draftMode, setDraftMode] = useState(mode)
 
   useEffect(() => {
-    setDraftTheme(isDark)
-    setDraftFontSize(fontSize)
-    setDraftMode(mode)
+    queueMicrotask(() => {
+      setDraftTheme(isDark)
+      setDraftFontSize(fontSize)
+      setDraftMode(mode)
+    })
   }, [isDark, fontSize, mode])
 
   useEffect(() => {
