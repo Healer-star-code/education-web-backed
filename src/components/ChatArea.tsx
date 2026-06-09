@@ -301,39 +301,35 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
       <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', paddingTop: 16 }}>
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px' }}>
-          {messages.map((m) => (
-            <MessageView key={m.id} message={m} />
-          ))}
+          {messages.map((m, index) => {
+            const isLast = index === messages.length - 1
+            const showThinking = isLast && m.role === 'assistant' && streaming
+            return (
+              <div key={m.id}>
+                <MessageView message={m} isStreaming={isLast && streaming} />
+                {showThinking && (
+                  <div style={{ marginTop: 8, marginBottom: 16 }}>
+                    <ToolCallCard tools={toolEvents} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                      <span style={{ display: 'inline-flex', gap: 3 }}>
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} style={{
+                            width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)',
+                            animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
+                          }} />
+                        ))}
+                      </span>
+                      <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
           {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>{error}</div>}
           <div ref={messagesEndRef} />
         </div>
       </div>
-
-      {(toolEvents.length > 0 || streaming) && (
-        <div style={{
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg-panel)',
-          padding: '8px 16px',
-          flexShrink: 0,
-        }}>
-          {toolEvents.length > 0 && (
-            <ToolCallCard tools={toolEvents} />
-          )}
-          {streaming && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: toolEvents.length > 0 ? 6 : 0 }}>
-              <span style={{ display: 'inline-flex', gap: 3 }}>
-                {[0, 1, 2].map((i) => (
-                  <span key={i} style={{
-                    width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)',
-                    animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-                  }} />
-                ))}
-              </span>
-              <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
-            </div>
-          )}
-        </div>
-      )}
 
       <ChatInput ref={chatInputRef} onSend={handleSend} isStreaming={streaming} />
     </div>
