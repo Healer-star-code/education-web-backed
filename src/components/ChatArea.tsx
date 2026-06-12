@@ -44,7 +44,15 @@ function toMessageAttachments(attachments: LocalAttachment[] | undefined): Messa
     id: att.id,
     name: att.name,
     url: att.url,
-    type: 'image',
+    type: att.file.type.startsWith('image/') ? 'image'
+      : att.name.toLowerCase().endsWith('.pdf') ? 'pdf'
+        : /\.(doc|docx)$/i.test(att.name) ? 'document'
+          : /\.(ppt|pptx)$/i.test(att.name) ? 'presentation'
+            : /\.(xls|xlsx|csv)$/i.test(att.name) ? 'spreadsheet'
+              : /\.(txt|md)$/i.test(att.name) ? 'text'
+                : 'file',
+    mimeType: att.file.type,
+    size: att.file.size,
   }))
 }
 
@@ -117,6 +125,17 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'permission_resolved':
         setPermissionRequests((prev) => prev.filter((item) => item.id !== event.requestId))
         break
+      case 'artifact_created': {
+        const assistantId = currentAssistantIdRef.current
+        setMessages((prev) => {
+          const targetId = assistantId ?? [...prev].reverse().find((msg) => msg.role === 'assistant')?.id
+          if (!targetId) return prev
+          return prev.map((msg) => (
+            msg.id === targetId ? { ...msg, artifacts: [...(msg.artifacts ?? []), event.artifact] } : msg
+          ))
+        })
+        break
+      }
       case 'session_renamed':
         sdkSessionInfoRef.current = sdkSessionInfoRef.current
           ? { ...sdkSessionInfoRef.current, name: event.name, titleSource: event.titleSource, aiTitleGenerated: event.aiTitleGenerated }

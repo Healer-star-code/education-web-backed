@@ -43,6 +43,17 @@ export interface ToolInfo {
   active: boolean
 }
 
+export interface ArtifactInfo {
+  id: string
+  sessionId: string
+  name: string
+  path: string
+  mimeType: string
+  size: number
+  kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
+  timeCreated: number
+}
+
 export interface PermissionRequestInfo {
   id: string
   sessionId: string
@@ -68,6 +79,7 @@ export type WebAgentEvent =
   | { type: 'permission_request'; request: PermissionRequestInfo }
   | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
   | { type: 'session_renamed'; sessionId: string; name: string; titleSource: 'ai' | 'user'; aiTitleGenerated: boolean }
+  | { type: 'artifact_created'; artifact: ArtifactInfo }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }
 
@@ -177,6 +189,18 @@ export async function createSkill(payload: CreateSkillPayload): Promise<SkillInf
   return data.skill
 }
 
+export async function deleteSkill(name: string): Promise<void> {
+  await requestJson<{ ok: true }>('/api/skills/delete', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function getSkillsRoot(): Promise<string> {
+  const data = await requestJson<{ path: string }>('/api/skills/root')
+  return data.path
+}
+
 export interface RecentPathInfo {
   path: string
   name: string
@@ -238,4 +262,8 @@ export async function resolvePermission(
     method: 'POST',
     body: JSON.stringify({ requestId, decision }),
   })
+}
+
+export function artifactDownloadUrl(artifact: ArtifactInfo): string {
+  return `${API_BASE}/api/artifacts/${encodeURIComponent(artifact.sessionId)}/${encodeURIComponent(artifact.id)}/download`
 }

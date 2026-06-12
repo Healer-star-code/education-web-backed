@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createSkill, listSkills, openFolder, type SkillInfo } from '../lib/piApi'
+import { createSkill, deleteSkill, getSkillsRoot, listSkills, openFolder, type SkillInfo } from '../lib/piApi'
 
 interface Props {
   cwd: string | null
@@ -88,13 +88,13 @@ export function SkillsPanel({ cwd, onClose }: Props) {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Skills</div>
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cwd ?? 'global/default'}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>全局 Skills</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>每次会话开始前自动加载全局 skill 目录</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             <button
-              onClick={async () => { if (cwd) { try { await openFolder(`${cwd}/.pi/skills`) } catch (e) { console.error('Failed to open folder', e) } } }}
-              disabled={!cwd}
+              onClick={async () => { try { await openFolder(await getSkillsRoot()) } catch (e) { console.error('Failed to open folder', e) } }}
+              disabled={false}
               style={{
                 height: 30, padding: '0 10px', borderRadius: 8,
                 border: '1px solid var(--border)', background: 'var(--bg-hover)',
@@ -124,8 +124,8 @@ export function SkillsPanel({ cwd, onClose }: Props) {
           {showAddForm && (
             <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 12, background: 'var(--bg)' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Add project skill</div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>writes to .pi/skills</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Add global skill</div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>writes to global skills directory</div>
               </div>
               <label style={{ display: 'block', fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>Name</label>
               <input
@@ -183,8 +183,18 @@ export function SkillsPanel({ cwd, onClose }: Props) {
                   <span style={{ fontSize: 10, color: skill.enabled ? 'var(--accent)' : 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: 999, padding: '1px 6px' }}>
                     {skill.enabled ? 'enabled' : 'disabled'}
                   </span>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-dim)' }}>{skill.source}</span>
-                </div>
+                   <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-dim)' }}>{skill.source}</span>
+                   {skill.source === 'global' && (
+                     <button
+                       onClick={async () => {
+                         if (!confirm(`删除 skill：${skill.name}？`)) return
+                         await deleteSkill(skill.name)
+                         setSkills(await listSkills(cwd ?? undefined))
+                       }}
+                       style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 11 }}
+                     >删除</button>
+                   )}
+                 </div>
                 <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: 'var(--text-muted)' }}>
                   {skill.description || 'No description'}
                 </div>

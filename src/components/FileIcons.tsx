@@ -3,6 +3,10 @@ interface IconProps {
 }
 
 const DIM = 'var(--text-dim)'
+const WORD = '#2563eb'
+const PPT = '#ea580c'
+const EXCEL = '#16a34a'
+const PDF = '#dc2626'
 
 export function FolderIcon({ size = 14, open = false }: IconProps & { open?: boolean }) {
   if (open) {
@@ -56,8 +60,21 @@ function GoIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="GO" siz
 function SqlIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="SQL" size={size} /> }
 function GraphqlIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="GQL" size={size} /> }
 function TerraformIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="TF" size={size} /> }
-function DocFileIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="DOC" size={size} /> }
-function PdfFileIcon({ size = 14 }: IconProps) { return <LabelFileIcon label="PDF" size={size} /> }
+function OfficeIcon({ label, color, size = 14 }: { label: string; color: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={color} fillOpacity="0.12" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={color} strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="1.8" y="6" width="9" height="8.5" rx="1.4" fill={color} />
+      <text x="6.3" y="12" textAnchor="middle" fontSize="5.2" fontFamily="Arial, sans-serif" fontWeight="800" fill="#fff">{label}</text>
+    </svg>
+  )
+}
+
+function WordFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="W" color={WORD} size={size} /> }
+function PptFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="P" color={PPT} size={size} /> }
+function ExcelFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="X" color={EXCEL} size={size} /> }
+function PdfFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="PDF" color={PDF} size={size} /> }
 
 function MarkdownIcon({ size = 14 }: IconProps) {
   return (
@@ -171,7 +188,9 @@ export function getFileIcon(name: string, size = 14): React.ReactNode {
     case 'sql': return <SqlIcon size={size} />
     case 'graphql': case 'gql': return <GraphqlIcon size={size} />
     case 'tf': case 'hcl': return <TerraformIcon size={size} />
-    case 'docx': return <DocFileIcon size={size} />
+    case 'doc': case 'docx': return <WordFileIcon size={size} />
+    case 'ppt': case 'pptx': return <PptFileIcon size={size} />
+    case 'xls': case 'xlsx': case 'csv': return <ExcelFileIcon size={size} />
     case 'pdf': return <PdfFileIcon size={size} />
     case 'lock': return <LockFileIcon size={size} />
     default: return <GenericFileIcon size={size} />

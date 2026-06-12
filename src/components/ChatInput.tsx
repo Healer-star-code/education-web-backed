@@ -1,10 +1,22 @@
 import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect, type KeyboardEvent } from 'react'
-import type { LocalAttachment } from '../mockData'
+import type { LocalAttachment, MessageAttachment } from '../mockData'
+import { AttachmentCard } from './FileCard'
 
 interface Props {
   onSend: (message: string, attachments?: LocalAttachment[]) => void
   isStreaming?: boolean
   placeholder?: string
+}
+
+function attachmentType(file: File): MessageAttachment['type'] {
+  if (file.type.startsWith('image/')) return 'image'
+  const ext = file.name.toLowerCase().split('.').pop()
+  if (ext === 'doc' || ext === 'docx') return 'document'
+  if (ext === 'ppt' || ext === 'pptx') return 'presentation'
+  if (ext === 'xls' || ext === 'xlsx' || ext === 'csv') return 'spreadsheet'
+  if (ext === 'pdf') return 'pdf'
+  if (ext === 'txt' || ext === 'md') return 'text'
+  return 'file'
 }
 
 export interface ChatInputHandle {
@@ -332,7 +344,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,.docx,.pptx,.pdf,.txt,.md"
+            accept="image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.pdf,.txt,.md"
             multiple
             onChange={handleFileChange}
             style={{ display: 'none' }}
@@ -340,8 +352,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           {attachments.length > 0 && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
               {attachments.map((att, i) => (
-                <div key={att.id} style={{ position: 'relative', width: 48, height: 48, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={att.url} alt={att.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: att.progress < 100 ? 0.5 : 1 }} />
+                <div key={att.id} style={{ position: 'relative', opacity: att.progress < 100 ? 0.65 : 1 }}>
+                  <AttachmentCard compact attachment={{ id: att.id, name: att.name, url: att.url, type: attachmentType(att.file), mimeType: att.file.type, size: att.file.size }} />
                   {att.progress < 100 && (
                     <div style={{
                       position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',

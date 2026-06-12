@@ -14,6 +14,8 @@ import {
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
+import { removeSessionArtifacts, scanArtifacts } from './artifactManager.ts'
+import { ensureGlobalSkillsDir, globalSkillsDir } from './skillsManager.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { assertUserProjectPath } from './pathGuards.ts'
@@ -211,11 +213,13 @@ function handleSessionEvent(sessionId: string, event: AgentSessionEvent): void {
 export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
   const root = requireCwd(cwd)
   const sessionManager = SessionManager.create(root)
+  await ensureGlobalSkillsDir()
   let sessionId: string | null = null
   const resourceLoader = new DefaultResourceLoader({
     cwd: root,
     agentDir: getAgentDir(),
     settingsManager: SettingsManager.create(root, getAgentDir()),
+    additionalSkillPaths: [globalSkillsDir()],
     extensionFactories: [createSandboxGuardExtension(root, () => sessionId)],
   })
   await resourceLoader.reload()
@@ -248,11 +252,13 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
 export async function openWebSession(sessionFile: string): Promise<WebSessionInfo> {
   const sessionManager = SessionManager.open(sessionFile)
   const cwd = requireCwd(sessionManager.getCwd() ?? undefined)
+  await ensureGlobalSkillsDir()
   let sessionId: string | null = null
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir: getAgentDir(),
     settingsManager: SettingsManager.create(cwd, getAgentDir()),
+    additionalSkillPaths: [globalSkillsDir()],
     extensionFactories: [createSandboxGuardExtension(cwd, () => sessionId)],
   })
   await resourceLoader.reload()
@@ -330,8 +336,13 @@ export async function sendPrompt(sessionId: string, message: string, images?: Ap
   const managed = sessions.get(sessionId)
   if (!managed) throw new Error(`Session not found: ${sessionId}`)
   const shouldAutoName = managed.session.messages.length === 0
+  const startedAt = Date.now()
   const sdkImages = toSdkImages(images)
   await managed.session.prompt(message, sdkImages ? { images: sdkImages } : undefined)
+  const artifacts = await scanArtifacts(sessionId, managed.cwd, startedAt)
+  for (const artifact of artifacts) {
+    broadcastAgentEvent(sessionId, { type: 'artifact_created', artifact })
+  }
   if (shouldAutoName) {
     await autoNameSessionIfNeeded(sessionId, message)
   }
@@ -362,7 +373,8 @@ export async function deleteSession(sessionFile: string): Promise<void> {
     const entry = [...sessions.entries()].find(([, m]) => m === managed)
     if (entry) {
       sessions.delete(entry[0])
-      removeSessionPermissions(entry[0])
+        removeSessionPermissions(entry[0])
+        removeSessionArtifacts(entry[0])
     }
   }
   await unlink(resolvedPath)
@@ -425,17 +437,22 @@ export function renameSession(sessionId: string, name: string): WebSessionInfo {
 export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   if (!cwd?.trim()) return []
   const root = assertUserProjectPath(cwd)
+  await ensureGlobalSkillsDir()
   const agentDir = getAgentDir()
   const settingsManager = SettingsManager.create(root, agentDir)
-  const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager })
+  const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager, additionalSkillPaths: [globalSkillsDir()] })
   await loader.reload()
   const { skills } = loader.getSkills()
-  return skills.map((skill) => ({
-    name: skill.name,
-    description: skill.description,
-    source: skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath,
-    enabled: !skill.disableModelInvocation,
-  }))
+  const globalRoot = globalSkillsDir().replace(/[/\\]+/g, '\\').toLowerCase()
+  return skills.map((skill) => {
+    const filePath = skill.filePath.replace(/[/\\]+/g, '\\').toLowerCase()
+    return {
+      name: skill.name,
+      description: skill.description,
+      source: filePath.startsWith(globalRoot) ? 'global' : (skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath),
+      enabled: !skill.disableModelInvocation,
+    }
+  })
 }
 
 export function disposeAllSessions(): void {
@@ -443,6 +460,7 @@ export function disposeAllSessions(): void {
     managed.unsubscribe()
     managed.session.dispose()
     removeSessionPermissions(sessionId)
+    removeSessionArtifacts(sessionId)
   }
   sessions.clear()
 }

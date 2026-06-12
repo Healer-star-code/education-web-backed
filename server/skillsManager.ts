@@ -1,6 +1,8 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { SkillInfo } from './types.ts'
+import { appDir } from './env.ts'
 
 export interface CreateSkillPayload {
   name: string
@@ -30,12 +32,23 @@ function validateSkillPayload(payload: CreateSkillPayload): void {
   }
 }
 
-export async function createProjectSkill(cwd: string, payload: CreateSkillPayload): Promise<SkillInfo> {
+export function globalSkillsDir(): string {
+  return join(appDir(), 'skills')
+}
+
+export async function ensureGlobalSkillsDir(): Promise<string> {
+  const dir = globalSkillsDir()
+  await mkdir(dir, { recursive: true })
+  return dir
+}
+
+export async function createGlobalSkill(payload: CreateSkillPayload): Promise<SkillInfo> {
   validateSkillPayload(payload)
 
   const name = payload.name.trim()
   const description = payload.description.trim()
-  const skillDir = join(cwd, '.pi', 'skills', name)
+  const root = await ensureGlobalSkillsDir()
+  const skillDir = join(root, name)
   const skillFile = join(skillDir, 'SKILL.md')
   const content = normalizeContent(payload.content)
   const body = `---\nname: ${name}\ndescription: ${description}\n---\n\n# ${name}\n\n${content}`
@@ -46,7 +59,16 @@ export async function createProjectSkill(cwd: string, payload: CreateSkillPayloa
   return {
     name,
     description,
-    source: 'project',
+    source: 'global',
     enabled: true,
   }
 }
+
+export async function deleteGlobalSkill(name: string): Promise<void> {
+  if (!SKILL_NAME_PATTERN.test(name)) throw new Error('Invalid skill name')
+  const skillDir = join(await ensureGlobalSkillsDir(), name)
+  if (existsSync(skillDir)) await rm(skillDir, { recursive: true, force: true })
+}
+
+export const createProjectSkill = async (_cwd: string, payload: CreateSkillPayload): Promise<SkillInfo> => createGlobalSkill(payload)
+

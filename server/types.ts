@@ -30,6 +30,17 @@ export interface SkillInfo {
   enabled: boolean
 }
 
+export interface ArtifactInfo {
+  id: string
+  sessionId: string
+  name: string
+  path: string
+  mimeType: string
+  size: number
+  kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
+  timeCreated: number
+}
+
 export interface PermissionRequestInfo {
   id: string
   sessionId: string
@@ -55,5 +66,6 @@ export type WebAgentEvent =
   | { type: 'permission_request'; request: PermissionRequestInfo }
   | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
   | { type: 'session_renamed'; sessionId: string; name: string; titleSource: 'ai' | 'user'; aiTitleGenerated: boolean }
+  | { type: 'artifact_created'; artifact: ArtifactInfo }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }

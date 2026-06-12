@@ -5,11 +5,12 @@ import { promisify } from 'node:util'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
-import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
+import { createGlobalSkill, deleteGlobalSkill, globalSkillsDir, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
 import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
 import { assertUserProjectPath, filterUserProjectPaths, isSystemProjectPath } from './pathGuards.ts'
 import { closeSessionTitleDb } from './sessionTitleManager.ts'
+import { artifactStream, getArtifact, listArtifacts } from './artifactManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
   abortSession,
@@ -201,6 +202,11 @@ const server = createServer(async (req, res) => {
       return
     }
 
+    if (req.method === 'GET' && url.pathname === '/api/skills/root') {
+      sendJson(res, 200, { path: globalSkillsDir() })
+      return
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/skills') {
       const cwd = url.searchParams.get('cwd') ?? undefined
       sendJson(res, 200, { skills: await listSkills(cwd) })
@@ -229,9 +235,43 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/skills') {
       const body = await readJson<CreateSkillPayload & { cwd?: string }>(req)
-      const cwd = assertUserProjectPath(body.cwd)
-      const skill = await createProjectSkill(cwd, body)
+      const skill = await createGlobalSkill(body)
       sendJson(res, 200, { skill })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/skills/delete') {
+      const body = await readJson<{ name?: string }>(req)
+      if (!body.name) {
+        sendJson(res, 400, { error: 'name is required' })
+        return
+      }
+      await deleteGlobalSkill(body.name)
+      sendJson(res, 200, { ok: true })
+      return
+    }
+
+    const artifactDownloadMatch = url.pathname.match(/^\/api\/artifacts\/([^/]+)\/([^/]+)\/download$/)
+    if (artifactDownloadMatch && req.method === 'GET') {
+      const sessionId = decodeURIComponent(artifactDownloadMatch[1])
+      const artifactId = decodeURIComponent(artifactDownloadMatch[2])
+      const artifact = getArtifact(sessionId, artifactId)
+      if (!artifact) {
+        sendJson(res, 404, { error: 'artifact not found' })
+        return
+      }
+      res.writeHead(200, {
+        'Content-Type': artifact.mimeType,
+        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(artifact.name)}`,
+        'Access-Control-Allow-Origin': '*',
+      })
+      artifactStream(artifact).pipe(res)
+      return
+    }
+
+    const artifactListMatch = url.pathname.match(/^\/api\/artifacts\/([^/]+)$/)
+    if (artifactListMatch && req.method === 'GET') {
+      sendJson(res, 200, { artifacts: listArtifacts(decodeURIComponent(artifactListMatch[1])) })
       return
     }
 

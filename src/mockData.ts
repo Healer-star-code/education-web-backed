@@ -18,7 +18,20 @@ export interface MessageAttachment {
   id: number
   name: string
   url: string
-  type: 'image'
+  type: 'image' | 'document' | 'presentation' | 'spreadsheet' | 'pdf' | 'text' | 'file'
+  mimeType?: string
+  size?: number
+}
+
+export interface ArtifactInfo {
+  id: string
+  sessionId: string
+  name: string
+  path: string
+  mimeType: string
+  size: number
+  kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
+  timeCreated: number
 }
 
 export interface LocalAttachment {
@@ -36,6 +49,7 @@ export interface Message {
   parentId?: string
   timestamp?: string
   attachments?: MessageAttachment[]
+  artifacts?: ArtifactInfo[]
   thinkingContent?: string
   thinkingDurationMs?: number
 }

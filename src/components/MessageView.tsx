@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import type { Message } from '../mockData'
+import { ArtifactCard, AttachmentCard } from './FileCard'
 
 interface Props {
   message: Message
@@ -83,27 +84,7 @@ function UserMessageView({ message }: { message: Message }) {
           {hasAttachments && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: hasContent ? 6 : 0 }}>
               {message.attachments!.map((att) => (
-                <a
-                  key={att.id}
-                  href={att.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: 'block',
-                    width: 160,
-                    height: 160,
-                    borderRadius: 8,
-                    overflow: 'hidden',
-                    border: '1px solid rgba(59,130,246,0.2)',
-                    background: 'rgba(0,0,0,0.04)',
-                  }}
-                >
-                  <img
-                    src={att.url}
-                    alt={att.name}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                </a>
+                <AttachmentCard key={att.id} attachment={att} />
               ))}
             </div>
           )}
@@ -214,6 +195,11 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
             {message.content}
           </ReactMarkdown>
         </div>
+        {message.artifacts && message.artifacts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+            {message.artifacts.map((artifact) => <ArtifactCard key={artifact.id} artifact={artifact} />)}
+          </div>
+        )}
       </div>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 8, marginTop: 4,
