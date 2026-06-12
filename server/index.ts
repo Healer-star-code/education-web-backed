@@ -7,6 +7,7 @@ import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
 import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
+import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
   abortSession,
@@ -47,6 +48,11 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
   return (raw ? JSON.parse(raw) : {}) as T
 }
 
+function safeRecentPaths() {
+  const appRoot = process.cwd().replace(/[/\\]+/g, '\\').toLowerCase()
+  return listRecentPaths().filter((item) => item.path.replace(/[/\\]+/g, '\\').toLowerCase() !== appRoot)
+}
+
 function getSessionAction(pathname: string, suffix: string): string | undefined {
   if (!pathname.startsWith('/api/sessions/') || !pathname.endsWith(suffix)) return undefined
   return decodeURIComponent(pathname.slice('/api/sessions/'.length, -suffix.length))
@@ -73,7 +79,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/recent-paths') {
-      sendJson(res, 200, { paths: listRecentPaths() })
+      sendJson(res, 200, { paths: safeRecentPaths() })
       return
     }
 
@@ -81,10 +87,10 @@ const server = createServer(async (req, res) => {
       const body = await readJson<{ path?: string; action?: 'add' | 'remove' }>(req)
       if (body.action === 'remove' && body.path) {
         removeRecentPath(body.path)
-        sendJson(res, 200, { paths: listRecentPaths() })
+        sendJson(res, 200, { paths: safeRecentPaths() })
       } else if (body.path) {
         upsertRecentPath(body.path)
-        sendJson(res, 200, { paths: listRecentPaths() })
+        sendJson(res, 200, { paths: safeRecentPaths() })
       } else {
         sendJson(res, 400, { error: 'path is required' })
       }
@@ -165,7 +171,11 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/open-folder') {
       const body = await readJson<{ path?: string }>(req)
-      const dir = body.path ?? process.cwd()
+      if (!body.path?.trim()) {
+        sendJson(res, 400, { error: 'path is required' })
+        return
+      }
+      const dir = body.path
       try {
         await promisify(execFile)('explorer.exe', [dir])
         sendJson(res, 200, { ok: true })
@@ -177,9 +187,28 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/skills') {
       const body = await readJson<CreateSkillPayload & { cwd?: string }>(req)
-      const cwd = body.cwd ?? process.env.V3_WEB_DEFAULT_CWD ?? process.cwd()
-      const skill = await createProjectSkill(cwd, body)
+      if (!body.cwd?.trim()) {
+        sendJson(res, 400, { error: '请先选择项目目录' })
+        return
+      }
+      const skill = await createProjectSkill(body.cwd, body)
       sendJson(res, 200, { skill })
+      return
+    }
+
+    const permissionMatch = url.pathname.match(/^\/api\/permissions\/([^/]+)$/)
+    if (permissionMatch && req.method === 'GET') {
+      sendJson(res, 200, { requests: listPendingPermissions(decodeURIComponent(permissionMatch[1])) })
+      return
+    }
+    if (permissionMatch && req.method === 'POST') {
+      const body = await readJson<{ requestId?: string; decision?: 'allow_once' | 'allow_session' | 'deny' }>(req)
+      if (!body.requestId || !body.decision) {
+        sendJson(res, 400, { error: 'requestId and decision are required' })
+        return
+      }
+      const ok = resolvePermissionRequest(decodeURIComponent(permissionMatch[1]), body.requestId, body.decision)
+      sendJson(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'permission request not found' })
       return
     }
 

@@ -30,9 +30,11 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 function shortenCwd(cwd: string): string {
-  const parts = cwd.split('/').filter(Boolean)
+  const normalized = cwd.replace(/\\+/g, '/')
+  const prefix = /^[A-Za-z]:/.test(normalized) ? normalized.slice(0, 2) : ''
+  const parts = normalized.replace(/^[A-Za-z]:/, '').split('/').filter(Boolean)
   if (parts.length <= 2) return cwd
-  return '\u2026/' + parts.slice(-2).join('/')
+  return (prefix ? `${prefix}/` : '') + '\u2026/' + parts.slice(-2).join('/')
 }
 
 interface SessionTreeNode {

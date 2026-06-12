@@ -6,7 +6,7 @@ import { Typewriter } from './Typewriter'
 import { ToolCallCard, type ToolEventView } from './ToolCallCard'
 import { ThinkingBlock } from './ThinkingBlock'
 import { fileToBase64 } from '../lib/image'
-import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
+import { connectSessionEvents, createSession, getMessages, listPermissionRequests, resolvePermission, sendPrompt, type PermissionRequestInfo, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
   session: SessionInfo | null
@@ -53,6 +53,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const [hasMessages, setHasMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [toolEvents, setToolEvents] = useState<ToolEventView[]>([])
+  const [permissionRequests, setPermissionRequests] = useState<PermissionRequestInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -110,6 +111,12 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           tool.id === event.toolCallId ? { ...tool, status: event.isError ? 'error' : 'done' } : tool
         )))
         break
+      case 'permission_request':
+        setPermissionRequests((prev) => prev.some((item) => item.id === event.request.id) ? prev : [...prev, event.request])
+        break
+      case 'permission_resolved':
+        setPermissionRequests((prev) => prev.filter((item) => item.id !== event.requestId))
+        break
       case 'agent_end':
         setStreaming(false)
         currentAssistantIdRef.current = null
@@ -123,6 +130,9 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   const connectEvents = useCallback((sessionId: string) => {
     if (eventSourceRef.current) return
+    listPermissionRequests(sessionId)
+      .then(setPermissionRequests)
+      .catch(() => {})
     eventSourceRef.current = connectSessionEvents(sessionId, handleAgentEvent)
     eventSourceRef.current.onerror = () => {
       setError('与 SDK 后端的事件连接已断开')
@@ -138,6 +148,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     connectEvents(created.id)
     return created
   }, [connectEvents, newSessionCwd, selectedCwd, session?.cwd])
+
+  const handlePermissionDecision = useCallback(async (request: PermissionRequestInfo, decision: 'allow_once' | 'allow_session' | 'deny') => {
+    try {
+      await resolvePermission(request.sessionId, request.id, decision)
+      setPermissionRequests((prev) => prev.filter((item) => item.id !== request.id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    }
+  }, [])
 
   const handleSend = useCallback(async (text: string, attachments?: LocalAttachment[]) => {
     const userAttachments = toMessageAttachments(attachments)
@@ -193,6 +212,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     currentAssistantIdRef.current = null
     currentThinkingRef.current = ''
     currentThinkingStartRef.current = 0
+    setPermissionRequests([])
     eventSourceRef.current?.close()
     eventSourceRef.current = null
 
@@ -332,6 +352,24 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           </span>
         )}
       </div>
+
+      {permissionRequests.length > 0 && (
+        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(245,158,11,0.10)' }}>
+          {permissionRequests.map((request) => (
+            <div key={request.id} style={{ maxWidth: 820, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>需要授权访问沙盒外资源</div>
+                <div style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={request.path ?? request.command ?? request.reason}>
+                  {request.operation} · {request.path ?? request.command ?? request.reason}
+                </div>
+              </div>
+              <button onClick={() => handlePermissionDecision(request, 'allow_once')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 }}>允许一次</button>
+              <button onClick={() => handlePermissionDecision(request, 'allow_session')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 12 }}>本会话允许</button>
+              <button onClick={() => handlePermissionDecision(request, 'deny')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid rgba(220,38,38,0.35)', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>拒绝</button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', paddingTop: 16 }}>
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px' }}>

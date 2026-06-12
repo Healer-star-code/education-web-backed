@@ -41,6 +41,17 @@ export interface ToolInfo {
   active: boolean
 }
 
+export interface PermissionRequestInfo {
+  id: string
+  sessionId: string
+  toolName: string
+  operation: 'read' | 'write' | 'search' | 'list' | 'execute'
+  path?: string
+  command?: string
+  reason: string
+  timeCreated: number
+}
+
 export type WebAgentEvent =
   | { type: 'connected'; sessionId: string }
   | { type: 'agent_start' }
@@ -52,6 +63,8 @@ export type WebAgentEvent =
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }
   | { type: 'tool_update'; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | { type: 'permission_request'; request: PermissionRequestInfo }
+  | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }
 
@@ -195,5 +208,21 @@ export async function setTools(sessionId: string, toolNames: string[]): Promise<
   await requestJson<{ ok: true }>(`/api/tools/${encodeURIComponent(sessionId)}`, {
     method: 'POST',
     body: JSON.stringify({ toolNames }),
+  })
+}
+
+export async function listPermissionRequests(sessionId: string): Promise<PermissionRequestInfo[]> {
+  const data = await requestJson<{ requests: PermissionRequestInfo[] }>(`/api/permissions/${encodeURIComponent(sessionId)}`)
+  return data.requests
+}
+
+export async function resolvePermission(
+  sessionId: string,
+  requestId: string,
+  decision: 'allow_once' | 'allow_session' | 'deny',
+): Promise<void> {
+  await requestJson<{ ok: true }>(`/api/permissions/${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+    body: JSON.stringify({ requestId, decision }),
   })
 }

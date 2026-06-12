@@ -2,14 +2,13 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ChatArea } from './components/ChatArea'
 import type { SessionInfo } from './mockData'
-import { ChatInput, type ChatInputHandle } from './components/ChatInput'
+import type { ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { listSessions, listRecentPaths, addRecentPath, deleteSession } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
 const STREAM_TEXT = '教育智能体'
-const DEFAULT_CWD = import.meta.env.VITE_PI_DEFAULT_CWD as string | undefined
 
 function StreamTitle() {
   const [chars, setChars] = useState(0)
@@ -44,7 +43,7 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
-  const [selectedCwd, setSelectedCwd] = useState<string | null>(DEFAULT_CWD ?? null)
+  const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [recentCwds, setRecentCwds] = useState<string[]>([])
   useEffect(() => {
     listRecentPaths()
@@ -95,7 +94,7 @@ export default function App() {
         if (cancelled) return
         setSessions(loaded)
         setSessionLoadError(null)
-        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? DEFAULT_CWD ?? null)
+        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? null)
         if (cwd) {
           if (loaded.length > 0) {
             setSelectedSession(loaded[0])
@@ -293,9 +292,11 @@ export default function App() {
                 onSessionCreated={handleSessionCreated}
               />
             ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                 <StreamTitle />
-                <ChatInput ref={chatInputRef} onSend={(msg, attachments) => console.log('New message:', msg, attachments)} />
+                <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                  请先从左侧选择项目目录，智能体只能在该目录内工作
+                </div>
               </div>
             )}
           </div>

@@ -8,6 +8,7 @@ import {
   SettingsManager,
   type AgentSession,
   type AgentSessionEvent,
+  type ExtensionAPI,
   type SessionInfo as PiSessionInfo,
 } from '@earendil-works/pi-coding-agent'
 import { broadcastAgentEvent } from './sse.ts'
@@ -15,9 +16,17 @@ import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import {
+  isCommandAllowed,
+  isPathAllowed,
+  registerSessionPermissions,
+  removeSessionPermissions,
+  requestCommandPermission,
+  requestPathPermission,
+  resolveForSession,
+} from './permissionManager.ts'
 
 const DEFAULT_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write']
-const DEFAULT_CWD = process.env.V3_WEB_DEFAULT_CWD ?? process.cwd()
 const DEFAULT_PROVIDER = process.env.PI_PROVIDER ?? 'deepseek'
 const DEFAULT_MODEL_ID = process.env.PI_MODEL ?? 'deepseek-v4-pro'
 
@@ -49,6 +58,47 @@ function getDefaultModel() {
     throw new Error(`Model not found: ${DEFAULT_PROVIDER}/${DEFAULT_MODEL_ID}`)
   }
   return model
+}
+
+function requireCwd(cwd?: string): string {
+  if (!cwd?.trim()) {
+    throw new Error('请先选择项目目录')
+  }
+  return resolve(cwd)
+}
+
+function createSandboxGuardExtension(root: string, getSessionId: () => string | null) {
+  return (pi: ExtensionAPI) => {
+    pi.on('tool_call', (event) => {
+      const sessionId = getSessionId()
+      if (!sessionId) return { block: true, reason: '会话尚未初始化' }
+
+      const input = event.input as Record<string, unknown>
+      const toolName = event.toolName
+      const pathValue = typeof input.path === 'string' ? input.path : undefined
+
+      if (toolName === 'bash') {
+        const command = typeof input.command === 'string' ? input.command : ''
+        if (!isCommandAllowed(sessionId, root, command)) {
+          return { block: true, reason: requestCommandPermission(sessionId, root, toolName, command) }
+        }
+        return undefined
+      }
+
+      if (toolName === 'read' || toolName === 'grep' || toolName === 'find' || toolName === 'ls' || toolName === 'write' || toolName === 'edit') {
+        const targetPath = resolveForSession(root, pathValue)
+        if (!isPathAllowed(sessionId, root, targetPath)) {
+          const operation = toolName === 'write' || toolName === 'edit' ? 'write'
+            : toolName === 'grep' || toolName === 'find' ? 'search'
+              : toolName === 'ls' ? 'list'
+                : 'read'
+          return { block: true, reason: requestPathPermission(sessionId, root, toolName, operation, targetPath) }
+        }
+      }
+
+      return undefined
+    })
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -153,22 +203,33 @@ function handleSessionEvent(sessionId: string, event: AgentSessionEvent): void {
   }
 }
 
-export async function createWebSession(cwd = DEFAULT_CWD): Promise<WebSessionInfo> {
-  const sessionManager = SessionManager.create(cwd)
+export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
+  const root = requireCwd(cwd)
+  const sessionManager = SessionManager.create(root)
+  let sessionId: string | null = null
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: root,
+    agentDir: getAgentDir(),
+    settingsManager: SettingsManager.create(root, getAgentDir()),
+    extensionFactories: [createSandboxGuardExtension(root, () => sessionId)],
+  })
+  await resourceLoader.reload()
   const { session } = await createAgentSession({
-    cwd,
+    cwd: root,
     authStorage,
     modelRegistry,
     model: getDefaultModel(),
     sessionManager,
+    resourceLoader,
     tools: DEFAULT_TOOLS,
   })
-  const sessionId = session.sessionId
+  sessionId = session.sessionId
+  registerSessionPermissions(sessionId, root)
   const unsubscribe = session.subscribe((event) => handleSessionEvent(sessionId, event))
-  sessions.set(sessionId, { session, unsubscribe, cwd })
+  sessions.set(sessionId, { session, unsubscribe, cwd: root })
   return {
     id: sessionId,
-    cwd,
+    cwd: root,
     sessionFile: session.sessionFile,
     created: new Date().toISOString(),
     modified: new Date().toISOString(),
@@ -180,16 +241,26 @@ export async function createWebSession(cwd = DEFAULT_CWD): Promise<WebSessionInf
 
 export async function openWebSession(sessionFile: string): Promise<WebSessionInfo> {
   const sessionManager = SessionManager.open(sessionFile)
-  const cwd = sessionManager.getCwd() || DEFAULT_CWD
+  const cwd = requireCwd(sessionManager.getCwd() ?? undefined)
+  let sessionId: string | null = null
+  const resourceLoader = new DefaultResourceLoader({
+    cwd,
+    agentDir: getAgentDir(),
+    settingsManager: SettingsManager.create(cwd, getAgentDir()),
+    extensionFactories: [createSandboxGuardExtension(cwd, () => sessionId)],
+  })
+  await resourceLoader.reload()
   const { session } = await createAgentSession({
     cwd,
     authStorage,
     modelRegistry,
     model: getDefaultModel(),
     sessionManager,
+    resourceLoader,
     tools: DEFAULT_TOOLS,
   })
-  const sessionId = session.sessionId
+  sessionId = session.sessionId
+  registerSessionPermissions(sessionId, cwd)
   const unsubscribe = session.subscribe((event) => handleSessionEvent(sessionId, event))
   sessions.set(sessionId, { session, unsubscribe, cwd })
   return {
@@ -221,8 +292,9 @@ export async function abortSession(sessionId: string): Promise<void> {
   await managed.session.abort()
 }
 
-export async function listSessions(cwd = DEFAULT_CWD): Promise<WebSessionInfo[]> {
-  const infos = await SessionManager.list(cwd)
+export async function listSessions(cwd?: string): Promise<WebSessionInfo[]> {
+  if (!cwd?.trim()) return []
+  const infos = await SessionManager.list(resolve(cwd))
   return infos.map(toWebSessionInfo)
 }
 
@@ -237,7 +309,10 @@ export async function deleteSession(sessionFile: string): Promise<void> {
     managed.unsubscribe()
     managed.session.dispose()
     const entry = [...sessions.entries()].find(([, m]) => m === managed)
-    if (entry) sessions.delete(entry[0])
+    if (entry) {
+      sessions.delete(entry[0])
+      removeSessionPermissions(entry[0])
+    }
   }
   await unlink(resolvedPath)
 }
@@ -267,10 +342,12 @@ export function setTools(sessionId: string, toolNames: string[]): void {
   managed.session.setActiveToolsByName(toolNames)
 }
 
-export async function listSkills(cwd = DEFAULT_CWD): Promise<SkillInfo[]> {
+export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
+  if (!cwd?.trim()) return []
+  const root = resolve(cwd)
   const agentDir = getAgentDir()
-  const settingsManager = SettingsManager.create(cwd, agentDir)
-  const loader = new DefaultResourceLoader({ cwd, agentDir, settingsManager })
+  const settingsManager = SettingsManager.create(root, agentDir)
+  const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager })
   await loader.reload()
   const { skills } = loader.getSkills()
   return skills.map((skill) => ({
@@ -282,9 +359,10 @@ export async function listSkills(cwd = DEFAULT_CWD): Promise<SkillInfo[]> {
 }
 
 export function disposeAllSessions(): void {
-  for (const managed of sessions.values()) {
+  for (const [sessionId, managed] of sessions.entries()) {
     managed.unsubscribe()
     managed.session.dispose()
+    removeSessionPermissions(sessionId)
   }
   sessions.clear()
 }

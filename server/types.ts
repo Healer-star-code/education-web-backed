@@ -28,6 +28,17 @@ export interface SkillInfo {
   enabled: boolean
 }
 
+export interface PermissionRequestInfo {
+  id: string
+  sessionId: string
+  toolName: string
+  operation: 'read' | 'write' | 'search' | 'list' | 'execute'
+  path?: string
+  command?: string
+  reason: string
+  timeCreated: number
+}
+
 export type WebAgentEvent =
   | { type: 'connected'; sessionId: string }
   | { type: 'agent_start' }
@@ -39,5 +50,7 @@ export type WebAgentEvent =
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }
   | { type: 'tool_update'; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | { type: 'permission_request'; request: PermissionRequestInfo }
+  | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }
