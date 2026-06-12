@@ -7,6 +7,7 @@ interface Props {
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
   onDeleteSession: (s: SessionInfo) => void
+  onRenameSession?: (s: SessionInfo, name: string) => void
   onNewSession: () => void
   selectedCwd: string | null
   recentCwds: string[]
@@ -91,7 +92,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession, onRenameSession }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -343,6 +344,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             selectedId={selectedId}
             onSelectSession={onSelectSession}
             onDeleteSession={onDeleteSession}
+            onRenameSession={onRenameSession}
             depth={0}
           />
         ))}
@@ -386,11 +388,12 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   )
 }
 
-function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, depth }: {
+function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, onRenameSession, depth }: {
   node: SessionTreeNode
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
   onDeleteSession: (s: SessionInfo) => void
+  onRenameSession?: (s: SessionInfo, name: string) => void
   depth: number
 }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -414,6 +417,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, d
           isSelected={node.session.id === selectedId}
           onClick={() => onSelectSession(node.session)}
           onDelete={() => onDeleteSession(node.session)}
+          onRename={(name) => onRenameSession?.(node.session, name)}
           depth={depth}
           hasChildren={hasChildren}
           collapsed={collapsed}
@@ -429,6 +433,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, d
               selectedId={selectedId}
               onSelectSession={onSelectSession}
               onDeleteSession={onDeleteSession}
+              onRenameSession={onRenameSession}
               depth={depth + 1}
             />
           ))}
@@ -438,11 +443,12 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, d
   )
 }
 
-function SessionItem({ session, isSelected, onClick, onDelete, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
+function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
   session: SessionInfo
   isSelected: boolean
   onClick: () => void
   onDelete: () => void
+  onRename?: (name: string) => void
   depth?: number
   hasChildren?: boolean
   collapsed?: boolean
@@ -450,7 +456,15 @@ function SessionItem({ session, isSelected, onClick, onDelete, depth = 0, hasChi
 }) {
   const [hovered, setHovered] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [editing, setEditing] = useState(false)
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const [draftTitle, setDraftTitle] = useState(title)
+
+  function submitRename() {
+    const next = draftTitle.trim()
+    setEditing(false)
+    if (next && next !== title) onRename?.(next)
+  }
 
   return (
     <div
@@ -491,9 +505,27 @@ function SessionItem({ session, isSelected, onClick, onDelete, depth = 0, hasChi
             color: 'var(--text)',
           }}
           title={title}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            setDraftTitle(title)
+            setEditing(true)
+          }}
         >
-          {title}
-          {session.orphaned && (
+          {editing ? (
+            <input
+              value={draftTitle}
+              autoFocus
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              onBlur={submitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submitRename()
+                if (e.key === 'Escape') setEditing(false)
+              }}
+              style={{ width: '100%', fontSize: 12, border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 4px', background: 'var(--bg)', color: 'var(--text)' }}
+            />
+          ) : title}
+          {!editing && session.orphaned && (
             <span style={{
               marginLeft: 6, padding: '1px 5px',
               background: 'rgba(239,68,68,0.12)',

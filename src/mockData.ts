@@ -6,6 +6,8 @@ export interface SessionInfo {
   modified: string
   messageCount: number
   firstMessage: string
+  titleSource?: 'ai' | 'user'
+  aiTitleGenerated?: boolean
   parentSessionId?: string
   sessionFile?: string
   error?: boolean

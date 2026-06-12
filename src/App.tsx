@@ -5,7 +5,7 @@ import type { SessionInfo } from './mockData'
 import type { ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
-import { listSessions, listRecentPaths, addRecentPath, deleteSession } from './lib/piApi'
+import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
 const STREAM_TEXT = '教育智能体'
@@ -94,15 +94,10 @@ export default function App() {
         if (cancelled) return
         setSessions(loaded)
         setSessionLoadError(null)
-        setSelectedCwd((current) => current ?? loaded[0]?.cwd ?? null)
         if (cwd) {
-          if (loaded.length > 0) {
-            setSelectedSession(loaded[0])
-            setNewSessionCwd(null)
-          } else {
-            setSelectedSession(null)
-            setNewSessionCwd(cwd)
-          }
+          setSelectedCwd(cwd)
+          setSelectedSession(null)
+          setNewSessionCwd(cwd)
         }
       })
       .catch((error) => {
@@ -143,6 +138,16 @@ export default function App() {
     setSessions((current) => upsertSession(current, session))
   }, [])
 
+  const handleRenameSession = useCallback(async (session: SessionInfo, name: string) => {
+    try {
+      const renamed = await renameSession(session.id, name)
+      setSessions((current) => upsertSession(current, { ...session, ...renamed, modified: session.modified }))
+      setSelectedSession((current) => current?.id === session.id ? { ...current, ...renamed, modified: current.modified } : current)
+    } catch (err) {
+      setToast('重命名失败：' + (err instanceof Error ? err.message : String(err)))
+    }
+  }, [])
+
   const handleDeleteSession = useCallback(async (session: SessionInfo) => {
     if (!session.sessionFile) return
     try {
@@ -180,6 +185,7 @@ export default function App() {
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
               onDeleteSession={handleDeleteSession}
+              onRenameSession={handleRenameSession}
               selectedCwd={selectedCwd}
               recentCwds={recentCwds}
               onCwdChange={handleCwdChange}

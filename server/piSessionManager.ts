@@ -16,6 +16,8 @@ import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { assertUserProjectPath } from './pathGuards.ts'
+import { getSessionTitleMeta, markAiTitleGenerated, markUserTitle } from './sessionTitleManager.ts'
 import {
   isCommandAllowed,
   isPathAllowed,
@@ -34,6 +36,8 @@ interface ManagedSession {
   session: AgentSession
   unsubscribe: () => void
   cwd: string
+  suppressEvents?: boolean
+  autoNaming?: boolean
 }
 
 export interface WebMessage {
@@ -61,10 +65,7 @@ function getDefaultModel() {
 }
 
 function requireCwd(cwd?: string): string {
-  if (!cwd?.trim()) {
-    throw new Error('请先选择项目目录')
-  }
-  return resolve(cwd)
+  return assertUserProjectPath(cwd)
 }
 
 function createSandboxGuardExtension(root: string, getSessionId: () => string | null) {
@@ -129,6 +130,7 @@ function toWebMessage(message: unknown, index: number): WebMessage | null {
 }
 
 function toWebSessionInfo(info: PiSessionInfo): WebSessionInfo {
+  const meta = getSessionTitleMeta(info.path)
   return {
     id: info.id,
     cwd: info.cwd,
@@ -138,11 +140,14 @@ function toWebSessionInfo(info: PiSessionInfo): WebSessionInfo {
     firstMessage: info.firstMessage,
     messageCount: info.messageCount,
     name: info.name,
+    titleSource: meta?.titleSource,
+    aiTitleGenerated: meta?.aiTitleGenerated ?? false,
     parentSessionId: info.parentSessionPath,
   }
 }
 
 function handleSessionEvent(sessionId: string, event: AgentSessionEvent): void {
+  if (sessions.get(sessionId)?.suppressEvents) return
   switch (event.type) {
     case 'agent_start':
       broadcastAgentEvent(sessionId, { type: 'agent_start' })
@@ -236,6 +241,7 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
     firstMessage: '',
     messageCount: 0,
     name: session.sessionName,
+    aiTitleGenerated: false,
   }
 }
 
@@ -263,6 +269,7 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
   registerSessionPermissions(sessionId, cwd)
   const unsubscribe = session.subscribe((event) => handleSessionEvent(sessionId, event))
   sessions.set(sessionId, { session, unsubscribe, cwd })
+  const meta = getSessionTitleMeta(session.sessionFile)
   return {
     id: sessionId,
     cwd,
@@ -272,6 +279,8 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
     firstMessage: '',
     messageCount: session.messages.length,
     name: session.sessionName,
+    titleSource: meta?.titleSource,
+    aiTitleGenerated: meta?.aiTitleGenerated ?? false,
   }
 }
 
@@ -279,11 +288,53 @@ export function getWebSession(sessionId: string): ManagedSession | undefined {
   return sessions.get(sessionId)
 }
 
+function cleanTitle(raw: string): string {
+  return raw
+    .replace(/^#+\s*/, '')
+    .replace(/["'“”‘’]/g, '')
+    .split(/\r?\n/)[0]
+    .trim()
+    .slice(0, 30)
+}
+
+async function autoNameSessionIfNeeded(sessionId: string, firstUserMessage: string): Promise<void> {
+  const managed = sessions.get(sessionId)
+  const sessionFile = managed?.session.sessionFile
+  if (!managed || !sessionFile || managed.autoNaming) return
+  const meta = getSessionTitleMeta(sessionFile)
+  if (meta?.titleSource === 'user' || meta?.aiTitleGenerated) return
+
+  managed.autoNaming = true
+  managed.suppressEvents = true
+  try {
+    await managed.session.prompt(`请根据用户的第一条消息，为这个会话生成一个简短标题。\n要求：只输出标题，不要解释；中文优先；不超过12个汉字或30个英文字符。\n\n用户第一条消息：${firstUserMessage}`)
+    const lastAssistant = [...managed.session.messages].reverse().find((msg) => isRecord(msg) && msg.role === 'assistant')
+    const title = cleanTitle(isRecord(lastAssistant) ? extractTextContent(lastAssistant.content) : '')
+    if (!title) return
+    managed.session.setSessionName(title)
+    const titleMeta = markAiTitleGenerated(sessionFile)
+    broadcastAgentEvent(sessionId, {
+      type: 'session_renamed',
+      sessionId,
+      name: title,
+      titleSource: 'ai',
+      aiTitleGenerated: titleMeta.aiTitleGenerated,
+    })
+  } finally {
+    managed.suppressEvents = false
+    managed.autoNaming = false
+  }
+}
+
 export async function sendPrompt(sessionId: string, message: string, images?: ApiImagePayload[]): Promise<void> {
   const managed = sessions.get(sessionId)
   if (!managed) throw new Error(`Session not found: ${sessionId}`)
+  const shouldAutoName = managed.session.messages.length === 0
   const sdkImages = toSdkImages(images)
   await managed.session.prompt(message, sdkImages ? { images: sdkImages } : undefined)
+  if (shouldAutoName) {
+    await autoNameSessionIfNeeded(sessionId, message)
+  }
 }
 
 export async function abortSession(sessionId: string): Promise<void> {
@@ -294,7 +345,7 @@ export async function abortSession(sessionId: string): Promise<void> {
 
 export async function listSessions(cwd?: string): Promise<WebSessionInfo[]> {
   if (!cwd?.trim()) return []
-  const infos = await SessionManager.list(resolve(cwd))
+  const infos = await SessionManager.list(assertUserProjectPath(cwd))
   return infos.map(toWebSessionInfo)
 }
 
@@ -342,9 +393,38 @@ export function setTools(sessionId: string, toolNames: string[]): void {
   managed.session.setActiveToolsByName(toolNames)
 }
 
+export function renameSession(sessionId: string, name: string): WebSessionInfo {
+  const managed = sessions.get(sessionId)
+  if (!managed) throw new Error(`Session not found: ${sessionId}`)
+  const nextName = name.trim()
+  if (!nextName) throw new Error('会话名称不能为空')
+  managed.session.setSessionName(nextName)
+  const sessionFile = managed.session.sessionFile
+  const meta = sessionFile ? markUserTitle(sessionFile) : undefined
+  broadcastAgentEvent(sessionId, {
+    type: 'session_renamed',
+    sessionId,
+    name: nextName,
+    titleSource: 'user',
+    aiTitleGenerated: meta?.aiTitleGenerated ?? true,
+  })
+  return {
+    id: sessionId,
+    cwd: managed.cwd,
+    sessionFile,
+    created: new Date().toISOString(),
+    modified: new Date().toISOString(),
+    firstMessage: '',
+    messageCount: managed.session.messages.length,
+    name: nextName,
+    titleSource: 'user',
+    aiTitleGenerated: meta?.aiTitleGenerated ?? true,
+  }
+}
+
 export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   if (!cwd?.trim()) return []
-  const root = resolve(cwd)
+  const root = assertUserProjectPath(cwd)
   const agentDir = getAgentDir()
   const settingsManager = SettingsManager.create(root, agentDir)
   const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager })

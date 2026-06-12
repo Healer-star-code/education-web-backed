@@ -117,6 +117,23 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'permission_resolved':
         setPermissionRequests((prev) => prev.filter((item) => item.id !== event.requestId))
         break
+      case 'session_renamed':
+        sdkSessionInfoRef.current = sdkSessionInfoRef.current
+          ? { ...sdkSessionInfoRef.current, name: event.name, titleSource: event.titleSource, aiTitleGenerated: event.aiTitleGenerated }
+          : sdkSessionInfoRef.current
+        onSessionCreated?.({
+          id: event.sessionId,
+          cwd: sdkSessionInfoRef.current?.cwd ?? selectedCwd ?? '',
+          sessionFile: sdkSessionInfoRef.current?.sessionFile,
+          created: sdkSessionInfoRef.current?.created ?? new Date().toISOString(),
+          modified: new Date().toISOString(),
+          firstMessage: sdkSessionInfoRef.current?.firstMessage ?? '',
+          messageCount: sdkSessionInfoRef.current?.messageCount ?? 0,
+          name: event.name,
+          titleSource: event.titleSource,
+          aiTitleGenerated: event.aiTitleGenerated,
+        })
+        break
       case 'agent_end':
         setStreaming(false)
         currentAssistantIdRef.current = null
@@ -126,7 +143,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         setStreaming(false)
         break
     }
-  }, [])
+  }, [onSessionCreated, selectedCwd])
 
   const connectEvents = useCallback((sessionId: string) => {
     if (eventSourceRef.current) return
@@ -186,12 +203,14 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
     try {
       const sdkSession = await ensureSdkSession()
-      onSessionCreated?.({
+      const updatedSession = {
         ...sdkSession,
         firstMessage: sdkSession.firstMessage || text,
         messageCount: Math.max(sdkSession.messageCount, 1),
         modified: new Date().toISOString(),
-      })
+      }
+      sdkSessionInfoRef.current = updatedSession
+      onSessionCreated?.(updatedSession)
       const images = attachments ? await Promise.all(attachments.map((att) => fileToBase64(att.file))) : undefined
       await sendPrompt(sdkSession.id, { message: text, images })
     } catch (err) {

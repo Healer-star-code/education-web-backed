@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
+import { userHomePath } from './pathGuards.ts'
 
 const execFileAsync = promisify(execFile)
 
@@ -16,7 +17,8 @@ export function parseDirectoryDialogOutput(output: string): string | null {
   throw new Error(`Unexpected directory dialog output: ${line}`)
 }
 
-export function createDirectoryDialogScript(): string {
+export function createDirectoryDialogScript(initialPath = userHomePath()): string {
+  const escapedInitialPath = initialPath.replace(/'/g, "''")
   return `
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 $OutputEncoding = [Console]::OutputEncoding
@@ -24,6 +26,11 @@ Add-Type -AssemblyName System.Windows.Forms
 $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
 $dialog.Description = '选择 AI 要操作的项目文件夹'
 $dialog.ShowNewFolderButton = $true
+$initialPath = '${escapedInitialPath}'
+if ([string]::IsNullOrWhiteSpace($initialPath) -or -not (Test-Path -LiteralPath $initialPath)) {
+  $initialPath = [Environment]::GetFolderPath('UserProfile')
+}
+$dialog.SelectedPath = $initialPath
 $result = $dialog.ShowDialog()
 if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
   'SELECTED:' + $dialog.SelectedPath

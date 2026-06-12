@@ -18,6 +18,8 @@ export interface WebSessionInfo {
   firstMessage: string
   messageCount: number
   name?: string
+  titleSource?: 'ai' | 'user'
+  aiTitleGenerated?: boolean
   parentSessionId?: string
 }
 
@@ -52,5 +54,6 @@ export type WebAgentEvent =
   | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
   | { type: 'permission_request'; request: PermissionRequestInfo }
   | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
+  | { type: 'session_renamed'; sessionId: string; name: string; titleSource: 'ai' | 'user'; aiTitleGenerated: boolean }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }

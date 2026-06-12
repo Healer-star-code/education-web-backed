@@ -8,6 +8,8 @@ import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
 import { createProjectSkill, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
 import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
+import { assertUserProjectPath, filterUserProjectPaths, isSystemProjectPath } from './pathGuards.ts'
+import { closeSessionTitleDb } from './sessionTitleManager.ts'
 import type { PromptPayload } from './types.ts'
 import {
   abortSession,
@@ -19,6 +21,7 @@ import {
   listSkills,
   listTools,
   openWebSession,
+  renameSession,
   sendPrompt,
   setTools,
 } from './piSessionManager.ts'
@@ -49,8 +52,11 @@ async function readJson<T>(req: IncomingMessage): Promise<T> {
 }
 
 function safeRecentPaths() {
-  const appRoot = process.cwd().replace(/[/\\]+/g, '\\').toLowerCase()
-  return listRecentPaths().filter((item) => item.path.replace(/[/\\]+/g, '\\').toLowerCase() !== appRoot)
+  const paths = listRecentPaths()
+  for (const item of paths) {
+    if (isSystemProjectPath(item.path)) removeRecentPath(item.path)
+  }
+  return filterUserProjectPaths(paths)
 }
 
 function getSessionAction(pathname: string, suffix: string): string | undefined {
@@ -89,6 +95,11 @@ const server = createServer(async (req, res) => {
         removeRecentPath(body.path)
         sendJson(res, 200, { paths: safeRecentPaths() })
       } else if (body.path) {
+        if (isSystemProjectPath(body.path)) {
+          removeRecentPath(body.path)
+          sendJson(res, 200, { paths: safeRecentPaths() })
+          return
+        }
         upsertRecentPath(body.path)
         sendJson(res, 200, { paths: safeRecentPaths() })
       } else {
@@ -99,14 +110,28 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/dialog/select-directory') {
       const selectedPath = await selectDirectoryWithWindowsDialog()
+      if (selectedPath && isSystemProjectPath(selectedPath)) {
+        sendJson(res, 400, { error: '不能选择系统安装目录作为项目目录' })
+        return
+      }
       sendJson(res, 200, { path: selectedPath })
       return
     }
 
     if (req.method === 'POST' && url.pathname === '/api/sessions') {
-      const body = await readJson<{ cwd?: string; sessionFile?: string }>(req)
-      const session = body.sessionFile ? await openWebSession(body.sessionFile) : await createWebSession(body.cwd)
-      sendJson(res, 200, { session })
+      const body = await readJson<{ mode?: 'new_isolated' | 'open_existing'; cwd?: string; sessionFile?: string }>(req)
+      const mode = body.mode ?? (body.sessionFile ? 'open_existing' : 'new_isolated')
+      if (mode === 'new_isolated') {
+        const session = await createWebSession(assertUserProjectPath(body.cwd))
+        sendJson(res, 200, { session })
+      } else {
+        if (!body.sessionFile) {
+          sendJson(res, 400, { error: 'sessionFile is required' })
+          return
+        }
+        const session = await openWebSession(body.sessionFile)
+        sendJson(res, 200, { session })
+      }
       return
     }
 
@@ -152,6 +177,19 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    if (req.method === 'POST') {
+      const sessionId = getSessionAction(url.pathname, '/name')
+      if (sessionId) {
+        const body = await readJson<{ name?: string }>(req)
+        if (!body.name?.trim()) {
+          sendJson(res, 400, { error: 'name is required' })
+          return
+        }
+        sendJson(res, 200, { session: renameSession(sessionId, body.name) })
+        return
+      }
+    }
+
     if (req.method === 'POST' && url.pathname === '/api/sessions/delete') {
       const body = await readJson<{ sessionFile?: string }>(req)
       if (!body.sessionFile) {
@@ -175,6 +213,10 @@ const server = createServer(async (req, res) => {
         sendJson(res, 400, { error: 'path is required' })
         return
       }
+      if (isSystemProjectPath(body.path)) {
+        sendJson(res, 400, { error: '不能打开系统安装目录' })
+        return
+      }
       const dir = body.path
       try {
         await promisify(execFile)('explorer.exe', [dir])
@@ -187,11 +229,8 @@ const server = createServer(async (req, res) => {
 
     if (req.method === 'POST' && url.pathname === '/api/skills') {
       const body = await readJson<CreateSkillPayload & { cwd?: string }>(req)
-      if (!body.cwd?.trim()) {
-        sendJson(res, 400, { error: '请先选择项目目录' })
-        return
-      }
-      const skill = await createProjectSkill(body.cwd, body)
+      const cwd = assertUserProjectPath(body.cwd)
+      const skill = await createProjectSkill(cwd, body)
       sendJson(res, 200, { skill })
       return
     }
@@ -236,11 +275,13 @@ server.listen(PORT, () => {
 
 process.once('SIGINT', () => {
   closeRecentPathsDb()
+  closeSessionTitleDb()
   disposeAllSessions()
   process.exit(0)
 })
 process.once('SIGTERM', () => {
   closeRecentPathsDb()
+  closeSessionTitleDb()
   disposeAllSessions()
   process.exit(0)
 })

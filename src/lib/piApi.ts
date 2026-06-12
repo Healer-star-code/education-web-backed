@@ -18,6 +18,8 @@ export interface WebSessionInfo {
   firstMessage: string
   messageCount: number
   name?: string
+  titleSource?: 'ai' | 'user'
+  aiTitleGenerated?: boolean
   parentSessionId?: string
 }
 
@@ -65,6 +67,7 @@ export type WebAgentEvent =
   | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
   | { type: 'permission_request'; request: PermissionRequestInfo }
   | { type: 'permission_resolved'; requestId: string; decision: 'allow_once' | 'allow_session' | 'deny' }
+  | { type: 'session_renamed'; sessionId: string; name: string; titleSource: 'ai' | 'user'; aiTitleGenerated: boolean }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }
 
@@ -98,7 +101,9 @@ export async function selectDirectory(): Promise<string | null> {
 export async function createSession(cwd?: string, sessionFile?: string): Promise<WebSessionInfo> {
   const data = await requestJson<{ session: WebSessionInfo }>('/api/sessions', {
     method: 'POST',
-    body: JSON.stringify({ cwd, sessionFile }),
+    body: JSON.stringify(sessionFile
+      ? { mode: 'open_existing', sessionFile }
+      : { mode: 'new_isolated', cwd }),
   })
   return data.session
 }
@@ -133,6 +138,14 @@ export async function deleteSession(sessionFile: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ sessionFile }),
   })
+}
+
+export async function renameSession(sessionId: string, name: string): Promise<WebSessionInfo> {
+  const data = await requestJson<{ session: WebSessionInfo }>(`/api/sessions/${encodeURIComponent(sessionId)}/name`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+  return data.session
 }
 
 export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgentEvent) => void): EventSource {
