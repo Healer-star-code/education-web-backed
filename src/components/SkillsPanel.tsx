@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createSkill, listSkills, type SkillInfo } from '../lib/piApi'
+import { createSkill, listSkills, openFolder, type SkillInfo } from '../lib/piApi'
 
 interface Props {
   cwd: string | null
@@ -92,6 +92,18 @@ export function SkillsPanel({ cwd, onClose }: Props) {
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cwd ?? 'global/default'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={async () => { if (cwd) { try { await openFolder(`${cwd}/.pi/skills`) } catch (e) { console.error('Failed to open folder', e) } } }}
+              disabled={!cwd}
+              style={{
+                height: 30, padding: '0 10px', borderRadius: 8,
+                border: '1px solid var(--border)', background: 'var(--bg-hover)',
+                color: cwd ? 'var(--text)' : 'var(--text-dim)', cursor: cwd ? 'pointer' : 'not-allowed',
+                fontSize: 12, fontWeight: 600,
+              }}
+            >
+              打开文件夹
+            </button>
             <button
               onClick={() => setShowAddForm((v) => !v)}
               disabled={!cwd}

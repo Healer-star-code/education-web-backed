@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import type { SessionInfo } from '../mockData'
 import { selectDirectory } from '../lib/piApi'
 
@@ -6,6 +6,7 @@ interface Props {
   sessions: SessionInfo[]
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
+  onDeleteSession: (s: SessionInfo) => void
   onNewSession: () => void
   selectedCwd: string | null
   recentCwds: string[]
@@ -83,12 +84,12 @@ function buildSessionTree(sessions: SessionInfo[]): SessionTreeNode[] {
 function PiAgentTitle() {
   return (
     <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: 'var(--text)' }}>
-      web 模拟版本1
+      教育智能体
     </span>
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -108,7 +109,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
     ? sessions.filter((s) => s.cwd.replace(/[/\\]+/g, '/') === selectedCwd.replace(/[/\\]+/g, '/'))
     : sessions
 
-  const sessionTree = buildSessionTree(filteredSessions)
+  const sessionTree = useMemo(() => buildSessionTree(filteredSessions), [filteredSessions])
 
   async function handleCustomPath() {
     if (selectingDirectory) return
@@ -330,7 +331,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
       <div style={{ flex: '1 1 0', overflowY: 'auto', padding: '0', minHeight: 80 }}>
         {filteredSessions.length === 0 && (
           <div style={{ padding: '16px 14px', color: sessionLoadError ? '#dc2626' : 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
-            {sessionLoadError ? `真实后端连接失败：${sessionLoadError}` : '暂无真实会话'}
+            {sessionLoadError ? `后端连接失败：${sessionLoadError}` : '此目录下暂无历史会话'}
           </div>
         )}
         {sessionTree.map((node) => (
@@ -339,6 +340,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             node={node}
             selectedId={selectedId}
             onSelectSession={onSelectSession}
+            onDeleteSession={onDeleteSession}
             depth={0}
           />
         ))}
@@ -382,10 +384,11 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   )
 }
 
-function SessionTreeItem({ node, selectedId, onSelectSession, depth }: {
+function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, depth }: {
   node: SessionTreeNode
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
+  onDeleteSession: (s: SessionInfo) => void
   depth: number
 }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -408,6 +411,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, depth }: {
           session={node.session}
           isSelected={node.session.id === selectedId}
           onClick={() => onSelectSession(node.session)}
+          onDelete={() => onDeleteSession(node.session)}
           depth={depth}
           hasChildren={hasChildren}
           collapsed={collapsed}
@@ -422,6 +426,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, depth }: {
               node={child}
               selectedId={selectedId}
               onSelectSession={onSelectSession}
+              onDeleteSession={onDeleteSession}
               depth={depth + 1}
             />
           ))}
@@ -431,16 +436,18 @@ function SessionTreeItem({ node, selectedId, onSelectSession, depth }: {
   )
 }
 
-function SessionItem({ session, isSelected, onClick, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
+function SessionItem({ session, isSelected, onClick, onDelete, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
   session: SessionInfo
   isSelected: boolean
   onClick: () => void
+  onDelete: () => void
   depth?: number
   hasChildren?: boolean
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
 
   return (
@@ -506,6 +513,43 @@ function SessionItem({ session, isSelected, onClick, depth = 0, hasChildren = fa
           {session.cwd}
         </div>
       </div>
+      {hovered && !confirming && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
+          title="删除会话"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 20, height: 20, padding: 0, flexShrink: 0,
+            background: 'none', border: 'none',
+            color: 'var(--text-dim)', cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)' }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          </svg>
+        </button>
+      )}
+      {confirming && (
+        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete?.(); setConfirming(false) }}
+            title="确认删除"
+            style={{ padding: '2px 6px', fontSize: 10, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+          >
+            删除
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
+            title="取消"
+            style={{ padding: '2px 6px', fontSize: 10, background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}
+          >
+            取消
+          </button>
+        </div>
+      )}
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}

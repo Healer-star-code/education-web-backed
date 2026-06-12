@@ -4,6 +4,7 @@ import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
 import { ToolCallCard, type ToolEventView } from './ToolCallCard'
+import { ThinkingBlock } from './ThinkingBlock'
 import { fileToBase64 } from '../lib/image'
 import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
 
@@ -15,24 +16,26 @@ interface Props {
   onSessionCreated?: (session: SessionInfo) => void
 }
 
+const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
+
 const TYPEWRITER_PHRASES = [
-  'ready when you are.',
-  'ask me anything.',
-  "let's build something cool.",
-  'explore your codebase.',
-  'draft a lesson plan.',
-  'summarize that paper.',
-  'plan your curriculum.',
-  'explain it like I\'m five.',
-  'pair-program with me.',
-  'fix that pesky bug.',
-  'translate to 中文.',
-  'write a haiku.',
-  'brainstorm ideas.',
-  'review my pull request.',
-  'ship it.',
-  'make it pretty.',
-  'rubber-duck with me.',
+  '准备好了吗？',
+  '有什么想问的？',
+  '一起来做点酷的事。',
+  '探索你的代码库。',
+  '起草一份教案。',
+  '总结这篇论文。',
+  '规划你的课程。',
+  '用简单的话解释一下。',
+  '和我结对编程。',
+  '修复那个烦人的 bug。',
+  '翻译成中文。',
+  '写一首俳句。',
+  '头脑风暴一下。',
+  '帮我审查代码。',
+  '发布上线！',
+  '让它更好看。',
+  '和我一起理清思路。',
 ]
 
 function toMessageAttachments(attachments: LocalAttachment[] | undefined): MessageAttachment[] | undefined {
@@ -47,7 +50,7 @@ function toMessageAttachments(attachments: LocalAttachment[] | undefined): Messa
 
 export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, onSessionCreated }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [hasSent, setHasSent] = useState(false)
+  const [hasMessages, setHasMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [toolEvents, setToolEvents] = useState<ToolEventView[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -57,6 +60,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const sdkSessionInfoRef = useRef<SessionInfo | null>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
   const currentAssistantIdRef = useRef<string | null>(null)
+  const currentThinkingRef = useRef<string>('')
+  const currentThinkingStartRef = useRef<number>(0)
 
   const handleAgentEvent = useCallback((event: WebAgentEvent) => {
     switch (event.type) {
@@ -64,6 +69,31 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         setStreaming(true)
         setError(null)
         break
+      case 'thinking_start':
+        currentThinkingRef.current = ''
+        currentThinkingStartRef.current = Date.now()
+        break
+      case 'thinking_delta': {
+        currentThinkingRef.current += event.delta
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) return
+        setMessages((prev) => prev.map((msg) => (
+          msg.id === assistantId ? { ...msg, thinkingContent: currentThinkingRef.current } : msg
+        )))
+        break
+      }
+      case 'thinking_end': {
+        const content = event.content || currentThinkingRef.current
+        currentThinkingRef.current = content
+        const durationMs = Date.now() - currentThinkingStartRef.current
+        const assistantId = currentAssistantIdRef.current
+        if (assistantId) {
+          setMessages((prev) => prev.map((msg) => (
+            msg.id === assistantId ? { ...msg, thinkingContent: content, thinkingDurationMs: durationMs } : msg
+          )))
+        }
+        break
+      }
       case 'assistant_delta': {
         const assistantId = currentAssistantIdRef.current
         if (!assistantId) return
@@ -127,11 +157,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
-    setHasSent(true)
+    setHasMessages(true)
     setStreaming(true)
     setToolEvents([])
     setError(null)
     currentAssistantIdRef.current = assistantId
+    currentThinkingRef.current = ''
+    currentThinkingStartRef.current = 0
 
     try {
       const sdkSession = await ensureSdkSession()
@@ -159,6 +191,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     sdkSessionIdRef.current = null
     sdkSessionInfoRef.current = null
     currentAssistantIdRef.current = null
+    currentThinkingRef.current = ''
+    currentThinkingStartRef.current = 0
     eventSourceRef.current?.close()
     eventSourceRef.current = null
 
@@ -166,7 +200,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     queueMicrotask(() => {
       if (session?.sessionFile) {
         setMessages([])
-        setHasSent(true)
+        setHasMessages(true)
         createSession(undefined, session.sessionFile)
           .then(async (opened) => {
             if (cancelled) return
@@ -191,10 +225,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           })
       } else if (session) {
         setMessages([])
-        setHasSent(true)
+        setHasMessages(true)
       } else {
         setMessages([])
-        setHasSent(false)
+        setHasMessages(false)
       }
     })
 
@@ -214,15 +248,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd
   const showChat = session !== null || newSessionCwd !== null
-  const isEmptyNew = !!(session === null && newSessionCwd && !hasSent)
-  const isNewSession = !!(session && !hasSent)
+  const isEmptyNew = !!(session === null && newSessionCwd && !hasMessages)
+  const isNewSession = !!(session && !hasMessages)
 
   if (!showChat && !selectedCwd) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
           <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 12 }}>
-            web 模拟版本1
+            教育智能体
           </div>
           <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
             请从侧边栏选择项目目录开始
@@ -260,17 +294,17 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               fontFamily: 'var(--font-mono)',
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.4 }}>
-                <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>web 模拟版本1</span>
+                <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>教育智能体</span>
                 <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   <Typewriter phrases={TYPEWRITER_PHRASES} />
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  web <span style={{ color: 'var(--text)' }}>mock-v1</span>
+                  教育智能体
                 </span>
                 <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  sdk <span style={{ color: 'var(--text)' }}>pi</span>
+                  {APP_INSTITUTION}
                 </span>
               </div>
             </div>
@@ -303,25 +337,44 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px' }}>
           {messages.map((m, index) => {
             const isLast = index === messages.length - 1
-            const showThinking = isLast && m.role === 'assistant' && streaming
+            const isActiveAssistant = isLast && m.role === 'assistant' && streaming
+            const isThinking = isActiveAssistant && !!m.thinkingContent && !m.content
+            const hasText = !!m.content
+            const showToolSummary = isLast && m.role === 'assistant' && toolEvents.length > 0
             return (
-              <div key={m.id}>
-                <MessageView message={m} isStreaming={isLast && streaming} />
-                {showThinking && (
-                  <div style={{ marginTop: 8, marginBottom: 16 }}>
-                    <ToolCallCard tools={toolEvents} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6 }}>
-                      <span style={{ display: 'inline-flex', gap: 3 }}>
-                        {[0, 1, 2].map((i) => (
-                          <span key={i} style={{
-                            width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)',
-                            animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-                          }} />
-                        ))}
-                      </span>
-                      <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
-                    </div>
+              <div key={m.id} style={{ marginBottom: m.role === 'user' ? 16 : 0 }}>
+                {showToolSummary && (
+                  <div style={{ marginBottom: 8 }}>
+                    <ToolCallCard
+                      tools={toolEvents}
+                      collapsed={hasText}
+                    />
                   </div>
+                )}
+                {m.thinkingContent && (
+                  <div style={{ marginBottom: hasText ? 8 : 0 }}>
+                    <ThinkingBlock
+                      content={m.thinkingContent}
+                      durationMs={m.thinkingDurationMs ?? 0}
+                      isThinking={isThinking}
+                    />
+                  </div>
+                )}
+                {isActiveAssistant && !m.thinkingContent && !m.content && !toolEvents.length && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <span style={{ display: 'inline-flex', gap: 3 }}>
+                      {[0, 1, 2].map((i) => (
+                        <span key={i} style={{
+                          width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)',
+                          animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
+                        }} />
+                      ))}
+                    </span>
+                    <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
+                  </div>
+                )}
+                {hasText && (
+                  <MessageView message={m} isStreaming={isLast && streaming} />
                 )}
               </div>
             )

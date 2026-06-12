@@ -44,6 +44,9 @@ export interface ToolInfo {
 export type WebAgentEvent =
   | { type: 'connected'; sessionId: string }
   | { type: 'agent_start' }
+  | { type: 'thinking_start' }
+  | { type: 'thinking_delta'; delta: string }
+  | { type: 'thinking_end'; content: string }
   | { type: 'assistant_delta'; delta: string }
   | { type: 'assistant_message_end' }
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }
@@ -108,6 +111,13 @@ export async function abortSession(sessionId: string): Promise<void> {
   })
 }
 
+export async function deleteSession(sessionFile: string): Promise<void> {
+  await requestJson<{ ok: true }>('/api/sessions/delete', {
+    method: 'POST',
+    body: JSON.stringify({ sessionFile }),
+  })
+}
+
 export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgentEvent) => void): EventSource {
   const es = new EventSource(`${API_BASE}/api/sessions/${encodeURIComponent(sessionId)}/events`)
   es.onmessage = (message) => {
@@ -163,6 +173,13 @@ export async function removeRecentPath(path: string): Promise<RecentPathInfo[]> 
     body: JSON.stringify({ path, action: 'remove' }),
   })
   return data.paths
+}
+
+export async function openFolder(path: string): Promise<void> {
+  await requestJson<{ ok: true }>('/api/open-folder', {
+    method: 'POST',
+    body: JSON.stringify({ path }),
+  })
 }
 
 export async function listTools(sessionId: string): Promise<ToolInfo[]> {

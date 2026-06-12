@@ -13,6 +13,8 @@ import {
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
+import { unlink } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 const DEFAULT_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write']
 const DEFAULT_CWD = process.env.V3_WEB_DEFAULT_CWD ?? process.cwd()
@@ -100,6 +102,18 @@ function handleSessionEvent(sessionId: string, event: AgentSessionEvent): void {
         broadcastAgentEvent(sessionId, {
           type: 'assistant_delta',
           delta: event.assistantMessageEvent.delta,
+        })
+      } else if (event.assistantMessageEvent.type === 'thinking_delta') {
+        broadcastAgentEvent(sessionId, {
+          type: 'thinking_delta',
+          delta: event.assistantMessageEvent.delta,
+        })
+      } else if (event.assistantMessageEvent.type === 'thinking_start') {
+        broadcastAgentEvent(sessionId, { type: 'thinking_start' })
+      } else if (event.assistantMessageEvent.type === 'thinking_end') {
+        broadcastAgentEvent(sessionId, {
+          type: 'thinking_end',
+          content: event.assistantMessageEvent.content,
         })
       }
       break
@@ -210,6 +224,22 @@ export async function abortSession(sessionId: string): Promise<void> {
 export async function listSessions(cwd = DEFAULT_CWD): Promise<WebSessionInfo[]> {
   const infos = await SessionManager.list(cwd)
   return infos.map(toWebSessionInfo)
+}
+
+export async function deleteSession(sessionFile: string): Promise<void> {
+  const resolvedPath = resolve(sessionFile)
+  const sessionsDir = resolve(getAgentDir(), 'sessions')
+  if (!resolvedPath.startsWith(sessionsDir)) {
+    throw new Error('Invalid session file path')
+  }
+  const managed = [...sessions.values()].find(m => m.session.sessionFile === sessionFile)
+  if (managed) {
+    managed.unsubscribe()
+    managed.session.dispose()
+    const entry = [...sessions.entries()].find(([, m]) => m === managed)
+    if (entry) sessions.delete(entry[0])
+  }
+  await unlink(resolvedPath)
 }
 
 export function getMessages(sessionId: string): WebMessage[] {

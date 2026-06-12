@@ -1,5 +1,7 @@
 import './loadEnv.ts'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
@@ -9,6 +11,7 @@ import type { PromptPayload } from './types.ts'
 import {
   abortSession,
   createWebSession,
+  deleteSession,
   disposeAllSessions,
   getMessages,
   listSessions,
@@ -143,9 +146,32 @@ const server = createServer(async (req, res) => {
       }
     }
 
+    if (req.method === 'POST' && url.pathname === '/api/sessions/delete') {
+      const body = await readJson<{ sessionFile?: string }>(req)
+      if (!body.sessionFile) {
+        sendJson(res, 400, { error: 'sessionFile is required' })
+        return
+      }
+      await deleteSession(body.sessionFile)
+      sendJson(res, 200, { ok: true })
+      return
+    }
+
     if (req.method === 'GET' && url.pathname === '/api/skills') {
       const cwd = url.searchParams.get('cwd') ?? undefined
       sendJson(res, 200, { skills: await listSkills(cwd) })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/open-folder') {
+      const body = await readJson<{ path?: string }>(req)
+      const dir = body.path ?? process.cwd()
+      try {
+        await promisify(execFile)('explorer.exe', [dir])
+        sendJson(res, 200, { ok: true })
+      } catch (err) {
+        sendJson(res, 500, { error: `Failed to open folder: ${err instanceof Error ? err.message : String(err)}` })
+      }
       return
     }
 

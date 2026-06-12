@@ -34,6 +34,8 @@ export interface Message {
   parentId?: string
   timestamp?: string
   attachments?: MessageAttachment[]
+  thinkingContent?: string
+  thinkingDurationMs?: number
 }
 
 export interface FileNode {

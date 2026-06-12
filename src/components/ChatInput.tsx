@@ -25,6 +25,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const shouldKeepRecordingRef = useRef(false)
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
+  const uploadTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
 
   function createRecognition() {
@@ -196,7 +197,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       setAttachments((prev) => [...prev, entry])
       const steps = [10, 25, 40, 60, 75, 90, 100]
       steps.forEach((p, si) => {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           setAttachments((prev) =>
             prev.map((a) => (a.id === id ? { ...a, progress: p } : a))
           )
@@ -207,6 +208,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             }
           }
         }, 200 * (si + 1))
+        uploadTimersRef.current.push(timer)
       })
     }
     e.target.value = ''
@@ -221,6 +223,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     })
   }, [])
 
+  useEffect(() => {
+    return () => {
+      uploadTimersRef.current.forEach(clearTimeout)
+      uploadTimersRef.current = []
+    }
+  }, [])
+
   const handleSend = useCallback(() => {
     const msg = value.trim()
     if (!msg && attachments.length === 0) return
@@ -229,6 +238,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
     setValue('')
     setAttachments([])
+    uploadTimersRef.current.forEach(clearTimeout)
+    uploadTimersRef.current = []
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
@@ -253,6 +264,13 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 
   const hasText = !!value.trim()
   const canSend = hasText || attachments.length > 0
+
+  useEffect(() => {
+    return () => {
+      uploadTimersRef.current.forEach((t) => clearTimeout(t))
+      uploadTimersRef.current = []
+    }
+  }, [])
 
   useEffect(() => {
     if (!recording) {
@@ -314,7 +332,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept="image/*,.docx,.pptx,.pdf,.txt,.md"
             multiple
             onChange={handleFileChange}
             style={{ display: 'none' }}
@@ -408,7 +426,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               <button
                 onClick={handleFileSelect}
                 disabled={isStreaming}
-                title="上传图片"
+                title="上传文件"
                 style={{
                   flexShrink: 0,
                   alignSelf: 'flex-end',

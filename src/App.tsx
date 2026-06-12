@@ -5,10 +5,10 @@ import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
-import { listSessions, listRecentPaths, addRecentPath } from './lib/piApi'
+import { listSessions, listRecentPaths, addRecentPath, deleteSession } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
-const STREAM_TEXT = 'web 模拟版本1'
+const STREAM_TEXT = '教育智能体'
 const DEFAULT_CWD = import.meta.env.VITE_PI_DEFAULT_CWD as string | undefined
 
 function StreamTitle() {
@@ -59,7 +59,14 @@ export default function App() {
   const [mode, setMode] = useState<'young' | 'senior'>('young')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
   const chatInputRef = useRef<ChatInputHandle | null>(null)
+
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [toast])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
@@ -125,11 +132,11 @@ export default function App() {
     setSessions([])
     setSessionLoadError(null)
     setSelectedSession(null)
-    setNewSessionCwd(null)
+    setNewSessionCwd(cwd)
     if (cwd) {
       addRecentPath(cwd)
         .then((paths) => setRecentCwds(paths.map((p) => p.path)))
-        .catch(() => {})
+      .catch((err) => { console.error('Failed to load recent paths:', err) })
     }
   }, [])
 
@@ -137,8 +144,21 @@ export default function App() {
     setSessions((current) => upsertSession(current, session))
   }, [])
 
+  const handleDeleteSession = useCallback(async (session: SessionInfo) => {
+    if (!session.sessionFile) return
+    try {
+      await deleteSession(session.sessionFile)
+      if (selectedSession?.id === session.id) {
+        setSelectedSession(null)
+        setNewSessionCwd(session.cwd ?? selectedCwd)
+      }
+      setSessions((current) => current.filter((s) => s.id !== session.id))
+    } catch (err) {
+      setToast('删除失败：' + (err instanceof Error ? err.message : String(err)))
+    }
+  }, [selectedSession, selectedCwd])
+
   const showChat = selectedSession !== null || newSessionCwd !== null
-  const showPlaceholder = !showChat && selectedCwd !== null && !newSessionCwd
 
   return (
     <>
@@ -160,6 +180,7 @@ export default function App() {
               selectedId={selectedSession?.id ?? null}
               onSelectSession={handleSelectSession}
               onNewSession={handleNewSession}
+              onDeleteSession={handleDeleteSession}
               selectedCwd={selectedCwd}
               recentCwds={recentCwds}
               onCwdChange={handleCwdChange}
@@ -271,10 +292,6 @@ export default function App() {
                 chatInputRef={chatInputRef}
                 onSessionCreated={handleSessionCreated}
               />
-            ) : showPlaceholder ? (
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: 15 }}>
-                {sessions.length === 0 ? '暂无真实会话，点击侧边栏 New 创建真实 SDK 会话' : '请从侧边栏选择一个会话'}
-              </div>
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <StreamTitle />
@@ -300,6 +317,16 @@ export default function App() {
           onModeChange={setMode}
           onClose={() => setSettingsOpen(false)}
         />
+      )}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
+          padding: '10px 20px', borderRadius: 10, background: '#dc2626', color: '#fff',
+          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          zIndex: 999, transition: 'opacity 0.3s',
+        }}>
+          {toast}
+        </div>
       )}
     </>
   )

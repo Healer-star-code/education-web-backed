@@ -31,6 +31,9 @@ export interface SkillInfo {
 export type WebAgentEvent =
   | { type: 'connected'; sessionId: string }
   | { type: 'agent_start' }
+  | { type: 'thinking_start' }
+  | { type: 'thinking_delta'; delta: string }
+  | { type: 'thinking_end'; content: string }
   | { type: 'assistant_delta'; delta: string }
   | { type: 'assistant_message_end' }
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }

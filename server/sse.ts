@@ -20,7 +20,12 @@ export function addSseClient(sessionId: string, res: ServerResponse): () => void
   clients.add(res)
 
   const heartbeat = setInterval(() => {
-    res.write(':\n\n')
+    try { res.write(':\n\n') } catch {
+      clearInterval(heartbeat)
+      clients?.delete(res)
+      if (clients?.size === 0) clientsBySession.delete(sessionId)
+      try { res.end() } catch { /* already closed */ }
+    }
   }, 30_000)
 
   return () => {
@@ -35,5 +40,13 @@ export function broadcastAgentEvent(sessionId: string, event: WebAgentEvent): vo
   const clients = clientsBySession.get(sessionId)
   if (!clients) return
   const payload = `data: ${JSON.stringify(event)}\n\n`
-  for (const client of clients) client.write(payload)
+  for (const client of clients) {
+    try {
+      client.write(payload)
+    } catch {
+      clients.delete(client)
+      if (clients.size === 0) clientsBySession.delete(sessionId)
+      try { client.end() } catch { /* already closed */ }
+    }
+  }
 }
