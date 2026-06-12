@@ -122,8 +122,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
         setDropdownOpen(false)
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setDirectoryError(msg === 'AbortError' || msg.includes('abort') ? '选择目录超时，请重试' : msg)
+      setDirectoryError(err instanceof Error ? err.message : String(err))
     } finally {
       setSelectingDirectory(false)
     }
