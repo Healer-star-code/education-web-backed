@@ -37,7 +37,7 @@ async function walk(dir: string, startedAt: number, out: ArtifactInfo[], session
     return
   }
   for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.pi') continue
+    if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === '.pi' || entry.name === '.educational-agent') continue
     const full = join(dir, entry.name)
     if (!isPathAllowed(sessionId, root, full)) continue
     if (entry.isDirectory()) {

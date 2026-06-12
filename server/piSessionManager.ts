@@ -15,7 +15,8 @@ import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
 import { removeSessionArtifacts, scanArtifacts } from './artifactManager.ts'
-import { ensureGlobalSkillsDir, globalSkillsDir } from './skillsManager.ts'
+import { allGlobalSkillPaths, ensureGlobalSkillsDir, globalSkillsDir } from './skillsManager.ts'
+import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { assertUserProjectPath } from './pathGuards.ts'
@@ -219,7 +220,7 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
     cwd: root,
     agentDir: getAgentDir(),
     settingsManager: SettingsManager.create(root, getAgentDir()),
-    additionalSkillPaths: [globalSkillsDir()],
+    additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(root, () => sessionId)],
   })
   await resourceLoader.reload()
@@ -258,7 +259,7 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
     cwd,
     agentDir: getAgentDir(),
     settingsManager: SettingsManager.create(cwd, getAgentDir()),
-    additionalSkillPaths: [globalSkillsDir()],
+    additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(cwd, () => sessionId)],
   })
   await resourceLoader.reload()
@@ -337,8 +338,10 @@ export async function sendPrompt(sessionId: string, message: string, images?: Ap
   if (!managed) throw new Error(`Session not found: ${sessionId}`)
   const shouldAutoName = managed.session.messages.length === 0
   const startedAt = Date.now()
+  const savedUploads = await saveUploads(managed.cwd, sessionId, images)
   const sdkImages = toSdkImages(images)
-  await managed.session.prompt(message, sdkImages ? { images: sdkImages } : undefined)
+  const promptMessage = `${message}${buildUploadContext(savedUploads)}`
+  await managed.session.prompt(promptMessage, sdkImages ? { images: sdkImages } : undefined)
   const artifacts = await scanArtifacts(sessionId, managed.cwd, startedAt)
   for (const artifact of artifacts) {
     broadcastAgentEvent(sessionId, { type: 'artifact_created', artifact })
@@ -444,12 +447,14 @@ export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   await loader.reload()
   const { skills } = loader.getSkills()
   const globalRoot = globalSkillsDir().replace(/[/\\]+/g, '\\').toLowerCase()
+  const officeRoots = allGlobalSkillPaths().slice(1).map((path) => path.replace(/[/\\]+/g, '\\').toLowerCase())
   return skills.map((skill) => {
     const filePath = skill.filePath.replace(/[/\\]+/g, '\\').toLowerCase()
+    const isOfficeSkill = officeRoots.some((root) => filePath.startsWith(root))
     return {
       name: skill.name,
       description: skill.description,
-      source: filePath.startsWith(globalRoot) ? 'global' : (skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath),
+      source: filePath.startsWith(globalRoot) ? 'global' : isOfficeSkill ? 'office-global' : (skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath),
       enabled: !skill.disableModelInvocation,
     }
   })

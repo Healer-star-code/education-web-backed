@@ -42,6 +42,17 @@ export async function ensureGlobalSkillsDir(): Promise<string> {
   return dir
 }
 
+export function officeSkillPaths(): string[] {
+  const base = join(process.env.USERPROFILE ?? '', '.config', 'opencode', 'skills')
+  return ['docx', 'pptx', 'xlsx']
+    .map((name) => join(base, name))
+    .filter((path) => existsSync(path))
+}
+
+export function allGlobalSkillPaths(): string[] {
+  return [globalSkillsDir(), ...officeSkillPaths()]
+}
+
 export async function createGlobalSkill(payload: CreateSkillPayload): Promise<SkillInfo> {
   validateSkillPayload(payload)
 
