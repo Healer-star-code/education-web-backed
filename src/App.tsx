@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { ChatArea } from './components/ChatArea'
 import type { SessionInfo } from './mockData'
-import type { ChatInputHandle } from './components/ChatInput'
+import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession } from './lib/piApi'
@@ -298,11 +298,13 @@ export default function App() {
                 onSessionCreated={handleSessionCreated}
               />
             ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <StreamTitle />
-                <div style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-                  请先从左侧选择项目目录，智能体只能在该目录内工作
-                </div>
+                <ChatInput
+                  ref={chatInputRef}
+                  placeholder="先选择项目目录后即可开始对话..."
+                  onSend={() => setToast('请先从左侧选择项目目录')}
+                />
               </div>
             )}
           </div>
