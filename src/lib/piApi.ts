@@ -58,13 +58,17 @@ export type WebAgentEvent =
 const API_BASE = import.meta.env.VITE_PI_API_BASE ?? 'http://localhost:30142'
 
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 60000)
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
+    signal: controller.signal,
     headers: {
       'Content-Type': 'application/json',
       ...init?.headers,
     },
   })
+  clearTimeout(timer)
   const data = await res.json() as T & { error?: string }
   if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
   return data
