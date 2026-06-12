@@ -355,21 +355,17 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
       <div style={{ padding: '8px', flexShrink: 0 }}>
         <button
           title="Skills"
-          onClick={() => {
-            if (selectedCwd) onOpenSkills?.()
-          }}
+          onClick={() => onOpenSkills?.()}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             height: 32, padding: 0, background: 'none', border: 'none',
-            borderRadius: 9, color: 'var(--text-muted)', cursor: selectedCwd ? 'pointer' : 'default',
-            fontSize: 12, opacity: selectedCwd ? 1 : 0.35,
+            borderRadius: 9, color: 'var(--text-muted)', cursor: 'pointer',
+            fontSize: 12, opacity: 1,
             transition: 'background 0.12s, color 0.12s',
           }}
           onMouseEnter={(e) => {
-            if (selectedCwd) {
-              e.currentTarget.style.background = 'var(--bg-hover)'
-              e.currentTarget.style.color = 'var(--text)'
-            }
+            e.currentTarget.style.background = 'var(--bg-hover)'
+            e.currentTarget.style.color = 'var(--text)'
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = 'none'

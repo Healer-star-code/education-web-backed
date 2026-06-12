@@ -19,7 +19,7 @@ import { allGlobalSkillPaths, ensureGlobalSkillsDir, globalSkillsDir } from './s
 import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { assertUserProjectPath } from './pathGuards.ts'
+import { assertUserProjectPath, userHomePath } from './pathGuards.ts'
 import { getSessionTitleMeta, markAiTitleGenerated, markUserTitle } from './sessionTitleManager.ts'
 import {
   isCommandAllowed,
@@ -438,12 +438,11 @@ export function renameSession(sessionId: string, name: string): WebSessionInfo {
 }
 
 export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
-  if (!cwd?.trim()) return []
-  const root = assertUserProjectPath(cwd)
+  const root = cwd?.trim() ? assertUserProjectPath(cwd) : userHomePath()
   await ensureGlobalSkillsDir()
   const agentDir = getAgentDir()
   const settingsManager = SettingsManager.create(root, agentDir)
-  const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager, additionalSkillPaths: [globalSkillsDir()] })
+  const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager, additionalSkillPaths: allGlobalSkillPaths() })
   await loader.reload()
   const { skills } = loader.getSkills()
   const globalRoot = globalSkillsDir().replace(/[/\\]+/g, '\\').toLowerCase()
