@@ -15,7 +15,7 @@ import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
 import { removeSessionArtifacts, scanArtifacts } from './artifactManager.ts'
-import { allGlobalSkillPaths, ensureGlobalSkillsDir, globalSkillsDir } from './skillsManager.ts'
+import { allGlobalSkillPaths, ensureOfficeSkillsInstalled, globalSkillsDir } from './skillsManager.ts'
 import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
 import { resolve } from 'node:path'
@@ -214,7 +214,7 @@ function handleSessionEvent(sessionId: string, event: AgentSessionEvent): void {
 export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
   const root = requireCwd(cwd)
   const sessionManager = SessionManager.create(root)
-  await ensureGlobalSkillsDir()
+  await ensureOfficeSkillsInstalled()
   let sessionId: string | null = null
   const resourceLoader = new DefaultResourceLoader({
     cwd: root,
@@ -253,7 +253,7 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
 export async function openWebSession(sessionFile: string): Promise<WebSessionInfo> {
   const sessionManager = SessionManager.open(sessionFile)
   const cwd = requireCwd(sessionManager.getCwd() ?? undefined)
-  await ensureGlobalSkillsDir()
+  await ensureOfficeSkillsInstalled()
   let sessionId: string | null = null
   const resourceLoader = new DefaultResourceLoader({
     cwd,
@@ -439,21 +439,19 @@ export function renameSession(sessionId: string, name: string): WebSessionInfo {
 
 export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   const root = cwd?.trim() ? assertUserProjectPath(cwd) : userHomePath()
-  await ensureGlobalSkillsDir()
+  await ensureOfficeSkillsInstalled()
   const agentDir = getAgentDir()
   const settingsManager = SettingsManager.create(root, agentDir)
   const loader = new DefaultResourceLoader({ cwd: root, agentDir, settingsManager, additionalSkillPaths: allGlobalSkillPaths() })
   await loader.reload()
   const { skills } = loader.getSkills()
   const globalRoot = globalSkillsDir().replace(/[/\\]+/g, '\\').toLowerCase()
-  const officeRoots = allGlobalSkillPaths().slice(1).map((path) => path.replace(/[/\\]+/g, '\\').toLowerCase())
   return skills.map((skill) => {
     const filePath = skill.filePath.replace(/[/\\]+/g, '\\').toLowerCase()
-    const isOfficeSkill = officeRoots.some((root) => filePath.startsWith(root))
     return {
       name: skill.name,
       description: skill.description,
-      source: filePath.startsWith(globalRoot) ? 'global' : isOfficeSkill ? 'office-global' : (skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath),
+      source: filePath.startsWith(globalRoot) ? 'global' : (skill.sourceInfo.scope ?? skill.sourceInfo.source ?? skill.filePath),
       enabled: !skill.disableModelInvocation,
     }
   })

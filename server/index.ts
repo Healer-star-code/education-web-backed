@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
-import { createGlobalSkill, deleteGlobalSkill, globalSkillsDir, type CreateSkillPayload } from './skillsManager.ts'
+import { createGlobalSkill, deleteGlobalSkill, ensureOfficeSkillsInstalled, globalSkillsDir, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
 import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
 import { assertUserProjectPath, filterUserProjectPaths, isSystemProjectPath } from './pathGuards.ts'
@@ -203,6 +203,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && url.pathname === '/api/skills/root') {
+      await ensureOfficeSkillsInstalled()
       sendJson(res, 200, { path: globalSkillsDir() })
       return
     }

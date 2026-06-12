@@ -1,6 +1,6 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { SkillInfo } from './types.ts'
 import { appDir } from './env.ts'
 
@@ -42,6 +42,21 @@ export async function ensureGlobalSkillsDir(): Promise<string> {
   return dir
 }
 
+async function installBundledOfficeSkills(): Promise<void> {
+  const root = await ensureGlobalSkillsDir()
+  const sourceRoot = join(process.env.USERPROFILE ?? '', '.config', 'opencode', 'skills')
+  for (const name of ['docx', 'pptx', 'xlsx']) {
+    const source = join(sourceRoot, name)
+    const target = join(root, basename(name))
+    if (!existsSync(source) || existsSync(target)) continue
+    await cp(source, target, { recursive: true })
+  }
+}
+
+export async function ensureOfficeSkillsInstalled(): Promise<void> {
+  await installBundledOfficeSkills()
+}
+
 export function officeSkillPaths(): string[] {
   const base = join(process.env.USERPROFILE ?? '', '.config', 'opencode', 'skills')
   return ['docx', 'pptx', 'xlsx']
@@ -50,7 +65,7 @@ export function officeSkillPaths(): string[] {
 }
 
 export function allGlobalSkillPaths(): string[] {
-  return [globalSkillsDir(), ...officeSkillPaths()]
+  return [globalSkillsDir()]
 }
 
 export async function createGlobalSkill(payload: CreateSkillPayload): Promise<SkillInfo> {
