@@ -177,14 +177,16 @@ function extractToolCalls(content: unknown): WebToolCall[] | undefined {
 
 function toWebMessage(message: unknown, index: number): WebMessage | null {
   if (!isRecord(message)) return null
-  const role = message.role
+  // Handle envelope format: { type: 'message', message: { role, content } }
+  const inner = isRecord(message.message) ? message.message : message
+  const role = inner.role
   if (role !== 'user' && role !== 'assistant') return null
   return {
     id: `${role}-${index}`,
     role,
-    content: extractTextContent(message.content),
-    thinkingContent: extractThinkingContent(message.content),
-    toolCalls: extractToolCalls(message.content),
+    content: extractTextContent(inner.content),
+    thinkingContent: extractThinkingContent(inner.content),
+    toolCalls: extractToolCalls(inner.content),
   }
 }
 
@@ -458,13 +460,15 @@ export function getMessages(sessionId: string): WebMessage[] {
   for (let i = 0; i < rawMessages.length; i++) {
     const raw = rawMessages[i]
     if (!isRecord(raw)) continue
-    const role = raw.role
+    // Handle envelope format: { type: 'message', message: { role, ... } }
+    const inner = isRecord(raw.message) ? raw.message : raw
+    const role = inner.role
     if (role === 'toolResult') {
-      const toolCallId = typeof raw.toolCallId === 'string' ? raw.toolCallId : undefined
+      const toolCallId = typeof inner.toolCallId === 'string' ? inner.toolCallId : undefined
       if (toolCallId) {
         toolResults.set(toolCallId, {
-          result: extractTextContent(raw.content),
-          isError: raw.isError === true,
+          result: extractTextContent(inner.content),
+          isError: inner.isError === true,
         })
       }
       continue

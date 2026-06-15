@@ -3,8 +3,7 @@ import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentSte
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
-import { ToolCallRow } from './ToolCallCard'
-import { ThinkingBlock } from './ThinkingBlock'
+import { ReasoningBlock } from './ReasoningBlock'
 import { fileToBase64 } from '../lib/image'
 import { connectSessionEvents, createSession, getMessages, sendPrompt, abortSession, type WebAgentEvent } from '../lib/piApi'
 
@@ -511,21 +510,9 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             const hasSteps = !!(m.steps && m.steps.length > 0)
             return (
               <div key={m.id} style={{ marginBottom: m.role === 'user' ? 16 : 0 }}>
-                {hasSteps && m.steps!.map((step) => {
-                  if (step.type === 'thinking') {
-                    return (
-                      <ThinkingBlock
-                        key={step.id}
-                        content={step.content}
-                        durationMs={step.durationMs}
-                        isThinking={step.isThinking}
-                      />
-                    )
-                  }
-                  return (
-                    <ToolCallRow key={step.id} tool={step} />
-                  )
-                })}
+                {hasSteps && (
+                  <ReasoningBlock steps={m.steps!} />
+                )}
                 {!hasSteps && isActiveAssistant && !m.content && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ display: 'inline-flex', gap: 3 }}>
