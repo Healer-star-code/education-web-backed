@@ -359,7 +359,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: 'rgba(0,0,0,0.4)',
                     }}>
-                      <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>{att.progress}%</span>
+                      <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700 }}>{att.progress}%</span>
                     </div>
                   )}
                   <button
@@ -368,7 +368,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       position: 'absolute', top: -2, right: -2,
                       width: 16, height: 16, borderRadius: '50%',
                       background: 'rgba(0,0,0,0.7)', border: 'none',
-                      color: '#fff', fontSize: 10, lineHeight: '16px',
+                      color: '#fff', fontSize: 'calc(var(--font-base) * 0.714)', lineHeight: '16px',
                       textAlign: 'center', cursor: 'pointer', padding: 0,
                     }}
                   >×</button>
@@ -392,7 +392,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               outline: 'none',
               resize: 'none',
               color: 'var(--text)',
-              fontSize: 15,
+              fontSize: 'calc(var(--font-base) * 1.071)',
               lineHeight: 1.8,
               fontFamily: 'inherit',
               minHeight: 40,
@@ -473,7 +473,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 borderRadius: 8,
                 color: '#fff',
                 cursor: 'pointer',
-                fontSize: 13,
+                fontSize: 'calc(var(--font-base) * 0.929)',
                 fontWeight: 600,
                 letterSpacing: '-0.01em',
                 boxShadow: '0 1px 3px rgba(37,99,235,0.25)',

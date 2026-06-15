@@ -60,7 +60,7 @@ function TreeNode({ node, depth, onOpenFile, expandedPaths, onToggle }: {
         </span>
         <span
           style={{
-            fontSize: 12,
+            fontSize: 'var(--font-sm)',
             color: 'var(--text)',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -85,7 +85,7 @@ function TreeNode({ node, depth, onOpenFile, expandedPaths, onToggle }: {
             />
           ))}
           {node.children.length === 0 && (
-            <div style={{ paddingLeft: 8 + (depth + 1) * 14, fontSize: 11, color: 'var(--text-dim)', height: 22, display: 'flex', alignItems: 'center' }}>
+              <div style={{ paddingLeft: 8 + (depth + 1) * 14, fontSize: 'var(--font-xs)', color: 'var(--text-dim)', height: 22, display: 'flex', alignItems: 'center' }}>
               empty
             </div>
           )}
@@ -122,7 +122,7 @@ export function FileExplorer({ tree, onOpenFile }: Props) {
             border: 'none',
             color: 'var(--text-muted)',
             cursor: 'pointer',
-            fontSize: 11,
+            fontSize: 'var(--font-xs)',
             fontWeight: 600,
             letterSpacing: '0.05em',
             textTransform: 'uppercase',

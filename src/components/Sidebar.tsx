@@ -93,7 +93,7 @@ function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): Ses
 
 function PiAgentTitle() {
   return (
-    <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: '-0.01em', color: 'var(--text)' }}>
+    <span style={{ fontWeight: 700, fontSize: 'var(--font-md)', letterSpacing: '-0.01em', color: 'var(--text)' }}>
       教育智能体
     </span>
   )
@@ -158,7 +158,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                 paddingLeft: 10,
                 paddingRight: 12,
                 borderRadius: 7,
-                fontSize: 12,
+                fontSize: 'var(--font-sm)',
                 fontWeight: 500,
                 letterSpacing: '-0.01em',
                 flexShrink: 0,
@@ -229,7 +229,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               border: selectedCwd ? '1px solid var(--border)' : '1px solid rgba(37,99,235,0.4)',
               borderRadius: 7,
               cursor: 'pointer',
-              fontSize: 12,
+              fontSize: 'var(--font-sm)',
               color: 'var(--text)',
               textAlign: 'left',
               transition: 'border-color 0.15s, background 0.15s',
@@ -242,7 +242,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 fontFamily: 'var(--font-mono)',
-                fontSize: 11,
+                fontSize: 'var(--font-xs)',
                 color: selectedCwd ? 'var(--text)' : 'var(--text-dim)',
               }}
               title={selectedCwd ?? ''}
@@ -285,7 +285,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                     color: cwd === selectedCwd ? 'var(--text)' : 'var(--text-muted)',
                     cursor: 'pointer',
                     textAlign: 'left',
-                    fontSize: 11,
+                    fontSize: 'var(--font-xs)',
                     fontFamily: 'var(--font-mono)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
@@ -318,7 +318,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                   color: 'var(--text-muted)',
                   cursor: selectingDirectory ? 'wait' : 'pointer',
                   textAlign: 'left',
-                  fontSize: 11,
+                  fontSize: 'var(--font-xs)',
                 }}
               >
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" style={{ flexShrink: 0 }}>
@@ -331,7 +331,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
           )}
         </div>
         {directoryError && (
-          <div style={{ marginTop: 6, color: '#dc2626', fontSize: 11, lineHeight: 1.4 }}>
+          <div style={{ marginTop: 6, color: '#dc2626', fontSize: 'var(--font-xs)', lineHeight: 1.4 }}>
             {directoryError}
           </div>
         )}
@@ -340,7 +340,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
       {/* Session list */}
       <div style={{ flex: '1 1 0', overflowY: 'auto', padding: '0', minHeight: 80 }}>
         {filteredSessions.length === 0 && (
-          <div style={{ padding: '16px 14px', color: sessionLoadError ? '#dc2626' : 'var(--text-muted)', fontSize: 12, lineHeight: 1.5 }}>
+          <div style={{ padding: '16px 14px', color: sessionLoadError ? '#dc2626' : 'var(--text-muted)', fontSize: 'var(--font-sm)', lineHeight: 1.5 }}>
             {sessionLoadError ? `后端连接失败：${sessionLoadError}` : '此目录下暂无历史会话'}
           </div>
         )}
@@ -369,7 +369,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             height: 32, padding: 0, background: 'none', border: 'none',
             borderRadius: 9, color: 'var(--text-muted)', cursor: 'pointer',
-            fontSize: 12, opacity: 1,
+            fontSize: 'var(--font-sm)', opacity: 1,
             transition: 'background 0.12s, color 0.12s',
           }}
           onMouseEnter={(e) => {
@@ -600,7 +600,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               }}
               style={{
                 flex: 1, minWidth: 0, boxSizing: 'border-box',
-                fontSize: 12, lineHeight: 1.4,
+                fontSize: 'var(--font-sm)', lineHeight: 1.4,
                 border: '1px solid var(--accent)', borderRadius: 4,
                 padding: '2px 5px', background: 'var(--bg-panel)', color: 'var(--text)',
                 outline: 'none',
@@ -615,7 +615,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
             <span style={{
               padding: '1px 5px',
               background: 'rgba(239,68,68,0.12)',
-              borderRadius: 3, fontSize: 10,
+              borderRadius: 3, fontSize: 'var(--font-xs)',
               color: '#f87171', fontWeight: 500,
               flexShrink: 0,
             }}>
@@ -717,10 +717,10 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               </MenuButton>
             ) : (
               <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 11, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                   确认
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 11, background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>
                   取消
                 </button>
               </div>
@@ -774,7 +774,7 @@ const menuItemStyle: React.CSSProperties = {
   width: '100%', padding: '6px 8px',
   background: 'none', border: 'none', borderRadius: 5,
   color: 'var(--text)', cursor: 'pointer',
-  fontSize: 12, textAlign: 'left' as const,
+  fontSize: 'var(--font-sm)', textAlign: 'left' as const,
   fontFamily: 'inherit', fontWeight: 400,
   transition: 'background 0.08s',
 }

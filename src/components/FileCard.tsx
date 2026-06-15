@@ -26,8 +26,8 @@ export function AttachmentCard({ attachment, compact = false }: { attachment: Me
     <a href={attachment.url} download={attachment.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: compact ? 130 : 220, maxWidth: compact ? 180 : 320, padding: compact ? '6px 8px' : '9px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', textDecoration: 'none' }}>
       <span style={{ flexShrink: 0 }}>{getFileIcon(attachment.name, compact ? 22 : 28)}</span>
       <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 11 : 13, fontWeight: 650 }}>{attachment.name}</span>
-        <span style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>{extLabel(attachment.name)} {attachment.size ? `· ${formatBytes(attachment.size)}` : ''}</span>
+        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 'var(--font-xs)' : 'calc(var(--font-base) * 0.929)', fontWeight: 650 }}>{attachment.name}</span>
+        <span style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 1 }}>{extLabel(attachment.name)} {attachment.size ? `· ${formatBytes(attachment.size)}` : ''}</span>
       </span>
     </a>
   )
@@ -55,11 +55,11 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactInfo }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-panel)', maxWidth: 520 }}>
       <span style={{ flexShrink: 0 }}>{getFileIcon(artifact.name, 34)}</span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artifact.name}</div>
-        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{extLabel(artifact.name)} · {formatBytes(artifact.size)}</div>
+        <div style={{ fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artifact.name}</div>
+        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 2 }}>{extLabel(artifact.name)} · {formatBytes(artifact.size)}</div>
       </div>
-      <a href={url} download={artifact.name} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none', fontSize: 12 }}>下载</a>
-      <button onClick={saveAs} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, cursor: 'pointer' }}>另存为</button>
+      <a href={url} download={artifact.name} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none', fontSize: 'var(--font-sm)' }}>下载</a>
+      <button onClick={saveAs} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 'var(--font-sm)', cursor: 'pointer' }}>另存为</button>
     </div>
   )
 }

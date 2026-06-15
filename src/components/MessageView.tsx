@@ -75,7 +75,7 @@ function UserMessageView({ message }: { message: Message }) {
             border: '1px solid rgba(59,130,246,0.2)',
             borderRadius: '12px 12px 4px 12px',
             padding: hasAttachments ? '6px' : '8px 12px',
-            fontSize: 'var(--msg-font-size, 14px)',
+            fontSize: 'var(--msg-font-size, var(--font-base))',
             lineHeight: 'var(--msg-line-height, 1.6)',
             color: 'var(--text)',
             wordBreak: 'break-word',
@@ -115,7 +115,7 @@ function UserMessageView({ message }: { message: Message }) {
               borderRadius: 5,
               color: copied ? 'var(--accent)' : 'var(--text-dim)',
               cursor: 'pointer',
-              fontSize: 'var(--toolbar-font-size, 11px)', fontWeight: 400,
+              fontSize: 'var(--toolbar-font-size, var(--font-xs))', fontWeight: 400,
               whiteSpace: 'nowrap',
               transition: 'color 0.12s',
             }}
@@ -136,7 +136,7 @@ function UserMessageView({ message }: { message: Message }) {
           </button>
         </div>
         {message.timestamp && (
-          <span style={{ fontSize: 'var(--timestamp-size, 10px)', color: 'var(--text-dim)' }}>{formatTime(message.timestamp)}</span>
+          <span style={{ fontSize: 'var(--timestamp-size, var(--font-xs))', color: 'var(--text-dim)' }}>{formatTime(message.timestamp)}</span>
         )}
       </div>
     </div>
@@ -214,7 +214,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
             borderRadius: 5,
             color: copied ? 'var(--accent)' : 'var(--text-dim)',
             cursor: 'pointer',
-            fontSize: 11, fontWeight: 400,
+              fontSize: 'var(--font-xs)', fontWeight: 400,
             whiteSpace: 'nowrap',
             opacity: hovered ? 1 : 0,
             pointerEvents: hovered ? 'auto' : 'none',
@@ -236,7 +236,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
           {copied ? '已复制' : '复制'}
         </button>
         {!isStreaming && message.timestamp && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto' }}>
+          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginLeft: 'auto' }}>
             {formatTime(message.timestamp)}
           </span>
         )}
@@ -271,7 +271,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           padding: '6px 14px',
           background: 'rgba(255,255,255,0.06)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
-          fontSize: 11,
+          fontSize: 'var(--font-xs)',
           color: 'rgba(255,255,255,0.5)',
           display: 'flex',
           justifyContent: 'space-between',
@@ -293,7 +293,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
             display: 'flex',
             alignItems: 'center',
             gap: 4,
-            fontSize: 11,
+            fontSize: 'var(--font-xs)',
           }}
           onMouseEnter={(e) => { if (!copied) e.currentTarget.style.color = 'rgba(255,255,255,0.8)' }}
           onMouseLeave={(e) => { if (!copied) e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}
@@ -323,7 +323,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
         customStyle={{
           margin: 0,
           padding: '14px 16px',
-          fontSize: 13,
+          fontSize: '0.929rem',
           lineHeight: 1.65,
           borderRadius: 0,
           background: '#1a1a2e',

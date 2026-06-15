@@ -36,13 +36,15 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     onClose()
   }
 
-  const youngFontSizes = [14, 16, 18]
-  const seniorFontSizes = [18, 20, 22]
-  const fontSizes = draftMode === 'senior' ? seniorFontSizes : youngFontSizes
+  const ALL_FONT_SIZES = [14, 16, 18, 20, 22]
+  const DEFAULT_SIZE = 16
 
   const handleModeChange = (newMode: 'young' | 'senior') => {
     setDraftMode(newMode)
-    setDraftFontSize(newMode === 'senior' ? 18 : 14)
+    // Keep user's font size choice; only reset if current size is not in valid range
+    if (!ALL_FONT_SIZES.includes(draftFontSize)) {
+      setDraftFontSize(DEFAULT_SIZE)
+    }
   }
 
   const accentColor = draftMode === 'senior' ? '#ea580c' : 'var(--accent)'
@@ -56,7 +58,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       animation: 'fadeIn 0.15s ease',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        width: 420, maxWidth: '90vw',
+        width: 460, maxWidth: '90vw',
         background: 'var(--bg-panel)', border: '1px solid var(--border)',
         borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
         padding: '24px 28px 20px',
@@ -172,24 +174,49 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>字体大小</div>
-            {draftMode === 'senior' && (
-              <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 500 }}>老教师版已自动调大</span>
-            )}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            {fontSizes.map((size) => (
-              <button key={size} onClick={() => setDraftFontSize(size)} style={{
-                flex: 1, padding: '12px 0', borderRadius: 10, fontSize: 14,
-                background: draftFontSize === size ? accentColor : 'var(--bg-hover)',
-                color: draftFontSize === size ? '#fff' : 'var(--text-muted)',
-                border: draftFontSize === size ? 'none' : '1px solid var(--border)',
-                cursor: 'pointer', fontWeight: draftFontSize === size ? 700 : 500,
-                transition: 'all 0.15s',
-              }}>
-                <div style={{ fontSize: size, fontWeight: 700, marginBottom: 2 }}>Aa</div>
-                <div style={{ fontSize: 11 }}>{size}px</div>
-              </button>
-            ))}
+            {ALL_FONT_SIZES.map((size) => {
+              const isSelected = draftFontSize === size
+              const isStandard = size === DEFAULT_SIZE
+              return (
+                <button key={size} onClick={() => setDraftFontSize(size)} style={{
+                  flex: 1, padding: '12px 0 8px', borderRadius: 10,
+                  background: isSelected ? accentColor : 'var(--bg-hover)',
+                  color: isSelected ? '#fff' : 'var(--text-muted)',
+                  border: isSelected ? 'none' : '1px solid var(--border)',
+                  cursor: 'pointer', fontWeight: isSelected ? 700 : 500,
+                  transition: 'all 0.15s',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  position: 'relative',
+                }}>
+                  <div style={{ fontSize: size, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>Aa</div>
+                  <div style={{ fontSize: 11, opacity: 0.8 }}>{size}px</div>
+                  {isStandard && (
+                    <div style={{
+                      position: 'absolute', bottom: -10,
+                      fontSize: 10, fontWeight: 600,
+                      color: isSelected ? accentColor : 'var(--text-dim)',
+                      background: isSelected ? '#fff' : 'var(--bg)',
+                      padding: '1px 6px', borderRadius: 8,
+                      border: `1px solid ${isSelected ? accentColor : 'var(--border)'}`,
+                      whiteSpace: 'nowrap',
+                    }}>标准</div>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+          {/* Preview */}
+          <div style={{
+            marginTop: 18, padding: '12px 14px',
+            background: 'var(--bg)', borderRadius: 10,
+            border: '1px solid var(--border)',
+          }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, fontWeight: 500 }}>预览效果</div>
+            <div style={{ fontSize: draftFontSize, lineHeight: 1.6, color: 'var(--text)' }}>
+              教育智能体可以帮助您备课、批改作业、生成教案，让教学工作更加轻松高效。
+            </div>
           </div>
         </div>
 

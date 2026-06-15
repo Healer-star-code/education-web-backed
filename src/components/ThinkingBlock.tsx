@@ -45,7 +45,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
           display: 'flex', alignItems: 'center', gap: 6,
           padding: '4px 10px',
           background: 'none', border: 'none',
-          color: 'var(--text-dim)', fontSize: 'var(--thinking-header-size, 12px)',
+          color: 'var(--text-dim)', fontSize: 'var(--font-sm)',
           cursor: 'pointer', fontWeight: 500,
           textAlign: 'left',
           borderRadius: 6,
@@ -85,7 +85,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
       {expanded && (
         <div style={{
           padding: '6px 12px 8px',
-          fontSize: 'var(--thinking-body-size, 13px)', lineHeight: 'var(--msg-line-height, 1.7)',
+          fontSize: 'calc(var(--font-base) * 0.929)', lineHeight: 'var(--msg-line-height, 1.7)',
           color: 'var(--text-muted)',
           whiteSpace: 'pre-line', wordBreak: 'break-word',
           maxHeight: 300, overflowY: 'auto',

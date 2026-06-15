@@ -346,7 +346,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 12 }}>
             教育智能体
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 'var(--font-base)', color: 'var(--text-muted)' }}>
             请从侧边栏选择项目目录开始
           </div>
         </div>
@@ -358,7 +358,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 'var(--font-md)', color: 'var(--text-muted)' }}>
             请从侧边栏选择会话
           </div>
         </div>
@@ -383,15 +383,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.4 }}>
                 <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>教育智能体</span>
-                <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                <span style={{ fontSize: 'var(--font-base)', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   <Typewriter phrases={TYPEWRITER_PHRASES} />
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                   教育智能体
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                   {APP_INSTITUTION}
                 </span>
               </div>
@@ -409,13 +409,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         padding: '10px 16px', borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 10,
         background: 'var(--bg-panel)', flexShrink: 0,
-        fontSize: 13,
+        fontSize: 'calc(var(--font-base) * 0.929)',
       }}>
         <span style={{ fontWeight: 600, color: 'var(--text)' }}>
           {session?.name || session?.firstMessage?.slice(0, 50) || '会话'}
         </span>
         {effectiveCwd && (
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+          <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
             {effectiveCwd}
           </span>
         )}
@@ -455,7 +455,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                         }} />
                       ))}
                     </span>
-                    <span style={{ color: 'var(--text-dim)', fontSize: 13 }}>正在思考...</span>
+                    <span style={{ color: 'var(--text-dim)', fontSize: 'calc(var(--font-base) * 0.929)' }}>正在思考...</span>
                   </div>
                 )}
                 {hasText && (
@@ -464,7 +464,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               </div>
             )
           })}
-          {error && <div style={{ color: '#ef4444', fontSize: 13, marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: '#ef4444', fontSize: 'calc(var(--font-base) * 0.929)', marginBottom: 10 }}>{error}</div>}
           <div ref={messagesEndRef} />
         </div>
       </div>

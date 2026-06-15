@@ -85,7 +85,7 @@ html.senior-mode .thinking-shimmer {
 
 /* Senior mode: larger markdown body text */
 html.senior-mode .markdown-body {
-  font-size: 16px !important;
+  font-size: var(--font-md) !important;
   line-height: 1.9 !important;
 }
 
@@ -94,7 +94,7 @@ html.senior-mode .markdown-body p {
 }
 
 html.senior-mode .markdown-body table {
-  font-size: 15px;
+  font-size: var(--font-base);
 }
 
 html.senior-mode .markdown-body th,
@@ -112,16 +112,32 @@ html.senior-mode .markdown-body td {
 
 * { box-sizing: border-box; }
 
+html {
+  /* Root font size controlled by JS via --font-size */
+  font-size: var(--font-size, 14px);
+}
+
 html, body {
-  --font-size: 14px;
   height: 100%;
   margin: 0;
   padding: 0;
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: var(--font-size);
+  font-size: 1rem;
   overscroll-behavior: none;
+}
+
+/* Responsive font scale variables based on root font-size */
+:root {
+  --font-size: 14px;
+  --font-xs: 0.786rem;   /* 11px at 14px base */
+  --font-sm: 0.857rem;   /* 12px at 14px base */
+  --font-base: 1rem;     /* = --font-size */
+  --font-md: 1.143rem;   /* 16px at 14px base */
+  --font-lg: 1.286rem;   /* 18px at 14px base */
+  --font-xl: 1.429rem;   /* 20px at 14px base */
+  --font-2xl: 1.571rem;  /* 22px at 14px base */
 }
 
 body { height: 100dvh; }
@@ -136,7 +152,7 @@ body { height: 100dvh; }
 pre, code { font-family: var(--font-mono); }
 
 .markdown-body {
-  font-size: 14px;
+  font-size: var(--font-base);
   line-height: 1.7;
   color: var(--text);
   word-break: break-word;
@@ -168,7 +184,7 @@ pre, code { font-family: var(--font-mono); }
   border-collapse: collapse;
   width: 100%;
   margin: 8px 0;
-  font-size: 13px;
+  font-size: var(--font-sm);
 }
 .markdown-body th, .markdown-body td {
   border: 1px solid var(--border);

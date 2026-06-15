@@ -87,13 +87,6 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle('senior-mode', mode === 'senior')
     localStorage.setItem('pi-mode', mode)
-    // Auto-adjust font size when switching modes
-    if (mode === 'senior' && fontSize < 18) {
-      setFontSize(18)
-    } else if (mode === 'young' && fontSize > 16) {
-      setFontSize(14)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
   useEffect(() => {
@@ -302,7 +295,7 @@ export default function App() {
                 border: skillsOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
                 borderRadius: 7, color: skillsOpen ? 'var(--accent)' : 'var(--text-muted)',
                 cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
-                fontSize: 12, fontWeight: 600,
+                fontSize: 'var(--font-sm)', fontWeight: 600,
               }}
             >
               Skills
@@ -354,15 +347,15 @@ export default function App() {
                     }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.4 }}>
                         <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>教育智能体</span>
-                        <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                        <span style={{ fontSize: 'var(--font-base)', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                           <Typewriter phrases={TYPEWRITER_PHRASES} />
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                           教育智能体
                         </span>
-                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                           {APP_INSTITUTION}
                         </span>
                       </div>
@@ -400,7 +393,7 @@ export default function App() {
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           padding: '10px 20px', borderRadius: 10, background: '#dc2626', color: '#fff',
-          fontSize: 13, fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
           zIndex: 999, transition: 'opacity 0.3s',
         }}>
           {toast}
