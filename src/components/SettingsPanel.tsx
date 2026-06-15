@@ -66,7 +66,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         padding: '24px 28px 20px',
         animation: 'fadeIn 0.2s ease',
         maxHeight: '90vh', overflowY: 'auto',
-      }}
+      }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>设置</span>
