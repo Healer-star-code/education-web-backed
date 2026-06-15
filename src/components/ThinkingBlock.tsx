@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 interface Props {
   content: string
@@ -9,6 +9,7 @@ interface Props {
 export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!isThinking || durationMs > 0) return
@@ -27,6 +28,13 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
       setExpanded(false)
     }
   }, [isThinking, durationMs, content])
+
+  // Auto-scroll thinking content to bottom when expanded or content updates
+  useEffect(() => {
+    if (expanded && contentRef.current) {
+      contentRef.current.scrollTop = contentRef.current.scrollHeight
+    }
+  }, [expanded, content])
 
   if (!content) return null
 
@@ -83,7 +91,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
       </button>
 
       {expanded && (
-        <div style={{
+        <div ref={contentRef} style={{
           padding: '6px 12px 8px',
           fontSize: 'calc(var(--font-base) * 0.929)', lineHeight: 'var(--msg-line-height, 1.7)',
           color: 'var(--text-muted)',

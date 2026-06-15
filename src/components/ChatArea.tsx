@@ -355,7 +355,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }, [])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Auto-scroll to bottom whenever messages or steps change
+    const container = scrollContainerRef.current
+    if (!container) return
+    // Use requestAnimationFrame to ensure scroll happens after DOM update
+    requestAnimationFrame(() => {
+      container.scrollTop = container.scrollHeight
+    })
   }, [messages])
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd

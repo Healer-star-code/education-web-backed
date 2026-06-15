@@ -163,6 +163,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         const readyAttachments = currentAttachments.filter((a) => a.progress >= 100)
         onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
       }
+      // Auto-focus textarea after voice send
+      setTimeout(() => textareaRef.current?.focus(), 0)
     } else {
       startRecording()
     }
@@ -254,6 +256,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     uploadTimersRef.current = []
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
+      // Auto-focus textarea after sending so user can type immediately
+      setTimeout(() => textareaRef.current?.focus(), 0)
     }
   }, [value, attachments, isStreaming, onSend])
 
@@ -484,7 +488,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 <line x1="2" y1="7" x2="11" y2="7" />
                 <polyline points="7.5 3 12 7 7.5 11" />
               </svg>
-              Send
+              发送
             </button>
           )}
           </div>
