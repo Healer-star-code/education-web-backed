@@ -45,9 +45,15 @@ export default function App() {
 
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [isDark, setIsDark] = useState(false)
-  const [fontSize, setFontSize] = useState(14)
-  const [mode, setMode] = useState<'young' | 'senior'>('young')
+  const [isDark, setIsDark] = useState(() => {
+    try { return localStorage.getItem('pi-theme') === 'dark' } catch { return false }
+  })
+  const [fontSize, setFontSize] = useState(() => {
+    try { const v = Number(localStorage.getItem('pi-font-size')); return v >= 12 && v <= 24 ? v : 14 } catch { return 14 }
+  })
+  const [mode, setMode] = useState<'young' | 'senior'>(() => {
+    try { const v = localStorage.getItem('pi-mode'); return v === 'senior' ? 'senior' : 'young' } catch { return 'young' }
+  })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -71,7 +77,20 @@ export default function App() {
   }, [isDark])
 
   useEffect(() => {
+    document.documentElement.classList.toggle('senior-mode', mode === 'senior')
+    localStorage.setItem('pi-mode', mode)
+    // Auto-adjust font size when switching modes
+    if (mode === 'senior' && fontSize < 18) {
+      setFontSize(18)
+    } else if (mode === 'young' && fontSize > 16) {
+      setFontSize(14)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  useEffect(() => {
     document.documentElement.style.setProperty('--font-size', `${fontSize}px`)
+    localStorage.setItem('pi-font-size', String(fontSize))
   }, [fontSize])
 
   useEffect(() => {

@@ -544,7 +544,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); if (!menuOpen) setConfirming(false) }}
       style={{
-        height: 54,
+        height: 'var(--session-item-height, 54px)',
         display: 'flex',
         alignItems: 'center',
         paddingLeft: depth > 0 ? depth * 12 + 14 : 14,
@@ -568,7 +568,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div
           style={{
-            fontSize: 12,
+            fontSize: 'var(--sidebar-title-size, 12px)',
             fontWeight: isSelected ? 500 : 400,
             lineHeight: 1.4,
             overflow: 'hidden',
@@ -623,12 +623,12 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
             </span>
           )}
         </div>
-        <div style={{ marginTop: 2, display: 'flex', gap: 8, color: 'var(--text-dim)', fontSize: 11 }}>
+        <div style={{ marginTop: 2, display: 'flex', gap: 8, color: 'var(--text-dim)', fontSize: 'var(--sidebar-meta-size, 11px)' }}>
           <span title={session.modified}>{formatRelativeTime(session.modified)}</span>
           <span>{session.messageCount} 条消息</span>
         </div>
         <div style={{
-          marginTop: 1, fontSize: 10, color: 'var(--text-dim)',
+          marginTop: 1, fontSize: 'var(--sidebar-path-size, 10px)', color: 'var(--text-dim)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
           {session.cwd}

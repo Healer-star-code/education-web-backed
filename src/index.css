@@ -33,6 +33,75 @@ html.dark {
   --bg-subtle: rgba(255,255,255,0.04);
 }
 
+/* Senior mode: accessibility enhancements for elderly users */
+html.senior-mode {
+  --line-height: 1.8;
+  --text-muted: #4b5563;
+  --text-dim: #6b7280;
+  --session-item-height: 68px;
+  --sidebar-title-size: 15px;
+  --sidebar-meta-size: 13px;
+  --sidebar-path-size: 12px;
+  --button-padding-y: 12px;
+  --button-padding-x: 16px;
+  --input-height: 48px;
+  --icon-button-size: 44px;
+  --msg-font-size: 16px;
+  --msg-line-height: 1.8;
+  --toolbar-btn-height: 26px;
+  --toolbar-font-size: 13px;
+  --timestamp-size: 12px;
+  --thinking-header-size: 14px;
+  --thinking-body-size: 14px;
+  --tool-header-size: 14px;
+  --tool-body-size: 13px;
+  --gap-sm: 12px;
+  --gap-md: 16px;
+  --gap-lg: 24px;
+  --border-width: 1.5px;
+}
+
+html.senior-mode.dark {
+  --text-muted: #9ca3af;
+  --text-dim: #6b7280;
+}
+
+html.senior-mode,
+html.senior-mode body {
+  line-height: var(--line-height, 1.8);
+}
+
+/* Reduce animations for senior mode */
+html.senior-mode * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.15s !important;
+}
+
+/* But keep essential transitions */
+html.senior-mode .thinking-shimmer {
+  animation: shimmer 2s ease-in-out infinite !important;
+}
+
+/* Senior mode: larger markdown body text */
+html.senior-mode .markdown-body {
+  font-size: 16px !important;
+  line-height: 1.9 !important;
+}
+
+html.senior-mode .markdown-body p {
+  margin: 0 0 12px;
+}
+
+html.senior-mode .markdown-body table {
+  font-size: 15px;
+}
+
+html.senior-mode .markdown-body th,
+html.senior-mode .markdown-body td {
+  padding: 7px 12px;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;

@@ -94,7 +94,7 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   }
 
   return (
-    <div style={{ fontSize: 12, marginBottom: 2 }}>
+    <div style={{ fontSize: 'var(--tool-header-size, 12px)', marginBottom: 2 }}>
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{
@@ -103,7 +103,7 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
           background: 'none', border: 'none',
           borderRadius: 5,
           color: tool.status === 'running' ? 'var(--accent)' : 'var(--text-dim)',
-          fontSize: 12, fontWeight: tool.status === 'running' ? 500 : 400,
+          fontSize: 'var(--tool-header-size, 12px)', fontWeight: tool.status === 'running' ? 500 : 400,
           cursor: 'pointer', textAlign: 'left',
           fontFamily: 'inherit',
           transition: 'background 0.1s',
@@ -152,7 +152,7 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
           padding: '6px 10px',
           background: 'rgba(0,0,0,0.03)',
           borderRadius: 6,
-          fontSize: 11, lineHeight: 1.5,
+          fontSize: 'var(--tool-body-size, 11px)', lineHeight: 1.5,
           color: 'var(--text-muted)',
           fontFamily: 'var(--font-mono)',
           whiteSpace: 'pre-wrap', wordBreak: 'break-word',
