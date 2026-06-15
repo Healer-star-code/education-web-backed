@@ -296,13 +296,37 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             connectEvents(opened.id)
             const loadedMessages = await getMessages(opened.id)
             if (cancelled) return
-            setMessages(loadedMessages.map((msg) => ({
-              id: msg.id,
-              role: msg.role as 'user' | 'assistant',
-              content: msg.content,
-              timestamp: msg.timestamp,
-              steps: [],
-            })))
+            setMessages(loadedMessages.map((msg) => {
+              const steps: AgentStep[] = []
+              if (msg.thinkingContent) {
+                steps.push({
+                  type: 'thinking',
+                  id: `think-${msg.id}`,
+                  content: msg.thinkingContent,
+                  durationMs: msg.thinkingDurationMs ?? 0,
+                  isThinking: false,
+                })
+              }
+              if (msg.toolCalls) {
+                for (const tc of msg.toolCalls) {
+                  steps.push({
+                    type: 'tool',
+                    id: tc.id,
+                    name: tc.name,
+                    status: tc.status,
+                    args: tc.args,
+                    result: tc.result,
+                  })
+                }
+              }
+              return {
+                id: msg.id,
+                role: msg.role as 'user' | 'assistant',
+                content: msg.content,
+                timestamp: msg.timestamp,
+                steps,
+              }
+            }))
           })
           .catch((err) => {
             if (!cancelled) {

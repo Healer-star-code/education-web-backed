@@ -85,11 +85,22 @@ interface ManagedSession {
   autoNaming?: boolean
 }
 
+export interface WebToolCall {
+  id: string
+  name: string
+  status: 'running' | 'done' | 'error'
+  args?: unknown
+  result?: unknown
+}
+
 export interface WebMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp?: string
+  thinkingContent?: string
+  thinkingDurationMs?: number
+  toolCalls?: WebToolCall[]
 }
 
 const sessions = new Map<string, ManagedSession>()
@@ -134,6 +145,36 @@ function extractTextContent(content: unknown): string {
     .join('')
 }
 
+function extractThinkingContent(content: unknown): string | undefined {
+  if (typeof content === 'string') return undefined
+  if (!Array.isArray(content)) return undefined
+  for (const part of content) {
+    if (!isRecord(part)) continue
+    if (part.type === 'thinking' && typeof part.thinking === 'string') {
+      return part.thinking
+    }
+  }
+  return undefined
+}
+
+function extractToolCalls(content: unknown): WebToolCall[] | undefined {
+  if (typeof content === 'string') return undefined
+  if (!Array.isArray(content)) return undefined
+  const calls: WebToolCall[] = []
+  for (const part of content) {
+    if (!isRecord(part)) continue
+    if (part.type === 'toolCall' && typeof part.id === 'string' && typeof part.name === 'string') {
+      calls.push({
+        id: part.id,
+        name: part.name,
+        status: 'running',
+        args: part.arguments,
+      })
+    }
+  }
+  return calls.length > 0 ? calls : undefined
+}
+
 function toWebMessage(message: unknown, index: number): WebMessage | null {
   if (!isRecord(message)) return null
   const role = message.role
@@ -142,6 +183,8 @@ function toWebMessage(message: unknown, index: number): WebMessage | null {
     id: `${role}-${index}`,
     role,
     content: extractTextContent(message.content),
+    thinkingContent: extractThinkingContent(message.content),
+    toolCalls: extractToolCalls(message.content),
   }
 }
 
@@ -407,9 +450,43 @@ export async function deleteSession(sessionFile: string): Promise<void> {
 export function getMessages(sessionId: string): WebMessage[] {
   const managed = sessions.get(sessionId)
   if (!managed) return []
-  return managed.session.messages
-    .map((message, index) => toWebMessage(message, index))
-    .filter((message): message is WebMessage => message !== null)
+  const rawMessages = managed.session.messages
+  const result: WebMessage[] = []
+  const toolResults = new Map<string, { result?: unknown; isError?: boolean }>()
+
+  // First pass: collect toolResults and build WebMessages
+  for (let i = 0; i < rawMessages.length; i++) {
+    const raw = rawMessages[i]
+    if (!isRecord(raw)) continue
+    const role = raw.role
+    if (role === 'toolResult') {
+      const toolCallId = typeof raw.toolCallId === 'string' ? raw.toolCallId : undefined
+      if (toolCallId) {
+        toolResults.set(toolCallId, {
+          result: extractTextContent(raw.content),
+          isError: raw.isError === true,
+        })
+      }
+      continue
+    }
+    const webMsg = toWebMessage(raw, i)
+    if (webMsg) result.push(webMsg)
+  }
+
+  // Second pass: merge toolResults into assistant messages' toolCalls
+  for (const msg of result) {
+    if (msg.role === 'assistant' && msg.toolCalls && msg.toolCalls.length > 0) {
+      for (const tc of msg.toolCalls) {
+        const tr = toolResults.get(tc.id)
+        if (tr) {
+          tc.status = tr.isError ? 'error' : 'done'
+          tc.result = tr.result
+        }
+      }
+    }
+  }
+
+  return result
 }
 
 export function listTools(sessionId: string): Array<{ name: string; description: string; active: boolean }> {

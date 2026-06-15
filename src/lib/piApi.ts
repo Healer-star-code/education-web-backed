@@ -23,11 +23,22 @@ export interface WebSessionInfo {
   parentSessionId?: string
 }
 
+export interface WebToolCall {
+  id: string
+  name: string
+  status: 'running' | 'done' | 'error'
+  args?: unknown
+  result?: unknown
+}
+
 export interface WebMessage {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp?: string
+  thinkingContent?: string
+  thinkingDurationMs?: number
+  toolCalls?: WebToolCall[]
 }
 
 export interface SkillInfo {
