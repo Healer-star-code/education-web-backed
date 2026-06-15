@@ -42,11 +42,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
 
   const handleModeChange = (newMode: 'young' | 'senior') => {
     setDraftMode(newMode)
-    if (newMode === 'senior' && draftFontSize < 18) {
-      setDraftFontSize(18)
-    } else if (newMode === 'young' && draftFontSize > 16) {
-      setDraftFontSize(14)
-    }
+    setDraftFontSize(newMode === 'senior' ? 18 : 14)
   }
 
   const accentColor = draftMode === 'senior' ? '#ea580c' : 'var(--accent)'

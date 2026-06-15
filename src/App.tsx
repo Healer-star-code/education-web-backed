@@ -49,7 +49,15 @@ export default function App() {
     try { return localStorage.getItem('pi-theme') === 'dark' } catch { return false }
   })
   const [fontSize, setFontSize] = useState(() => {
-    try { const v = Number(localStorage.getItem('pi-font-size')); return v >= 12 && v <= 24 ? v : 14 } catch { return 14 }
+    try {
+      const saved = localStorage.getItem('pi-font-size')
+      if (saved !== null) {
+        const v = Number(saved)
+        if (v >= 12 && v <= 24) return v
+      }
+      const m = localStorage.getItem('pi-mode')
+      return m === 'senior' ? 18 : 14
+    } catch { return 14 }
   })
   const [mode, setMode] = useState<'young' | 'senior'>(() => {
     try { const v = localStorage.getItem('pi-mode'); return v === 'senior' ? 'senior' : 'young' } catch { return 'young' }
