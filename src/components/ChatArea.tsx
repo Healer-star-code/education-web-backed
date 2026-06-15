@@ -6,7 +6,7 @@ import { Typewriter } from './Typewriter'
 import { ToolCallRow } from './ToolCallCard'
 import { ThinkingBlock } from './ThinkingBlock'
 import { fileToBase64 } from '../lib/image'
-import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
+import { connectSessionEvents, createSession, getMessages, sendPrompt, abortSession, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
   session: SessionInfo | null
@@ -70,6 +70,9 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const currentThinkingRef = useRef<string>('')
   const currentThinkingStartRef = useRef<number>(0)
   const currentThinkingStepIdRef = useRef<string | null>(null)
+  const pendingToolUpdateRef = useRef<{ toolCallId: string; partialResult: unknown } | null>(null)
+  const toolUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isUserNearBottomRef = useRef(true)
 
   const handleAgentEvent = useCallback((event: WebAgentEvent) => {
     switch (event.type) {
@@ -146,12 +149,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'tool_update': {
         const assistantId = currentAssistantIdRef.current
         if (!assistantId) break
-        setMessages((prev) => prev.map((msg) => {
-          if (msg.id !== assistantId || !msg.steps) return msg
-          return { ...msg, steps: msg.steps.map((s) => (
-            s.type === 'tool' && s.id === event.toolCallId ? { ...s, partialResult: event.partialResult } : s
-          )) }
-        }))
+        pendingToolUpdateRef.current = { toolCallId: event.toolCallId, partialResult: event.partialResult }
+        if (toolUpdateTimerRef.current) return
+        toolUpdateTimerRef.current = setTimeout(() => {
+          toolUpdateTimerRef.current = null
+          const pending = pendingToolUpdateRef.current
+          if (!pending) return
+          pendingToolUpdateRef.current = null
+          setMessages((prev) => prev.map((msg) => {
+            if (msg.id !== assistantId || !msg.steps) return msg
+            return { ...msg, steps: msg.steps.map((s) => (
+              s.type === 'tool' && s.id === pending.toolCallId ? { ...s, partialResult: pending.partialResult } : s
+            )) }
+          }))
+        }, 200)
         break
       }
       case 'tool_end': {
@@ -272,6 +283,42 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     }
   }, [ensureSdkSession, onSessionCreated])
 
+  const handleAbort = useCallback(async () => {
+    const sdkSessionId = sdkSessionIdRef.current
+    const assistantId = currentAssistantIdRef.current
+    if (!sdkSessionId) return
+
+    // Close SSE connection first
+    eventSourceRef.current?.close()
+    eventSourceRef.current = null
+
+    // Call backend abort
+    try {
+      await abortSession(sdkSessionId)
+    } catch (err) {
+      console.error('Abort failed:', err)
+    }
+
+    // Clear any pending tool update timer
+    if (toolUpdateTimerRef.current) {
+      clearTimeout(toolUpdateTimerRef.current)
+      toolUpdateTimerRef.current = null
+    }
+    pendingToolUpdateRef.current = null
+
+    // Remove incomplete assistant message
+    if (assistantId) {
+      setMessages((prev) => prev.filter((msg) => msg.id !== assistantId))
+    }
+
+    // Reset state
+    setStreaming(false)
+    currentAssistantIdRef.current = null
+    currentThinkingRef.current = ''
+    currentThinkingStartRef.current = 0
+    currentThinkingStepIdRef.current = null
+  }, [])
+
   useEffect(() => {
     let cancelled = false
     sdkSessionIdRef.current = null
@@ -355,13 +402,17 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }, [])
 
   useEffect(() => {
-    // Auto-scroll to bottom whenever messages or steps change
+    // Auto-scroll to bottom only when user is near bottom
     const container = scrollContainerRef.current
     if (!container) return
-    // Use requestAnimationFrame to ensure scroll happens after DOM update
-    requestAnimationFrame(() => {
-      container.scrollTop = container.scrollHeight
-    })
+    const threshold = 100
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+    isUserNearBottomRef.current = nearBottom
+    if (nearBottom) {
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight
+      })
+    }
   }, [messages])
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd
@@ -426,7 +477,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 </span>
               </div>
             </div>
-            <ChatInput ref={chatInputRef} onSend={handleSend} />
+            <ChatInput ref={chatInputRef} onSend={handleSend} onAbort={handleAbort} />
           </div>
         </div>
       </div>
@@ -499,7 +550,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         </div>
       </div>
 
-      <ChatInput ref={chatInputRef} onSend={handleSend} isStreaming={streaming} />
+      <ChatInput ref={chatInputRef} onSend={handleSend} onAbort={handleAbort} isStreaming={streaming} />
     </div>
   )
 }

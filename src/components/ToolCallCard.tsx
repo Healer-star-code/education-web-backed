@@ -70,12 +70,19 @@ function formatResult(result: unknown): string {
 
 export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   const [expanded, setExpanded] = useState(false)
+  const [elapsedMs, setElapsedMs] = useState(0)
 
   useEffect(() => {
     if (tool.status === 'running') {
       setExpanded(true)
+      const start = Date.now()
+      const timer = setInterval(() => {
+        setElapsedMs(Date.now() - start)
+      }, 200)
+      return () => clearInterval(timer)
     } else {
       setExpanded(false)
+      setElapsedMs(0)
     }
   }, [tool.status])
 
@@ -84,9 +91,15 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   const ctx = truncateContext(extractContext(tool.name, tool.args))
   const resultText = formatResult(tool.result ?? tool.partialResult)
 
+  const durationText = elapsedMs >= 1000
+    ? ` ⏱ ${(elapsedMs / 1000).toFixed(1)}秒`
+    : elapsedMs > 0
+      ? ` ⏱ ${elapsedMs}毫秒`
+      : ''
+
   let label = ''
   if (tool.status === 'running') {
-    label = `正在${meta.label}${ctx ? ' ' + ctx : ''}...`
+    label = `正在${meta.label}${ctx ? ' ' + ctx : ''}...${durationText}`
   } else if (tool.status === 'done') {
     label = `${meta.pastTense}${ctx ? ' ' + ctx : ''}`
   } else {

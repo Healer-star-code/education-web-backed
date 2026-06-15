@@ -4,6 +4,7 @@ import { AttachmentCard } from './FileCard'
 
 interface Props {
   onSend: (message: string, attachments?: LocalAttachment[]) => void
+  onAbort?: () => void
   isStreaming?: boolean
   placeholder?: string
 }
@@ -24,7 +25,7 @@ export interface ChatInputHandle {
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
-  onSend, isStreaming, placeholder,
+  onSend, onAbort, isStreaming, placeholder,
 }, ref) {
   const [value, setValue] = useState('')
   const [recording, setRecording] = useState(false)
@@ -463,10 +464,36 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 </svg>
               </button>
             </>
+          ) : isStreaming ? (
+            <button
+              onClick={onAbort}
+              style={{
+                flexShrink: 0,
+                alignSelf: 'flex-end',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                height: 'var(--input-height, 40px)', padding: '0 14px',
+                background: '#dc2626',
+                border: 'none',
+                borderRadius: 8,
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: 'calc(var(--font-base) * 0.929)',
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+                boxShadow: '0 1px 3px rgba(220,38,38,0.25)',
+                transition: 'background 0.15s, box-shadow 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = '#b91c1c' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = '#dc2626' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                <rect x="3" y="3" width="8" height="8" rx="1" />
+              </svg>
+              停止
+            </button>
           ) : (
             <button
               onClick={handleSend}
-              disabled={isStreaming}
               style={{
                 flexShrink: 0,
                 alignSelf: 'flex-end',
