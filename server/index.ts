@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { URL } from 'node:url'
 import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
-import { createGlobalSkill, deleteGlobalSkill, ensureOfficeSkillsInstalled, globalSkillsDir, type CreateSkillPayload } from './skillsManager.ts'
+import { createGlobalSkill, deleteGlobalSkill, ensureOfficeSkillsInstalled, globalSkillsDir, listInstalledGlobalSkills, reinstallOfficeSkills, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
 import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
 import { assertUserProjectPath, filterUserProjectPaths, isSystemProjectPath } from './pathGuards.ts'
@@ -199,6 +199,17 @@ const server = createServer(async (req, res) => {
       }
       await deleteSession(body.sessionFile)
       sendJson(res, 200, { ok: true })
+      return
+    }
+
+    if (req.method === 'GET' && url.pathname === '/api/skills/installed') {
+      sendJson(res, 200, { skills: await listInstalledGlobalSkills(), root: globalSkillsDir() })
+      return
+    }
+
+    if (req.method === 'POST' && url.pathname === '/api/skills/reinstall-office') {
+      await reinstallOfficeSkills()
+      sendJson(res, 200, { skills: await listInstalledGlobalSkills(), root: globalSkillsDir() })
       return
     }
 

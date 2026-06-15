@@ -26,8 +26,8 @@ import {
   isPathAllowed,
   registerSessionPermissions,
   removeSessionPermissions,
-  requestCommandPermission,
-  requestPathPermission,
+  requestCommandPermissionAndWait,
+  requestPathPermissionAndWait,
   resolveForSession,
 } from './permissionManager.ts'
 
@@ -73,7 +73,7 @@ function requireCwd(cwd?: string): string {
 
 function createSandboxGuardExtension(root: string, getSessionId: () => string | null) {
   return (pi: ExtensionAPI) => {
-    pi.on('tool_call', (event) => {
+    pi.on('tool_call', async (event) => {
       const sessionId = getSessionId()
       if (!sessionId) return { block: true, reason: '会话尚未初始化' }
 
@@ -84,7 +84,8 @@ function createSandboxGuardExtension(root: string, getSessionId: () => string | 
       if (toolName === 'bash') {
         const command = typeof input.command === 'string' ? input.command : ''
         if (!isCommandAllowed(sessionId, root, command)) {
-          return { block: true, reason: requestCommandPermission(sessionId, root, toolName, command) }
+          const decision = await requestCommandPermissionAndWait(sessionId, root, toolName, command)
+          if (decision === 'deny') return { block: true, reason: `用户拒绝执行命令：${command}` }
         }
         return undefined
       }
@@ -96,7 +97,8 @@ function createSandboxGuardExtension(root: string, getSessionId: () => string | 
             : toolName === 'grep' || toolName === 'find' ? 'search'
               : toolName === 'ls' ? 'list'
                 : 'read'
-          return { block: true, reason: requestPathPermission(sessionId, root, toolName, operation, targetPath) }
+          const decision = await requestPathPermissionAndWait(sessionId, root, toolName, operation, targetPath)
+          if (decision === 'deny') return { block: true, reason: `用户拒绝访问路径：${targetPath}` }
         }
       }
 

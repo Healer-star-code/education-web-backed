@@ -8,6 +8,8 @@ interface Props {
   onSelectSession: (s: SessionInfo) => void
   onDeleteSession: (s: SessionInfo) => void
   onRenameSession?: (s: SessionInfo, name: string) => void
+  onPinSession?: (s: SessionInfo) => void
+  pinnedIds?: Set<string>
   onNewSession: () => void
   selectedCwd: string | null
   recentCwds: string[]
@@ -23,11 +25,11 @@ function formatRelativeTime(dateStr: string): string {
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days < 7) return `${days}d ago`
-  return date.toLocaleDateString()
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins}分钟前`
+  if (hours < 24) return `${hours}小时前`
+  if (days < 7) return `${days}天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
 function shortenCwd(cwd: string): string {
@@ -43,7 +45,7 @@ interface SessionTreeNode {
   children: SessionTreeNode[]
 }
 
-function buildSessionTree(sessions: SessionInfo[]): SessionTreeNode[] {
+function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): SessionTreeNode[] {
   const byId = new Map<string, SessionTreeNode>()
   for (const s of sessions) {
     byId.set(s.id, { session: s, children: [] })
@@ -77,7 +79,12 @@ function buildSessionTree(sessions: SessionInfo[]): SessionTreeNode[] {
   }
 
   const sort = (nodes: SessionTreeNode[]) => {
-    nodes.sort((a, b) => b.session.modified.localeCompare(a.session.modified))
+    nodes.sort((a, b) => {
+      const aPinned = pinnedIds?.has(a.session.id) ? 1 : 0
+      const bPinned = pinnedIds?.has(b.session.id) ? 1 : 0
+      if (aPinned !== bPinned) return bPinned - aPinned
+      return b.session.modified.localeCompare(a.session.modified)
+    })
     nodes.forEach((n) => sort(n.children))
   }
   sort(roots)
@@ -92,7 +99,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession, onRenameSession }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -112,7 +119,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
     ? sessions.filter((s) => s.cwd.replace(/[/\\]+/g, '/') === selectedCwd.replace(/[/\\]+/g, '/'))
     : sessions
 
-  const sessionTree = useMemo(() => buildSessionTree(filteredSessions), [filteredSessions])
+  const sessionTree = useMemo(() => buildSessionTree(filteredSessions, pinnedIds), [filteredSessions, pinnedIds])
 
   async function handleCustomPath() {
     if (selectingDirectory) return
@@ -345,6 +352,8 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             onSelectSession={onSelectSession}
             onDeleteSession={onDeleteSession}
             onRenameSession={onRenameSession}
+            onPinSession={onPinSession}
+            pinnedIds={pinnedIds}
             depth={0}
           />
         ))}
@@ -384,12 +393,14 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   )
 }
 
-function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, onRenameSession, depth }: {
+function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, onRenameSession, onPinSession, pinnedIds, depth }: {
   node: SessionTreeNode
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
   onDeleteSession: (s: SessionInfo) => void
   onRenameSession?: (s: SessionInfo, name: string) => void
+  onPinSession?: (s: SessionInfo) => void
+  pinnedIds?: Set<string>
   depth: number
 }) {
   const [collapsed, setCollapsed] = useState(false)
@@ -414,6 +425,8 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
           onClick={() => onSelectSession(node.session)}
           onDelete={() => onDeleteSession(node.session)}
           onRename={(name) => onRenameSession?.(node.session, name)}
+          onPin={() => onPinSession?.(node.session)}
+          isPinned={pinnedIds?.has(node.session.id) ?? false}
           depth={depth}
           hasChildren={hasChildren}
           collapsed={collapsed}
@@ -430,6 +443,8 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
               onSelectSession={onSelectSession}
               onDeleteSession={onDeleteSession}
               onRenameSession={onRenameSession}
+              onPinSession={onPinSession}
+              pinnedIds={pinnedIds}
               depth={depth + 1}
             />
           ))}
@@ -439,22 +454,77 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
   )
 }
 
-function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
+function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, isPinned, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
   session: SessionInfo
   isSelected: boolean
   onClick: () => void
   onDelete: () => void
   onRename?: (name: string) => void
+  onPin?: () => void
+  isPinned?: boolean
   depth?: number
   hasChildren?: boolean
   collapsed?: boolean
   onToggleCollapse?: () => void
 }) {
   const [hovered, setHovered] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
   const [draftTitle, setDraftTitle] = useState(title)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+        setConfirming(false)
+      }
+    }
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        setConfirming(false)
+      }
+    }
+    const resizeHandler = () => {
+      setMenuOpen(false)
+      setConfirming(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('keydown', keyHandler)
+    window.addEventListener('resize', resizeHandler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', keyHandler)
+      window.removeEventListener('resize', resizeHandler)
+    }
+  }, [menuOpen])
+
+  function openMenu() {
+    const rect = triggerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const MENU_WIDTH = 150
+    const MENU_HEIGHT = 180
+    const GAP = 6
+    const PAD = 8
+    let left = rect.right + GAP
+    let top = rect.top
+    if (left + MENU_WIDTH > window.innerWidth - PAD) {
+      left = rect.left - MENU_WIDTH - GAP
+    }
+    if (left < PAD) left = PAD
+    if (top + MENU_HEIGHT > window.innerHeight - PAD) {
+      top = window.innerHeight - MENU_HEIGHT - PAD
+    }
+    if (top < PAD) top = PAD
+    setMenuPos({ top, left })
+    setMenuOpen(true)
+  }
 
   function submitRename() {
     const next = draftTitle.trim()
@@ -462,11 +532,17 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
     if (next && next !== title) onRename?.(next)
   }
 
+  function handleShare() {
+    setMenuOpen(false)
+    const text = `会话：${title}\n项目：${session.cwd}\n时间：${session.modified}\n消息数：${session.messageCount}`
+    navigator.clipboard?.writeText(text).catch(() => {})
+  }
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => { setHovered(false); if (!menuOpen) setConfirming(false) }}
       style={{
         height: 54,
         display: 'flex',
@@ -499,14 +575,18 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             color: 'var(--text)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
           }}
           title={title}
-          onDoubleClick={(e) => {
-            e.stopPropagation()
-            setDraftTitle(title)
-            setEditing(true)
-          }}
         >
+          {isPinned && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--accent)" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <line x1="12" y1="17" x2="12" y2="22" />
+              <path d="M5 17h14v-2.4a1 1 0 0 0-.3-.7l-2.1-1.9V7.5a1 1 0 0 1 .3-.7l1.5-1.4a1 1 0 0 0 .3-.7V3H5v1.7a1 1 0 0 0 .3.7l1.5 1.4a1 1 0 0 1 .3.7V12l-2.1 1.9a1 1 0 0 0-.3.7Z" />
+            </svg>
+          )}
           {editing ? (
             <input
               value={draftTitle}
@@ -516,17 +596,28 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
               onBlur={submitRename}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') submitRename()
-                if (e.key === 'Escape') setEditing(false)
+                if (e.key === 'Escape') { setDraftTitle(title); setEditing(false) }
               }}
-              style={{ width: '100%', fontSize: 12, border: '1px solid var(--accent)', borderRadius: 4, padding: '1px 4px', background: 'var(--bg)', color: 'var(--text)' }}
+              style={{
+                flex: 1, minWidth: 0, boxSizing: 'border-box',
+                fontSize: 12, lineHeight: 1.4,
+                border: '1px solid var(--accent)', borderRadius: 4,
+                padding: '2px 5px', background: 'var(--bg-panel)', color: 'var(--text)',
+                outline: 'none',
+              }}
             />
-          ) : title}
+          ) : (
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {title}
+            </span>
+          )}
           {!editing && session.orphaned && (
             <span style={{
-              marginLeft: 6, padding: '1px 5px',
+              padding: '1px 5px',
               background: 'rgba(239,68,68,0.12)',
               borderRadius: 3, fontSize: 10,
               color: '#f87171', fontWeight: 500,
+              flexShrink: 0,
             }}>
               incomplete
             </span>
@@ -534,7 +625,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
         </div>
         <div style={{ marginTop: 2, display: 'flex', gap: 8, color: 'var(--text-dim)', fontSize: 11 }}>
           <span title={session.modified}>{formatRelativeTime(session.modified)}</span>
-          <span>{session.messageCount} msgs</span>
+          <span>{session.messageCount} 条消息</span>
         </div>
         <div style={{
           marginTop: 1, fontSize: 10, color: 'var(--text-dim)',
@@ -543,43 +634,101 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
           {session.cwd}
         </div>
       </div>
-      {hovered && !confirming && (
-        <button
-          onClick={(e) => { e.stopPropagation(); setConfirming(true) }}
-          title="删除会话"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 20, height: 20, padding: 0, flexShrink: 0,
-            background: 'none', border: 'none',
-            color: 'var(--text-dim)', cursor: 'pointer',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444' }}
-          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-dim)' }}
-        >
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-        </button>
-      )}
-      {confirming && (
-        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+
+      {/* Three-dot menu */}
+      <div ref={menuRef} style={{ position: 'relative', flexShrink: 0 }}>
+        {(hovered || menuOpen) && !editing && (
           <button
-            onClick={(e) => { e.stopPropagation(); onDelete?.(); setConfirming(false) }}
-            title="确认删除"
-            style={{ padding: '2px 6px', fontSize: 10, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+            ref={triggerRef}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (menuOpen) {
+                setMenuOpen(false)
+                setConfirming(false)
+              } else {
+                openMenu()
+              }
+            }}
+            title="更多选项"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 22, height: 22, padding: 0,
+              background: menuOpen ? 'var(--bg-selected)' : 'none',
+              border: 'none', borderRadius: 4,
+              color: menuOpen ? 'var(--text)' : 'var(--text-dim)',
+              cursor: 'pointer',
+              transition: 'background 0.1s',
+            }}
           >
-            删除
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="2" />
+              <circle cx="12" cy="12" r="2" />
+              <circle cx="19" cy="12" r="2" />
+            </svg>
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); setConfirming(false) }}
-            title="取消"
-            style={{ padding: '2px 6px', fontSize: 10, background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}
+        )}
+        {menuOpen && menuPos && (
+          <div
+            style={{
+              position: 'fixed',
+              top: menuPos.top,
+              left: menuPos.left,
+              zIndex: 1000,
+              minWidth: 140,
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+              boxShadow: '0 12px 32px rgba(0,0,0,0.22)',
+              overflow: 'hidden',
+              padding: 4,
+            }}
           >
-            取消
-          </button>
-        </div>
-      )}
+            <MenuButton onClick={(e) => { e.stopPropagation(); onPin?.(); setMenuOpen(false) }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <path d="M5 17h14v-2.4a1 1 0 0 0-.3-.7l-2.1-1.9V7.5a1 1 0 0 1 .3-.7l1.5-1.4a1 1 0 0 0 .3-.7V3H5v1.7a1 1 0 0 0 .3.7l1.5 1.4a1 1 0 0 1 .3.7V12l-2.1 1.9a1 1 0 0 0-.3.7Z" />
+              </svg>
+              {isPinned ? '取消顶置' : '顶置'}
+            </MenuButton>
+            <MenuButton onClick={(e) => { e.stopPropagation(); handleShare() }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              分享
+            </MenuButton>
+            <MenuButton onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setDraftTitle(title); setEditing(true) }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+              </svg>
+              重命名
+            </MenuButton>
+            <div style={{ height: 1, background: 'var(--border)', margin: '2px 6px' }} />
+            {!confirming ? (
+              <MenuButton onClick={(e) => { e.stopPropagation(); setConfirming(true) }} style={{ color: '#ef4444' }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                </svg>
+                删除
+              </MenuButton>
+            ) : (
+              <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
+                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 11, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                  确认
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 11, background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>
+                  取消
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {hasChildren && (
         <button
           onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
@@ -600,4 +749,32 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, depth =
       )}
     </div>
   )
+}
+
+function MenuButton({ onClick, style, children }: { onClick: (e: React.MouseEvent) => void; style?: React.CSSProperties; children: React.ReactNode }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        ...menuItemStyle,
+        ...style,
+        background: hovered ? 'var(--bg-hover)' : 'none',
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+const menuItemStyle: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 7,
+  width: '100%', padding: '6px 8px',
+  background: 'none', border: 'none', borderRadius: 5,
+  color: 'var(--text)', cursor: 'pointer',
+  fontSize: 12, textAlign: 'left' as const,
+  fontFamily: 'inherit', fontWeight: 400,
+  transition: 'background 0.08s',
 }

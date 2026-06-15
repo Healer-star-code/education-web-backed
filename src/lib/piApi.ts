@@ -85,21 +85,30 @@ export type WebAgentEvent =
 
 const API_BASE = import.meta.env.VITE_PI_API_BASE ?? 'http://localhost:30142'
 
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 60000)
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    signal: controller.signal,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  })
-  clearTimeout(timer)
-  const data = await res.json() as T & { error?: string }
-  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
-  return data
+async function requestJson<T>(path: string, init?: RequestInit, options?: { timeoutMs?: number | null }): Promise<T> {
+  const timeoutMs = options?.timeoutMs === undefined ? 60000 : options.timeoutMs
+  const controller = timeoutMs === null ? undefined : new AbortController()
+  const timer = timeoutMs === null ? undefined : setTimeout(() => controller?.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...init,
+      signal: controller?.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...init?.headers,
+      },
+    })
+    const data = await res.json() as T & { error?: string }
+    if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+    return data
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试')
+    }
+    throw err
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 export async function selectDirectory(): Promise<string | null> {
@@ -135,7 +144,7 @@ export async function sendPrompt(sessionId: string, payload: PromptPayload): Pro
   await requestJson<{ ok: true }>(`/api/sessions/${encodeURIComponent(sessionId)}/prompt`, {
     method: 'POST',
     body: JSON.stringify(payload),
-  })
+  }, { timeoutMs: null })
 }
 
 export async function abortSession(sessionId: string): Promise<void> {
@@ -179,6 +188,14 @@ export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   const query = cwd ? `?cwd=${encodeURIComponent(cwd)}` : ''
   const data = await requestJson<{ skills: SkillInfo[] }>(`/api/skills${query}`)
   return data.skills
+}
+
+export async function listInstalledSkills(): Promise<{ skills: SkillInfo[]; root: string }> {
+  return requestJson<{ skills: SkillInfo[]; root: string }>('/api/skills/installed')
+}
+
+export async function reinstallOfficeSkills(): Promise<{ skills: SkillInfo[]; root: string }> {
+  return requestJson<{ skills: SkillInfo[]; root: string }>('/api/skills/reinstall-office', { method: 'POST', body: JSON.stringify({}) })
 }
 
 export async function createSkill(payload: CreateSkillPayload): Promise<SkillInfo> {

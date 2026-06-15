@@ -59,6 +59,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('pi-pinned-sessions')
+      return new Set(raw ? JSON.parse(raw) as string[] : [])
+    } catch { return new Set<string>() }
+  })
   const chatInputRef = useRef<ChatInputHandle | null>(null)
 
   useEffect(() => {
@@ -148,6 +154,19 @@ export default function App() {
     }
   }, [])
 
+  const handlePinSession = useCallback((session: SessionInfo) => {
+    setPinnedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(session.id)) {
+        next.delete(session.id)
+      } else {
+        next.add(session.id)
+      }
+      localStorage.setItem('pi-pinned-sessions', JSON.stringify([...next]))
+      return next
+    })
+  }, [])
+
   const handleDeleteSession = useCallback(async (session: SessionInfo) => {
     if (!session.sessionFile) return
     try {
@@ -186,6 +205,8 @@ export default function App() {
               onNewSession={handleNewSession}
               onDeleteSession={handleDeleteSession}
               onRenameSession={handleRenameSession}
+              onPinSession={handlePinSession}
+              pinnedIds={pinnedIds}
               selectedCwd={selectedCwd}
               recentCwds={recentCwds}
               onCwdChange={handleCwdChange}
