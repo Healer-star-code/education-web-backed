@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { SessionInfo, Message, MessageAttachment, LocalAttachment } from '../mockData'
+import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
-import { ToolCallCard, type ToolEventView } from './ToolCallCard'
+import { ToolCallRow } from './ToolCallCard'
 import { ThinkingBlock } from './ThinkingBlock'
 import { fileToBase64 } from '../lib/image'
-import { connectSessionEvents, createSession, getMessages, listPermissionRequests, resolvePermission, sendPrompt, type PermissionRequestInfo, type WebAgentEvent } from '../lib/piApi'
+import { connectSessionEvents, createSession, getMessages, sendPrompt, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
   session: SessionInfo | null
@@ -60,8 +60,6 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const [messages, setMessages] = useState<Message[]>([])
   const [hasMessages, setHasMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
-  const [toolEvents, setToolEvents] = useState<ToolEventView[]>([])
-  const [permissionRequests, setPermissionRequests] = useState<PermissionRequestInfo[]>([])
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -71,6 +69,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const currentAssistantIdRef = useRef<string | null>(null)
   const currentThinkingRef = useRef<string>('')
   const currentThinkingStartRef = useRef<number>(0)
+  const currentThinkingStepIdRef = useRef<string | null>(null)
 
   const handleAgentEvent = useCallback((event: WebAgentEvent) => {
     switch (event.type) {
@@ -78,17 +77,30 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         setStreaming(true)
         setError(null)
         break
-      case 'thinking_start':
+      case 'thinking_start': {
         currentThinkingRef.current = ''
         currentThinkingStartRef.current = Date.now()
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) break
+        const stepId = 'think-' + Date.now()
+        currentThinkingStepIdRef.current = stepId
+        const step: AgentStep = { type: 'thinking', id: stepId, content: '', durationMs: 0, isThinking: true }
+        setMessages((prev) => prev.map((msg) => (
+          msg.id === assistantId ? { ...msg, steps: [...(msg.steps ?? []), step] } : msg
+        )))
         break
+      }
       case 'thinking_delta': {
         currentThinkingRef.current += event.delta
         const assistantId = currentAssistantIdRef.current
-        if (!assistantId) return
-        setMessages((prev) => prev.map((msg) => (
-          msg.id === assistantId ? { ...msg, thinkingContent: currentThinkingRef.current } : msg
-        )))
+        const stepId = currentThinkingStepIdRef.current
+        if (!assistantId || !stepId) return
+        setMessages((prev) => prev.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'thinking' && s.id === stepId ? { ...s, content: currentThinkingRef.current } : s
+          )) }
+        }))
         break
       }
       case 'thinking_end': {
@@ -96,11 +108,16 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         currentThinkingRef.current = content
         const durationMs = Date.now() - currentThinkingStartRef.current
         const assistantId = currentAssistantIdRef.current
-        if (assistantId) {
-          setMessages((prev) => prev.map((msg) => (
-            msg.id === assistantId ? { ...msg, thinkingContent: content, thinkingDurationMs: durationMs } : msg
-          )))
+        const stepId = currentThinkingStepIdRef.current
+        if (assistantId && stepId) {
+          setMessages((prev) => prev.map((msg) => {
+            if (msg.id !== assistantId || !msg.steps) return msg
+            return { ...msg, steps: msg.steps.map((s) => (
+              s.type === 'thinking' && s.id === stepId ? { ...s, content, durationMs, isThinking: false } : s
+            )) }
+          }))
         }
+        currentThinkingStepIdRef.current = null
         break
       }
       case 'assistant_delta': {
@@ -111,20 +128,43 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         )))
         break
       }
-      case 'tool_start':
-        setToolEvents((prev) => [...prev, { id: event.toolCallId, label: event.toolName, status: 'running' }])
-        break
-      case 'tool_end':
-        setToolEvents((prev) => prev.map((tool) => (
-          tool.id === event.toolCallId ? { ...tool, status: event.isError ? 'error' : 'done' } : tool
+      case 'tool_start': {
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) break
+        const step: AgentStep = {
+          type: 'tool',
+          id: event.toolCallId,
+          name: event.toolName,
+          status: 'running',
+          args: event.args,
+        }
+        setMessages((prev) => prev.map((msg) => (
+          msg.id === assistantId ? { ...msg, steps: [...(msg.steps ?? []), step] } : msg
         )))
         break
-      case 'permission_request':
-        setPermissionRequests((prev) => prev.some((item) => item.id === event.request.id) ? prev : [...prev, event.request])
+      }
+      case 'tool_update': {
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) break
+        setMessages((prev) => prev.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'tool' && s.id === event.toolCallId ? { ...s, partialResult: event.partialResult } : s
+          )) }
+        }))
         break
-      case 'permission_resolved':
-        setPermissionRequests((prev) => prev.filter((item) => item.id !== event.requestId))
+      }
+      case 'tool_end': {
+        const assistantId = currentAssistantIdRef.current
+        if (!assistantId) break
+        setMessages((prev) => prev.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'tool' && s.id === event.toolCallId ? { ...s, status: event.isError ? 'error' : 'done', result: event.result } : s
+          )) }
+        }))
         break
+      }
       case 'artifact_created': {
         const assistantId = currentAssistantIdRef.current
         setMessages((prev) => {
@@ -166,9 +206,6 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   const connectEvents = useCallback((sessionId: string) => {
     if (eventSourceRef.current) return
-    listPermissionRequests(sessionId)
-      .then(setPermissionRequests)
-      .catch(() => {})
     eventSourceRef.current = connectSessionEvents(sessionId, handleAgentEvent)
     eventSourceRef.current.onerror = () => {
       setError('与 SDK 后端的事件连接已断开')
@@ -185,15 +222,6 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     return created
   }, [connectEvents, newSessionCwd, selectedCwd, session?.cwd])
 
-  const handlePermissionDecision = useCallback(async (request: PermissionRequestInfo, decision: 'allow_once' | 'allow_session' | 'deny') => {
-    try {
-      await resolvePermission(request.sessionId, request.id, decision)
-      setPermissionRequests((prev) => prev.filter((item) => item.id !== request.id))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    }
-  }, [])
-
   const handleSend = useCallback(async (text: string, attachments?: LocalAttachment[]) => {
     const userAttachments = toMessageAttachments(attachments)
     const userMsg: Message = {
@@ -209,16 +237,17 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
+      steps: [],
     }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setHasMessages(true)
     setStreaming(true)
-    setToolEvents([])
     setError(null)
     currentAssistantIdRef.current = assistantId
     currentThinkingRef.current = ''
     currentThinkingStartRef.current = 0
+    currentThinkingStepIdRef.current = null
 
     try {
       const sdkSession = await ensureSdkSession()
@@ -250,7 +279,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     currentAssistantIdRef.current = null
     currentThinkingRef.current = ''
     currentThinkingStartRef.current = 0
-    setPermissionRequests([])
+    currentThinkingStepIdRef.current = null
     eventSourceRef.current?.close()
     eventSourceRef.current = null
 
@@ -269,9 +298,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             if (cancelled) return
             setMessages(loadedMessages.map((msg) => ({
               id: msg.id,
-              role: msg.role,
+              role: msg.role as 'user' | 'assistant',
               content: msg.content,
               timestamp: msg.timestamp,
+              steps: [],
             })))
           })
           .catch((err) => {
@@ -302,7 +332,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, toolEvents])
+  }, [messages])
 
   const effectiveCwd = newSessionCwd ?? session?.cwd ?? selectedCwd
   const showChat = session !== null || newSessionCwd !== null
@@ -329,7 +359,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontSize: 15, color: 'var(--text-muted)' }}>
-            Select a session from the sidebar
+            请从侧边栏选择会话
           </div>
         </div>
       </div>
@@ -382,7 +412,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         fontSize: 13,
       }}>
         <span style={{ fontWeight: 600, color: 'var(--text)' }}>
-          {session?.name || session?.firstMessage?.slice(0, 50) || 'Session'}
+          {session?.name || session?.firstMessage?.slice(0, 50) || '会话'}
         </span>
         {effectiveCwd && (
           <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
@@ -391,52 +421,31 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         )}
       </div>
 
-      {permissionRequests.length > 0 && (
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'rgba(245,158,11,0.10)' }}>
-          {permissionRequests.map((request) => (
-            <div key={request.id} style={{ maxWidth: 820, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>需要授权访问沙盒外资源</div>
-                <div style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={request.path ?? request.command ?? request.reason}>
-                  {request.operation} · {request.path ?? request.command ?? request.reason}
-                </div>
-              </div>
-              <button onClick={() => handlePermissionDecision(request, 'allow_once')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', cursor: 'pointer', fontSize: 12 }}>允许一次</button>
-              <button onClick={() => handlePermissionDecision(request, 'allow_session')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--accent)', color: '#fff', cursor: 'pointer', fontSize: 12 }}>本会话允许</button>
-              <button onClick={() => handlePermissionDecision(request, 'deny')} style={{ padding: '6px 10px', borderRadius: 7, border: '1px solid rgba(220,38,38,0.35)', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}>拒绝</button>
-            </div>
-          ))}
-        </div>
-      )}
-
       <div ref={scrollContainerRef} style={{ flex: 1, overflowY: 'auto', paddingTop: 16 }}>
         <div style={{ maxWidth: 820, margin: '0 auto', padding: '0 16px' }}>
           {messages.map((m, index) => {
             const isLast = index === messages.length - 1
             const isActiveAssistant = isLast && m.role === 'assistant' && streaming
-            const isThinking = isActiveAssistant && !!m.thinkingContent && !m.content
             const hasText = !!m.content
-            const showToolSummary = isLast && m.role === 'assistant' && toolEvents.length > 0
+            const hasSteps = !!(m.steps && m.steps.length > 0)
             return (
               <div key={m.id} style={{ marginBottom: m.role === 'user' ? 16 : 0 }}>
-                {showToolSummary && (
-                  <div style={{ marginBottom: 8 }}>
-                    <ToolCallCard
-                      tools={toolEvents}
-                      collapsed={hasText}
-                    />
-                  </div>
-                )}
-                {m.thinkingContent && (
-                  <div style={{ marginBottom: hasText ? 8 : 0 }}>
-                    <ThinkingBlock
-                      content={m.thinkingContent}
-                      durationMs={m.thinkingDurationMs ?? 0}
-                      isThinking={isThinking}
-                    />
-                  </div>
-                )}
-                {isActiveAssistant && !m.thinkingContent && !m.content && !toolEvents.length && (
+                {hasSteps && m.steps!.map((step) => {
+                  if (step.type === 'thinking') {
+                    return (
+                      <ThinkingBlock
+                        key={step.id}
+                        content={step.content}
+                        durationMs={step.durationMs}
+                        isThinking={step.isThinking}
+                      />
+                    )
+                  }
+                  return (
+                    <ToolCallRow key={step.id} tool={step} />
+                  )
+                })}
+                {!hasSteps && isActiveAssistant && !m.content && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ display: 'inline-flex', gap: 3 }}>
                       {[0, 1, 2].map((i) => (

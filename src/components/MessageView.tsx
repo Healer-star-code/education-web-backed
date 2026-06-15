@@ -107,7 +107,7 @@ function UserMessageView({ message }: { message: Message }) {
         }}>
           <button
             onClick={copyContent}
-            title="Copy message"
+            title="复制消息"
             style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '3px 8px', height: 22,
@@ -132,7 +132,7 @@ function UserMessageView({ message }: { message: Message }) {
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
             )}
-            {copied ? 'Copied' : 'Copy'}
+            {copied ? '已复制' : '复制'}
           </button>
         </div>
         {message.timestamp && (
@@ -206,7 +206,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
       }}>
         <button
           onClick={copyContent}
-          title="Copy message"
+          title="复制消息"
           style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '3px 8px', height: 22,
@@ -233,7 +233,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
             </svg>
           )}
-          {copied ? 'Copied' : 'Copy'}
+          {copied ? '已复制' : '复制'}
         </button>
         {!isStreaming && message.timestamp && (
           <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto' }}>

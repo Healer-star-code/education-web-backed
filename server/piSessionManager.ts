@@ -1,6 +1,7 @@
 import {
   AuthStorage,
   createAgentSession,
+  createBashTool,
   DefaultResourceLoader,
   getAgentDir,
   ModelRegistry,
@@ -8,8 +9,10 @@ import {
   SettingsManager,
   type AgentSession,
   type AgentSessionEvent,
+  type BashOperations,
   type ExtensionAPI,
   type SessionInfo as PiSessionInfo,
+  type ToolDefinition,
 } from '@earendil-works/pi-coding-agent'
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
@@ -22,18 +25,57 @@ import { resolve } from 'node:path'
 import { assertUserProjectPath, userHomePath } from './pathGuards.ts'
 import { getSessionTitleMeta, markAiTitleGenerated, markUserTitle } from './sessionTitleManager.ts'
 import {
-  isCommandAllowed,
-  isPathAllowed,
   registerSessionPermissions,
   removeSessionPermissions,
-  requestCommandPermissionAndWait,
-  requestPathPermissionAndWait,
-  resolveForSession,
 } from './permissionManager.ts'
 
 const DEFAULT_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write']
 const DEFAULT_PROVIDER = process.env.PI_PROVIDER ?? 'deepseek'
 const DEFAULT_MODEL_ID = process.env.PI_MODEL ?? 'deepseek-v4-pro'
+
+const isWindows = process.platform === 'win32'
+
+function createWindowsBashOperations(): BashOperations {
+  return {
+    exec: async (command, cwd, { onData, signal, timeout, env }) => {
+      const { spawn } = await import('child_process')
+      const { constants } = await import('fs')
+      const { access } = await import('fs/promises')
+      try { await access(cwd, constants.F_OK) } catch { throw new Error(`Working directory does not exist: ${cwd}`) }
+      if (signal?.aborted) throw new Error('aborted')
+      const child = spawn('cmd.exe', ['/c', 'chcp 65001 >nul && ' + command], {
+        cwd,
+        env: env ?? { ...process.env, COMSPEC: 'cmd.exe' },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+      })
+      let timedOut = false
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined
+      const onAbort = () => { if (child.pid) process.kill(child.pid) }
+      try {
+        if (timeout !== undefined && timeout > 0) {
+          timeoutHandle = setTimeout(() => { timedOut = true; if (child.pid) process.kill(child.pid) }, timeout * 1000)
+        }
+        child.stdout?.on('data', (data: Buffer) => { onData(Buffer.from(data.toString('utf8'), 'utf8')) })
+        child.stderr?.on('data', (data: Buffer) => { onData(Buffer.from(data.toString('utf8'), 'utf8')) })
+        if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort, { once: true }) }
+        const exitCode = await new Promise<number | null>((resolve) => { child.on('close', resolve) })
+        if (timeoutHandle) clearTimeout(timeoutHandle)
+        signal?.removeEventListener('abort', onAbort)
+        return { exitCode: timedOut ? null : exitCode }
+      } catch (err) {
+        if (timeoutHandle) clearTimeout(timeoutHandle)
+        signal?.removeEventListener('abort', onAbort)
+        throw err
+      }
+    },
+  }
+}
+
+function createBashToolForPlatform(cwd: string): ToolDefinition | null {
+  if (!isWindows) return null
+  return createBashTool(cwd, { operations: createWindowsBashOperations() }) as unknown as ToolDefinition
+}
 
 interface ManagedSession {
   session: AgentSession
@@ -71,39 +113,8 @@ function requireCwd(cwd?: string): string {
   return assertUserProjectPath(cwd)
 }
 
-function createSandboxGuardExtension(root: string, getSessionId: () => string | null) {
-  return (pi: ExtensionAPI) => {
-    pi.on('tool_call', async (event) => {
-      const sessionId = getSessionId()
-      if (!sessionId) return { block: true, reason: '会话尚未初始化' }
-
-      const input = event.input as Record<string, unknown>
-      const toolName = event.toolName
-      const pathValue = typeof input.path === 'string' ? input.path : undefined
-
-      if (toolName === 'bash') {
-        const command = typeof input.command === 'string' ? input.command : ''
-        if (!isCommandAllowed(sessionId, root, command)) {
-          const decision = await requestCommandPermissionAndWait(sessionId, root, toolName, command)
-          if (decision === 'deny') return { block: true, reason: `用户拒绝执行命令：${command}` }
-        }
-        return undefined
-      }
-
-      if (toolName === 'read' || toolName === 'grep' || toolName === 'find' || toolName === 'ls' || toolName === 'write' || toolName === 'edit') {
-        const targetPath = resolveForSession(root, pathValue)
-        if (!isPathAllowed(sessionId, root, targetPath)) {
-          const operation = toolName === 'write' || toolName === 'edit' ? 'write'
-            : toolName === 'grep' || toolName === 'find' ? 'search'
-              : toolName === 'ls' ? 'list'
-                : 'read'
-          const decision = await requestPathPermissionAndWait(sessionId, root, toolName, operation, targetPath)
-          if (decision === 'deny') return { block: true, reason: `用户拒绝访问路径：${targetPath}` }
-        }
-      }
-
-      return undefined
-    })
+function createSandboxGuardExtension(_root: string, _getSessionId: () => string | null) {
+  return (_pi: ExtensionAPI) => {
   }
 }
 
@@ -221,11 +232,14 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
   const resourceLoader = new DefaultResourceLoader({
     cwd: root,
     agentDir: getAgentDir(),
-    settingsManager: SettingsManager.create(root, getAgentDir()),
+    settingsManager: SettingsManager.create(root, getAgentDir(), { projectTrusted: true }),
     additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(root, () => sessionId)],
   })
   await resourceLoader.reload()
+  const customTools: ToolDefinition[] = []
+  const psBash = createBashToolForPlatform(root)
+  if (psBash) customTools.push(psBash)
   const { session } = await createAgentSession({
     cwd: root,
     authStorage,
@@ -234,6 +248,7 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
     sessionManager,
     resourceLoader,
     tools: DEFAULT_TOOLS,
+    customTools: customTools.length > 0 ? customTools : undefined,
   })
   sessionId = session.sessionId
   registerSessionPermissions(sessionId, root)
@@ -260,11 +275,14 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
   const resourceLoader = new DefaultResourceLoader({
     cwd,
     agentDir: getAgentDir(),
-    settingsManager: SettingsManager.create(cwd, getAgentDir()),
+    settingsManager: SettingsManager.create(cwd, getAgentDir(), { projectTrusted: true }),
     additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(cwd, () => sessionId)],
   })
   await resourceLoader.reload()
+  const customTools: ToolDefinition[] = []
+  const psBash = createBashToolForPlatform(cwd)
+  if (psBash) customTools.push(psBash)
   const { session } = await createAgentSession({
     cwd,
     authStorage,
@@ -273,6 +291,7 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
     sessionManager,
     resourceLoader,
     tools: DEFAULT_TOOLS,
+    customTools: customTools.length > 0 ? customTools : undefined,
   })
   sessionId = session.sessionId
   registerSessionPermissions(sessionId, cwd)
@@ -349,7 +368,7 @@ export async function sendPrompt(sessionId: string, message: string, images?: Ap
     broadcastAgentEvent(sessionId, { type: 'artifact_created', artifact })
   }
   if (shouldAutoName) {
-    await autoNameSessionIfNeeded(sessionId, message)
+    autoNameSessionIfNeeded(sessionId, message).catch(() => {})
   }
 }
 

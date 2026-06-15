@@ -5,39 +5,31 @@ import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
+import { Typewriter } from './components/Typewriter'
 import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
-const STREAM_TEXT = '教育智能体'
+const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
 
-function StreamTitle() {
-  const [chars, setChars] = useState(0)
-  const [started, setStarted] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const t = setTimeout(() => setStarted(true), 300)
-    return () => clearTimeout(t)
-  }, [])
-
-  useEffect(() => {
-    if (!started) return
-    if (chars >= STREAM_TEXT.length) return
-    const t = setTimeout(() => setChars((c) => c + 1), 120)
-    return () => clearTimeout(t)
-  }, [chars, started])
-
-  return (
-    <div ref={containerRef} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', cursor: 'pointer' }} onClick={() => { setChars(0); setStarted(true) }}>
-      <div style={{ fontSize: 36, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', minHeight: 44 }}>
-        {STREAM_TEXT.slice(0, chars)}
-        {chars < STREAM_TEXT.length && started && (
-          <span style={{ color: 'var(--accent)', animation: 'blink 1s step-end infinite' }}>|</span>
-        )}
-      </div>
-    </div>
-  )
-}
+const TYPEWRITER_PHRASES = [
+  '准备好了吗？',
+  '有什么想问的？',
+  '一起来做点酷的事。',
+  '探索你的代码库。',
+  '起草一份教案。',
+  '总结这篇论文。',
+  '规划你的课程。',
+  '用简单的话解释一下。',
+  '和我结对编程。',
+  '修复那个烦人的 bug。',
+  '翻译成中文。',
+  '写一首俳句。',
+  '头脑风暴一下。',
+  '帮我审查代码。',
+  '发布上线！',
+  '让它更好看。',
+  '和我一起理清思路。',
+]
 
 export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
@@ -128,6 +120,7 @@ export default function App() {
   }, [selectedCwd])
 
   const handleCwdChange = useCallback((cwd: string | null) => {
+    if (cwd === selectedCwd) return
     setSelectedCwd(cwd)
     setSessions([])
     setSessionLoadError(null)
@@ -138,7 +131,7 @@ export default function App() {
         .then((paths) => setRecentCwds(paths.map((p) => p.path)))
       .catch((err) => { console.error('Failed to load recent paths:', err) })
     }
-  }, [])
+  }, [selectedCwd])
 
   const handleSessionCreated = useCallback((session: SessionInfo) => {
     setSessions((current) => upsertSession(current, session))
@@ -319,13 +312,41 @@ export default function App() {
                 onSessionCreated={handleSessionCreated}
               />
             ) : (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <StreamTitle />
-                <ChatInput
-                  ref={chatInputRef}
-                  placeholder="先选择项目目录后即可开始对话..."
-                  onSend={() => setToast('请先从左侧选择项目目录')}
-                />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '20px 16px' }}>
+                  <div style={{ width: '100%', maxWidth: 820, transform: 'translateY(-30px)' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      marginLeft: 16,
+                      marginRight: 52,
+                      marginBottom: 16,
+                      fontFamily: 'var(--font-mono)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.4 }}>
+                        <span style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)' }}>教育智能体</span>
+                        <span style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                          <Typewriter phrases={TYPEWRITER_PHRASES} />
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          教育智能体
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {APP_INSTITUTION}
+                        </span>
+                      </div>
+                    </div>
+                    <ChatInput
+                      ref={chatInputRef}
+                      placeholder="先选择项目目录后即可开始对话..."
+                      onSend={() => setToast('请先从左侧选择项目目录')}
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>

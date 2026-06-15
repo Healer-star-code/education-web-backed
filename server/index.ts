@@ -7,7 +7,6 @@ import { addSseClient } from './sse.ts'
 import { selectDirectoryWithWindowsDialog } from './directoryDialog.ts'
 import { createGlobalSkill, deleteGlobalSkill, ensureOfficeSkillsInstalled, globalSkillsDir, listInstalledGlobalSkills, reinstallOfficeSkills, type CreateSkillPayload } from './skillsManager.ts'
 import { listRecentPaths, upsertRecentPath, removeRecentPath, closeRecentPathsDb } from './recentPathsManager.ts'
-import { listPendingPermissions, resolvePermissionRequest } from './permissionManager.ts'
 import { assertUserProjectPath, filterUserProjectPaths, isSystemProjectPath } from './pathGuards.ts'
 import { closeSessionTitleDb } from './sessionTitleManager.ts'
 import { artifactStream, getArtifact, listArtifacts } from './artifactManager.ts'
@@ -284,22 +283,6 @@ const server = createServer(async (req, res) => {
     const artifactListMatch = url.pathname.match(/^\/api\/artifacts\/([^/]+)$/)
     if (artifactListMatch && req.method === 'GET') {
       sendJson(res, 200, { artifacts: listArtifacts(decodeURIComponent(artifactListMatch[1])) })
-      return
-    }
-
-    const permissionMatch = url.pathname.match(/^\/api\/permissions\/([^/]+)$/)
-    if (permissionMatch && req.method === 'GET') {
-      sendJson(res, 200, { requests: listPendingPermissions(decodeURIComponent(permissionMatch[1])) })
-      return
-    }
-    if (permissionMatch && req.method === 'POST') {
-      const body = await readJson<{ requestId?: string; decision?: 'allow_once' | 'allow_session' | 'deny' }>(req)
-      if (!body.requestId || !body.decision) {
-        sendJson(res, 400, { error: 'requestId and decision are required' })
-        return
-      }
-      const ok = resolvePermissionRequest(decodeURIComponent(permissionMatch[1]), body.requestId, body.decision)
-      sendJson(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'permission request not found' })
       return
     }
 

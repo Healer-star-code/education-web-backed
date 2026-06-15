@@ -247,7 +247,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               }}
               title={selectedCwd ?? ''}
             >
-              {selectedCwd ? shortenCwd(selectedCwd) : 'Select project...'}
+              {selectedCwd ? shortenCwd(selectedCwd) : '选择项目...'}
             </span>
           </button>
 
@@ -325,7 +325,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                   <line x1="5" y1="1" x2="5" y2="9" />
                   <line x1="1" y1="5" x2="9" y2="5" />
                 </svg>
-                <span>{selectingDirectory ? 'Opening picker...' : 'Custom path...'}</span>
+                <span>{selectingDirectory ? '正在打开...' : '自定义路径...'}</span>
               </button>
             </div>
           )}

@@ -1,164 +1,183 @@
-import { useState } from 'react'
-
-export interface ToolEventView {
-  id: string
-  label: string
-  status: 'running' | 'done' | 'error'
-}
+import { useState, useEffect } from 'react'
+import type { ToolCallInfo } from '../mockData'
 
 interface Props {
-  tools: ToolEventView[]
-  collapsed?: boolean
+  toolCalls: ToolCallInfo[]
 }
 
-const TOOL_LABEL_MAP: Record<string, string> = {
-  grep: '搜索',
-  find: '查找',
-  read: '读取',
-  ls: '浏览',
-  bash: '运行',
-  edit: '编辑',
-  write: '写入',
+const TOOL_META: Record<string, { label: string; pastTense: string }> = {
+  grep: { label: '搜索', pastTense: '已搜索' },
+  find: { label: '查找', pastTense: '已查找' },
+  glob: { label: '查找', pastTense: '已查找' },
+  read: { label: '读取', pastTense: '已读取' },
+  ls: { label: '浏览', pastTense: '已浏览' },
+  bash: { label: '运行', pastTense: '已运行' },
+  edit: { label: '编辑', pastTense: '已编辑' },
+  write: { label: '写入', pastTense: '已写入' },
 }
 
-function getToolVerb(label: string): string {
-  return TOOL_LABEL_MAP[label] ?? label
+function getToolMeta(name: string) {
+  return TOOL_META[name] ?? { label: name, pastTense: name }
 }
 
-function ToolIcon({ status }: { status: ToolEventView['status'] }) {
-  if (status === 'running') {
-    return (
-      <span style={{
-        width: 12, height: 12, borderRadius: '50%',
-        border: '1.5px solid var(--accent)',
-        borderTopColor: 'transparent',
-        animation: 'spin 0.8s linear infinite',
-        display: 'inline-block',
-        flexShrink: 0,
-      }} />
-    )
+const TOOL_ICON: Record<string, string> = {
+  grep: '🔍', find: '🔍', glob: '🔍',
+  read: '📖', ls: '📁', bash: '▶',
+  edit: '✏️', write: '📝',
+}
+
+function extractContext(name: string, args: unknown): string {
+  if (!args || typeof args !== 'object') return ''
+  const a = args as Record<string, unknown>
+  switch (name) {
+    case 'read':
+    case 'edit':
+    case 'write':
+      return String(a.filePath ?? a.path ?? '')
+    case 'bash':
+      return String(a.command ?? '')
+    case 'grep':
+    case 'find':
+    case 'glob':
+      return String(a.pattern ?? a.path ?? '')
+    case 'ls':
+      return String(a.path ?? '')
+    default:
+      if (a.filePath) return String(a.filePath)
+      if (a.path) return String(a.path)
+      if (a.command) return String(a.command)
+      if (a.pattern) return String(a.pattern)
+      return ''
   }
-  if (status === 'done') {
-    return (
-      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-        <polyline points="2.5 7.5 5.5 10.5 11.5 4.5" />
-      </svg>
-    )
-  }
-  return (
-    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-      <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" />
-      <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" />
-    </svg>
-  )
 }
 
-function buildSummary(tools: ToolEventView[]): string {
-  const byLabel = new Map<string, { running: number; done: number; error: number }>()
-  for (const t of tools) {
-    const entry = byLabel.get(t.label) ?? { running: 0, done: 0, error: 0 }
-    entry[t.status]++
-    byLabel.set(t.label, entry)
-  }
-
-  const parts: string[] = []
-  for (const [label, counts] of byLabel) {
-    const verb = getToolVerb(label)
-    const total = counts.running + counts.done + counts.error
-    if (counts.running > 0) {
-      parts.push(`正在${verb}...`)
-    } else {
-      parts.push(`已${verb} ${total} 次`)
-    }
-  }
-  return parts.join(' · ')
+function truncateContext(ctx: string, max = 50): string {
+  if (!ctx) return ''
+  if (ctx.length <= max) return ctx
+  return ctx.slice(0, max - 1) + '…'
 }
 
-export function ToolCallCard({ tools, collapsed: forceCollapsed }: Props) {
+function formatResult(result: unknown): string {
+  if (result === undefined || result === null) return ''
+  if (typeof result === 'string') return result.length > 500 ? result.slice(0, 500) + '…' : result
+  try {
+    const s = JSON.stringify(result, null, 2)
+    return s.length > 500 ? s.slice(0, 500) + '…' : s
+  } catch {
+    return String(result)
+  }
+}
+
+export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   const [expanded, setExpanded] = useState(false)
 
-  if (tools.length === 0) return null
+  useEffect(() => {
+    if (tool.status === 'running') {
+      setExpanded(true)
+    } else {
+      setExpanded(false)
+    }
+  }, [tool.status])
 
-  const hasRunning = tools.some((t) => t.status === 'running')
-  const autoCollapsed = forceCollapsed ?? !hasRunning
-  const isExpanded = expanded && !autoCollapsed
+  const meta = getToolMeta(tool.name)
+  const icon = TOOL_ICON[tool.name] ?? '⚙️'
+  const ctx = truncateContext(extractContext(tool.name, tool.args))
+  const resultText = formatResult(tool.result ?? tool.partialResult)
 
-  const summary = buildSummary(tools)
+  let label = ''
+  if (tool.status === 'running') {
+    label = `正在${meta.label}${ctx ? ' ' + ctx : ''}...`
+  } else if (tool.status === 'done') {
+    label = `${meta.pastTense}${ctx ? ' ' + ctx : ''}`
+  } else {
+    label = `${meta.label}失败${ctx ? ' ' + ctx : ''}`
+  }
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 4,
-      margin: '6px 0',
-    }}>
+    <div style={{ fontSize: 12, marginBottom: 2 }}>
       <button
         onClick={() => setExpanded((v) => !v)}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          background: hasRunning ? 'rgba(37,99,235,0.06)' : 'var(--bg-hover)',
-          border: 'none',
-          borderRadius: 6,
-          padding: '3px 8px',
-          color: hasRunning ? 'var(--accent)' : 'var(--text-dim)',
-          fontSize: 12,
-          cursor: 'pointer',
-          textAlign: 'left',
-          maxWidth: '100%',
-          fontWeight: hasRunning ? 500 : 400,
-          transition: 'background 0.15s, color 0.15s',
+          display: 'flex', alignItems: 'center', gap: 6,
+          width: '100%', padding: '4px 8px',
+          background: 'none', border: 'none',
+          borderRadius: 5,
+          color: tool.status === 'running' ? 'var(--accent)' : 'var(--text-dim)',
+          fontSize: 12, fontWeight: tool.status === 'running' ? 500 : 400,
+          cursor: 'pointer', textAlign: 'left',
+          fontFamily: 'inherit',
+          transition: 'background 0.1s',
         }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
       >
-        {hasRunning ? (
+        {tool.status === 'running' ? (
           <span style={{
-            width: 10, height: 10, borderRadius: '50%',
+            width: 12, height: 12, borderRadius: '50%',
             border: '1.5px solid var(--accent)',
             borderTopColor: 'transparent',
             animation: 'spin 0.8s linear infinite',
-            display: 'inline-block',
-            flexShrink: 0,
+            display: 'inline-block', flexShrink: 0,
           }} />
-        ) : (
-          <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.5 }}>
+        ) : tool.status === 'done' ? (
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
             <polyline points="2.5 7.5 5.5 10.5 11.5 4.5" />
           </svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" />
+            <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" />
+          </svg>
         )}
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {summary}
+        <span style={{ flexShrink: 0 }}>{icon}</span>
+        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {label}
         </span>
         <svg
-          width="8" height="8" viewBox="0 0 10 10" fill="none"
+          width="9" height="9" viewBox="0 0 10 10" fill="none"
           stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
           style={{
-            transform: isExpanded ? 'rotate(180deg)' : 'none',
+            transform: expanded ? 'rotate(180deg)' : 'none',
             transition: 'transform 0.15s',
-            marginLeft: 'auto',
-            flexShrink: 0,
-            opacity: 0.4,
+            flexShrink: 0, opacity: 0.4,
           }}
         >
           <polyline points="2 3.5 5 6.5 8 3.5" />
         </svg>
       </button>
 
-      {isExpanded && (
+      {expanded && resultText && (
         <div style={{
-          display: 'flex', flexDirection: 'column', gap: 2,
-          paddingLeft: 18,
-          borderLeft: '1px solid var(--border)',
-          marginLeft: 14,
+          margin: '2px 8px 4px 30px',
+          padding: '6px 10px',
+          background: 'rgba(0,0,0,0.03)',
+          borderRadius: 6,
+          fontSize: 11, lineHeight: 1.5,
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-mono)',
+          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+          maxHeight: 200, overflowY: 'auto',
         }}>
-          {tools.map((tool) => (
-            <div key={tool.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, padding: '1px 0' }}>
-              <ToolIcon status={tool.status} />
-              <span style={{
-                color: tool.status === 'running' ? 'var(--text-muted)' : tool.status === 'error' ? '#f97316' : 'var(--text-dim)',
-                fontWeight: tool.status === 'running' ? 500 : 400,
-              }}>
-                {getToolVerb(tool.label)}
-              </span>
-            </div>
-          ))}
+          {resultText}
         </div>
       )}
     </div>
   )
 }
+
+export function ToolCallCard({ toolCalls }: Props) {
+  if (toolCalls.length === 0) return null
+
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 0,
+      margin: '4px 0 8px',
+    }}>
+      {toolCalls.map((tool) => (
+        <ToolCallRow key={tool.id} tool={tool} />
+      ))}
+    </div>
+  )
+}
+
+export type { ToolCallInfo as ToolEventView }

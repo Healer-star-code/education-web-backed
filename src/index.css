@@ -140,3 +140,13 @@ pre, code { font-family: var(--font-mono); }
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+@keyframes shimmer {
+  0%   { opacity: 0.5; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
+.thinking-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}

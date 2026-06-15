@@ -42,6 +42,19 @@ export interface LocalAttachment {
   progress: number
 }
 
+export interface ToolCallInfo {
+  id: string
+  name: string
+  status: 'running' | 'done' | 'error'
+  args?: unknown
+  result?: unknown
+  partialResult?: unknown
+}
+
+export type AgentStep =
+  | { type: 'thinking'; id: string; content: string; durationMs: number; isThinking: boolean }
+  | { type: 'tool'; id: string; name: string; status: 'running' | 'done' | 'error'; args?: unknown; result?: unknown; partialResult?: unknown }
+
 export interface Message {
   id: string
   role: 'user' | 'assistant'
@@ -50,8 +63,10 @@ export interface Message {
   timestamp?: string
   attachments?: MessageAttachment[]
   artifacts?: ArtifactInfo[]
+  steps?: AgentStep[]
   thinkingContent?: string
   thinkingDurationMs?: number
+  toolCalls?: ToolCallInfo[]
 }
 
 export interface FileNode {
