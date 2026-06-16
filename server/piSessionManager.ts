@@ -17,7 +17,7 @@ import {
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
 import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
-import { removeSessionArtifacts, scanArtifacts } from './artifactManager.ts'
+import { listArtifacts, removeSessionArtifacts, restoreFromDisk, saveToDisk, scanArtifacts } from './artifactManager.ts'
 import { allGlobalSkillPaths, ensureOfficeSkillsInstalled, globalSkillsDir } from './skillsManager.ts'
 import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
@@ -101,6 +101,7 @@ export interface WebMessage {
   thinkingContent?: string
   thinkingDurationMs?: number
   toolCalls?: WebToolCall[]
+  artifacts?: ArtifactInfo[]
 }
 
 const sessions = new Map<string, ManagedSession>()
@@ -342,6 +343,9 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
   registerSessionPermissions(sessionId, cwd)
   const unsubscribe = session.subscribe((event) => handleSessionEvent(sessionId, event))
   sessions.set(sessionId, { session, unsubscribe, cwd })
+  if (session.sessionFile) {
+    await restoreFromDisk(sessionId, session.sessionFile)
+  }
   const meta = getSessionTitleMeta(session.sessionFile)
   return {
     id: sessionId,
@@ -412,6 +416,9 @@ export async function sendPrompt(sessionId: string, message: string, images?: Ap
   for (const artifact of artifacts) {
     broadcastAgentEvent(sessionId, { type: 'artifact_created', artifact })
   }
+  if (managed.session.sessionFile) {
+    await saveToDisk(sessionId, managed.session.sessionFile)
+  }
   if (shouldAutoName) {
     autoNameSessionIfNeeded(sessionId, message).catch(() => {})
   }
@@ -442,8 +449,8 @@ export async function deleteSession(sessionFile: string): Promise<void> {
     const entry = [...sessions.entries()].find(([, m]) => m === managed)
     if (entry) {
       sessions.delete(entry[0])
-        removeSessionPermissions(entry[0])
-        removeSessionArtifacts(entry[0])
+      removeSessionPermissions(entry[0])
+      await removeSessionArtifacts(entry[0], managed.session.sessionFile)
     }
   }
   await unlink(resolvedPath)
@@ -487,6 +494,15 @@ export function getMessages(sessionId: string): WebMessage[] {
           tc.result = tr.result
         }
       }
+    }
+  }
+
+  // Attach artifacts to the last assistant message
+  const artifacts = listArtifacts(sessionId)
+  if (artifacts.length > 0) {
+    const lastAssistant = [...result].reverse().find((m) => m.role === 'assistant')
+    if (lastAssistant) {
+      lastAssistant.artifacts = artifacts
     }
   }
 
@@ -559,12 +575,12 @@ export async function listSkills(cwd?: string): Promise<SkillInfo[]> {
   })
 }
 
-export function disposeAllSessions(): void {
+export async function disposeAllSessions(): Promise<void> {
   for (const [sessionId, managed] of sessions.entries()) {
     managed.unsubscribe()
     managed.session.dispose()
     removeSessionPermissions(sessionId)
-    removeSessionArtifacts(sessionId)
+    await removeSessionArtifacts(sessionId, managed.session.sessionFile)
   }
   sessions.clear()
 }

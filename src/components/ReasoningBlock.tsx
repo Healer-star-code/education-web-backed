@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { AgentStep } from '../mockData'
 import { ToolCallRow } from './ToolCallCard'
 import { ThinkingBlock } from './ThinkingBlock'
@@ -8,16 +8,16 @@ interface Props {
 }
 
 export function ReasoningBlock({ steps }: Props) {
-  const [expanded, setExpanded] = useState(false)
-
-  const thinkingStep = steps.find((s) => s.type === 'thinking')
+  const thinkingSteps = steps.filter((s) => s.type === 'thinking')
   const toolSteps = steps.filter((s) => s.type === 'tool')
 
-  const hasThinking = !!thinkingStep
+  const hasThinking = thinkingSteps.length > 0
   const hasTools = toolSteps.length > 0
   const runningTools = toolSteps.filter((t) => t.status === 'running').length
   const doneTools = toolSteps.filter((t) => t.status === 'done').length
   const errorTools = toolSteps.filter((t) => t.status === 'error').length
+  const thinkingActive = thinkingSteps.some((s) => s.isThinking)
+  const isActive = thinkingActive || runningTools > 0
 
   let summary = ''
   if (hasThinking && hasTools) {
@@ -29,13 +29,26 @@ export function ReasoningBlock({ steps }: Props) {
       summary = `已深度思考 · 使用了 ${toolSteps.length} 个工具`
     }
   } else if (hasThinking) {
-    summary = thinkingStep!.isThinking ? '思考中...' : '已深度思考'
+    summary = thinkingActive ? '思考中...' : '已深度思考'
   } else if (hasTools) {
     if (runningTools > 0) {
       summary = `正在使用工具 (${runningTools}/${toolSteps.length})`
     } else {
       summary = `使用了 ${toolSteps.length} 个工具`
     }
+  }
+
+  const [expanded, setExpanded] = useState(isActive)
+  const userToggledRef = useRef(false)
+
+  useEffect(() => {
+    if (userToggledRef.current) return
+    setExpanded(isActive)
+  }, [isActive])
+
+  const handleToggle = () => {
+    userToggledRef.current = true
+    setExpanded((v) => !v)
   }
 
   return (
@@ -47,7 +60,7 @@ export function ReasoningBlock({ steps }: Props) {
       overflow: 'hidden',
     }}>
       <button
-        onClick={() => setExpanded((v) => !v)}
+        onClick={handleToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           width: '100%', padding: '8px 12px',
@@ -89,20 +102,24 @@ export function ReasoningBlock({ steps }: Props) {
 
       {expanded && (
         <div style={{ padding: '0 12px 10px' }}>
-          {thinkingStep && (
-            <ThinkingBlock
-              content={thinkingStep.content}
-              durationMs={thinkingStep.durationMs}
-              isThinking={thinkingStep.isThinking}
-            />
-          )}
-          {toolSteps.length > 0 && (
-            <div style={{ marginTop: thinkingStep ? 4 : 0 }}>
-              {toolSteps.map((tool) => (
-                <ToolCallRow key={tool.id} tool={tool} />
-              ))}
-            </div>
-          )}
+          {steps.map((step, idx) => {
+            if (step.type === 'thinking') {
+              return (
+                <div key={step.id} style={{ marginTop: idx > 0 ? 4 : 0 }}>
+                  <ThinkingBlock
+                    content={step.content}
+                    durationMs={step.durationMs}
+                    isThinking={step.isThinking}
+                  />
+                </div>
+              )
+            }
+            return (
+              <div key={step.id} style={{ marginTop: idx > 0 ? 4 : 0 }}>
+                <ToolCallRow tool={step} />
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
-import { basename, extname, join, resolve } from 'node:path'
+import { readdir, stat, writeFile, readFile, unlink } from 'node:fs/promises'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { ArtifactInfo } from './types.ts'
 import { isPathAllowed } from './permissionManager.ts'
@@ -88,6 +88,61 @@ export function artifactStream(artifact: ArtifactInfo) {
   return createReadStream(artifact.path)
 }
 
-export function removeSessionArtifacts(sessionId: string): void {
+export async function removeSessionArtifacts(sessionId: string, sessionFile?: string): Promise<void> {
   artifactsBySession.delete(sessionId)
+  if (sessionFile) {
+    try {
+      await unlink(getArtifactsFile(sessionFile))
+    } catch {
+      // file may not exist; ignore
+    }
+  }
+}
+
+function getArtifactsFile(sessionFile: string): string {
+  return `${sessionFile}.artifacts.json`
+}
+
+export async function saveToDisk(sessionId: string, sessionFile: string): Promise<void> {
+  const artifacts = artifactsBySession.get(sessionId)
+  const path = getArtifactsFile(sessionFile)
+  try {
+    if (artifacts && artifacts.length > 0) {
+      await writeFile(path, JSON.stringify(artifacts, null, 2), 'utf8')
+    } else {
+      try {
+        await unlink(path)
+      } catch {
+        // file may not exist; ignore
+      }
+    }
+  } catch {
+    // ignore write errors to avoid breaking the session
+  }
+}
+
+export async function restoreFromDisk(sessionId: string, sessionFile: string): Promise<void> {
+  const path = getArtifactsFile(sessionFile)
+  try {
+    const data = (await readFile(path, 'utf8')).replace(/^\uFEFF/, '')
+    const parsed = JSON.parse(data)
+    if (!Array.isArray(parsed)) return
+    const valid: ArtifactInfo[] = []
+    for (const artifact of parsed) {
+      if (!artifact || typeof artifact !== 'object' || typeof artifact.path !== 'string') continue
+      try {
+        await stat(artifact.path)
+        valid.push(artifact)
+      } catch {
+        // file no longer exists; skip
+      }
+    }
+    if (valid.length > 0) {
+      artifactsBySession.set(sessionId, valid)
+    } else {
+      artifactsBySession.delete(sessionId)
+    }
+  } catch (err) {
+    console.warn(`[artifactManager] restoreFromDisk failed for ${path}:`, err)
+  }
 }

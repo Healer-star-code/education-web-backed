@@ -72,6 +72,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const pendingToolUpdateRef = useRef<{ toolCallId: string; partialResult: unknown } | null>(null)
   const toolUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isUserNearBottomRef = useRef(true)
+  const forceScrollRef = useRef(false)
 
   const handleAgentEvent = useCallback((event: WebAgentEvent) => {
     switch (event.type) {
@@ -252,6 +253,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setHasMessages(true)
+    forceScrollRef.current = true
     setStreaming(true)
     setError(null)
     currentAssistantIdRef.current = assistantId
@@ -371,8 +373,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 content: msg.content,
                 timestamp: msg.timestamp,
                 steps,
+                artifacts: msg.artifacts,
               }
             }))
+            forceScrollRef.current = true
           })
           .catch((err) => {
             if (!cancelled) {
@@ -404,6 +408,19 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     // Auto-scroll to bottom only when user is near bottom
     const container = scrollContainerRef.current
     if (!container) return
+
+    // Force scroll: user just sent a message, or history just loaded
+    if (forceScrollRef.current) {
+      forceScrollRef.current = false
+      isUserNearBottomRef.current = true
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight
+        })
+      })
+      return
+    }
+
     const threshold = 100
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
     isUserNearBottomRef.current = nearBottom

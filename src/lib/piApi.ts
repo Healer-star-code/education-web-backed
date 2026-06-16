@@ -39,6 +39,7 @@ export interface WebMessage {
   thinkingContent?: string
   thinkingDurationMs?: number
   toolCalls?: WebToolCall[]
+  artifacts?: ArtifactInfo[]
 }
 
 export interface SkillInfo {
