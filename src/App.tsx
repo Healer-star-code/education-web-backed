@@ -64,7 +64,10 @@ export default function App() {
   const [mode, setMode] = useState<'young' | 'senior'>(() => {
     try { const v = localStorage.getItem('pi-mode'); return v === 'senior' ? 'senior' : 'young' } catch { return 'young' }
   })
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(() => {
+    // 未设置密码时自动打开设置面板
+    try { return !localStorage.getItem('pi-server-password') } catch { return true }
+  })
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [serverUrl, setServerUrl] = useState(() => {

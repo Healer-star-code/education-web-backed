@@ -21,6 +21,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   const [draftServerUrl, setDraftServerUrl] = useState(serverUrl)
   const [draftPassword, setDraftPassword] = useState(password)
   const [showPassword, setShowPassword] = useState(false)
+  const [passwordError, setPasswordError] = useState<string | null>(null)
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -29,6 +30,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       setDraftMode(mode)
       setDraftServerUrl(serverUrl)
       setDraftPassword(password)
+      setPasswordError(null)
     })
   }, [isDark, fontSize, mode, serverUrl, password])
 
@@ -39,13 +41,20 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   }, [saveAndClose])
 
   const saveAndClose = () => {
+    if (!draftPassword) {
+      setPasswordError('必须设置访问密码才能连接 super-king 后端')
+      return
+    }
     const trimmedUrl = draftServerUrl.trim()
     try {
       localStorage.setItem('pi-server-url', trimmedUrl)
       localStorage.setItem('pi-server-password', draftPassword)
     } catch (err) {
       console.error('Failed to save server settings to localStorage:', err)
+      setPasswordError('保存失败，请检查浏览器是否允许 localStorage')
+      return
     }
+    setPasswordError(null)
     onThemeChange(draftTheme)
     onFontSizeChange(draftFontSize)
     onModeChange(draftMode)
@@ -126,12 +135,14 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={draftPassword}
-                  onChange={(e) => setDraftPassword(e.target.value)}
+                  onChange={(e) => { setDraftPassword(e.target.value); setPasswordError(null) }}
                   placeholder="SUPER_KING_SERVER_PASSWORD"
+                  autoFocus={!draftPassword}
                   style={{
                     flex: 1, boxSizing: 'border-box',
                     padding: '10px 12px', borderRadius: 10,
-                    border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                    border: passwordError ? '1px solid #ef4444' : '1px solid var(--border)',
+                    background: 'var(--bg)', color: 'var(--text)',
                     fontSize: 14, fontFamily: 'var(--font-mono)',
                     outline: 'none',
                   }}
@@ -148,6 +159,16 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   {showPassword ? '隐藏' : '显示'}
                 </button>
               </div>
+              {passwordError && (
+                <div style={{ marginTop: 6, fontSize: 12, color: '#ef4444', lineHeight: 1.4 }}>
+                  {passwordError}
+                </div>
+              )}
+              {!passwordError && !draftPassword && (
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                  当前后端已启用认证，必须填写密码才能连接
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -333,16 +354,17 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         </div>
 
         {/* Save button */}
-        <button onClick={saveAndClose} style={{
+        <button onClick={saveAndClose} disabled={!draftPassword} style={{
           width: '100%', padding: '14px 0', borderRadius: 10,
-          background: accentColor,
-          border: 'none', color: '#fff', fontSize: 15, fontWeight: 700,
-          cursor: 'pointer', transition: 'background 0.15s',
+          background: draftPassword ? accentColor : 'var(--bg-hover)',
+          border: 'none', color: draftPassword ? '#fff' : 'var(--text-dim)', fontSize: 15, fontWeight: 700,
+          cursor: draftPassword ? 'pointer' : 'not-allowed',
+          transition: 'background 0.15s, color 0.15s',
         }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = accentHover }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = accentColor }}
+          onMouseEnter={(e) => { if (draftPassword) e.currentTarget.style.background = accentHover }}
+          onMouseLeave={(e) => { if (draftPassword) e.currentTarget.style.background = accentColor }}
         >
-          保存设置
+          {draftPassword ? '保存并连接' : '请先填写访问密码'}
         </button>
       </div>
     </div>
