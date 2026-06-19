@@ -115,14 +115,20 @@ function toBase64(str: string): string {
   return btoa(binary)
 }
 
-export function getAuthHeader(): string {
+function ensurePassword(): string {
   const password = getPassword()
-  return 'Basic ' + toBase64('super-king:' + password)
+  if (!password) {
+    throw new Error('未设置访问密码，请先在设置面板中填写并保存服务器密码')
+  }
+  return password
+}
+
+export function getAuthHeader(): string {
+  return 'Basic ' + toBase64('super-king:' + ensurePassword())
 }
 
 export function getAuthToken(): string {
-  const password = getPassword()
-  return toBase64('super-king:' + password)
+  return toBase64('super-king:' + ensurePassword())
 }
 
 function normalizeError(err: unknown): Error {
