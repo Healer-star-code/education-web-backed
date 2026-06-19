@@ -9,6 +9,8 @@
   --text-dim: #a1a1aa;
   --accent: #3354d6;
   --accent-hover: #2641b5;
+  --streaming: #10b981;
+  --streaming-dim: color-mix(in srgb, #10b981 30%, transparent);
   --user-bg: #eef2ff;
   --assistant-bg: #ffffff;
   --tool-bg: #f4f4f5;
@@ -32,6 +34,8 @@ html.dark {
   --text-dim: #6b7280;
   --accent: #5c9dff;
   --accent-hover: #7cb3ff;
+  --streaming: #34d399;
+  --streaming-dim: color-mix(in srgb, #34d399 30%, transparent);
   --user-bg: #1e293b;
   --assistant-bg: #14171f;
   --tool-bg: #1a1e29;
@@ -485,7 +489,7 @@ html.dark .noise-overlay {
   opacity: 0.04;
 }
 
-/* Chat input focus glow & streaming border flow */
+/* Chat input focus ring & streaming breathe indicator */
 .chat-input-wrapper {
   position: relative;
   border-radius: 26px;
@@ -502,49 +506,29 @@ html.dark .noise-overlay {
 }
 
 .chat-input-wrapper.is-focused .chat-input-inner {
-  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
-    0 0 18px 2px color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px rgba(92, 157, 255, 0.22);
 }
 
 .chat-input-wrapper.is-streaming .chat-input-inner {
-  background: color-mix(in srgb, var(--accent) 7%, var(--bg));
+  background: color-mix(in srgb, var(--streaming) 5%, var(--bg));
   border-color: transparent;
+  box-shadow: 0 0 0 1px var(--streaming-dim);
+  animation: streaming-breathe 2.2s ease-in-out infinite;
 }
 
-.chat-input-wrapper.is-streaming::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 28px;
-  padding: 2px;
-  background: conic-gradient(
-    from 0deg,
-    color-mix(in srgb, var(--accent) 0%, transparent),
-    color-mix(in srgb, var(--accent) 70%, transparent),
-    color-mix(in srgb, var(--accent) 0%, transparent) 60%
-  );
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: chat-input-border-flow 2.5s linear infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
+.chat-input-wrapper.is-streaming .chat-input-inner,
 .chat-input-wrapper.is-streaming.is-focused .chat-input-inner {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
+  border-color: transparent;
+  box-shadow: 0 0 0 1px var(--streaming-dim);
 }
 
-@keyframes chat-input-border-flow {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+@keyframes streaming-breathe {
+  0%, 100% { box-shadow: 0 0 0 1px var(--streaming-dim); }
+  50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--streaming) 55%, transparent), 0 0 10px 0 color-mix(in srgb, var(--streaming) 12%, transparent); }
 }
 
-/* Senior mode: keep input usable, just slow the animation */
-html.senior-mode .chat-input-wrapper.is-streaming::before {
-  animation-duration: 6s !important;
+/* Senior mode: slow the breathe animation */
+html.senior-mode .chat-input-wrapper.is-streaming .chat-input-inner {
+  animation-duration: 4.5s !important;
 }

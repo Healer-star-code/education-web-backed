@@ -19,23 +19,25 @@ export function ReasoningBlock({ steps }: Props) {
   const thinkingActive = thinkingSteps.some((s) => s.isThinking)
   const isActive = thinkingActive || runningTools > 0
 
+  const totalDurationMs = thinkingSteps.reduce((sum, step) => sum + (step.durationMs || 0), 0)
+
+  function formatDuration(ms: number) {
+    if (ms <= 0) return ''
+    if (ms < 1000) return `${ms}毫秒`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}秒`
+    const minutes = Math.floor(ms / 60000)
+    const seconds = Math.round((ms % 60000) / 1000)
+    return seconds > 0 ? `${minutes}分${seconds}秒` : `${minutes}分钟`
+  }
+
   let summary = ''
-  if (hasThinking && hasTools) {
-    if (runningTools > 0) {
-      summary = `深度思考中 · 正在使用工具 (${runningTools}/${toolSteps.length})`
-    } else if (errorTools > 0) {
-      summary = `已深度思考 · ${doneTools} 个工具完成 · ${errorTools} 个失败`
-    } else {
-      summary = `已深度思考 · 使用了 ${toolSteps.length} 个工具`
-    }
-  } else if (hasThinking) {
-    summary = thinkingActive ? '思考中...' : '已深度思考'
-  } else if (hasTools) {
-    if (runningTools > 0) {
-      summary = `正在使用工具 (${runningTools}/${toolSteps.length})`
-    } else {
-      summary = `使用了 ${toolSteps.length} 个工具`
-    }
+  if (isActive) {
+    summary = '正在处理您的任务'
+  } else {
+    const durationText = formatDuration(totalDurationMs)
+    summary = durationText
+      ? `您的任务已经处理完成，用时 ${durationText}`
+      : '您的任务已经处理完成'
   }
 
   const [expanded, setExpanded] = useState(isActive)
