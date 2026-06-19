@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 interface Props {
   isDark: boolean
@@ -34,13 +34,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     })
   }, [isDark, fontSize, mode, serverUrl, password])
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') saveAndClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [saveAndClose])
-
-  const saveAndClose = () => {
+  const saveAndClose = useCallback(() => {
     if (!draftPassword) {
       setPasswordError('必须设置访问密码才能连接 super-king 后端')
       return
@@ -61,7 +55,13 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     onServerUrlChange(trimmedUrl)
     onPasswordChange(draftPassword)
     onClose()
-  }
+  }, [draftPassword, draftServerUrl, draftTheme, draftFontSize, draftMode, onThemeChange, onFontSizeChange, onModeChange, onServerUrlChange, onPasswordChange, onClose])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') saveAndClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [saveAndClose])
 
   const ALL_FONT_SIZES = [14, 16, 18, 20, 22]
   const DEFAULT_SIZE = 16
