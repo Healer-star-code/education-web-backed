@@ -5,6 +5,8 @@ interface Props {
   toolCalls: ToolCallInfo[]
 }
 
+type PermissionDecision = 'allow_once' | 'allow_session' | 'deny'
+
 const TOOL_META: Record<string, { label: string; pastTense: string }> = {
   grep: { label: '搜索', pastTense: '已搜索' },
   find: { label: '查找', pastTense: '已查找' },
@@ -127,6 +129,14 @@ function ToolStatusIcon({ status }: { status: ToolCallInfo['status'] }) {
   if (status === 'running') {
     return <span className="tool-call-spinner" aria-hidden="true" />
   }
+  if (status === 'waiting_permission') {
+    return (
+      <svg className="tool-call-status-icon tool-call-status-waiting" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="7" cy="7" r="5" />
+        <path d="M7 4v3l2 2" />
+      </svg>
+    )
+  }
   if (status === 'done') {
     return (
       <svg className="tool-call-status-icon tool-call-status-done" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -156,20 +166,18 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
   )
 }
 
-export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
+export function ToolCallRow({ tool, onResolvePermission }: { tool: ToolCallInfo; onResolvePermission?: (toolStepId: string, decision: PermissionDecision) => void }) {
   const [expanded, setExpanded] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
 
   useEffect(() => {
     if (tool.status === 'running') {
-      setExpanded(true)
       const start = Date.now()
       const timer = setInterval(() => {
         setElapsedMs(Date.now() - start)
       }, 200)
       return () => clearInterval(timer)
     } else {
-      setExpanded(false)
       setElapsedMs(0)
     }
   }, [tool.status])
@@ -177,6 +185,7 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   const meta = getToolMeta(tool.name)
   const ctx = truncateContext(extractContext(tool.name, tool.args))
   const resultText = formatResult(tool.result ?? tool.partialResult)
+  const hasResult = !!resultText
 
   const durationText = elapsedMs >= 1000
     ? ` · ${(elapsedMs / 1000).toFixed(1)}秒`
@@ -187,11 +196,19 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   let label = ''
   if (tool.status === 'running') {
     label = `正在${meta.label}${ctx ? ' · ' + ctx : ''}${durationText}`
+  } else if (tool.status === 'waiting_permission') {
+    label = `等待授权 · ${meta.label}${ctx ? ' · ' + ctx : ''}`
   } else if (tool.status === 'done') {
-    label = `${meta.pastTense}${ctx ? ' · ' + ctx : ''}`
+    label = `${meta.pastTense}${ctx ? ' · ' + ctx : ''}${hasResult ? ' · 点击查看输出' : ''}`
   } else {
-    label = `${meta.label}失败${ctx ? ' · ' + ctx : ''}`
+    label = `${meta.label}失败${ctx ? ' · ' + ctx : ''}${hasResult ? ' · 点击查看详情' : ''}`
   }
+
+  const stuckHint = (tool.status === 'running' && elapsedMs > 10000) || tool.status === 'waiting_permission'
+    ? '（若长时间无响应，可能是授权事件丢失，请点击下方允许或拒绝）'
+    : ''
+
+  const canResolveInline = tool.status === 'waiting_permission' && !!onResolvePermission
 
   return (
     <div className="tool-call-row">
@@ -206,8 +223,45 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
         <ChevronIcon expanded={expanded} />
       </button>
 
-      {expanded && resultText && (
+      {canResolveInline && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingLeft: 28 }}>
+          <button
+            onClick={() => onResolvePermission?.(tool.id, 'allow_once')}
+            style={{
+              padding: '5px 12px', borderRadius: 6, border: 'none',
+              background: 'var(--accent)', color: '#fff', fontSize: 'var(--font-sm)', cursor: 'pointer',
+            }}
+          >
+            允许一次
+          </button>
+          <button
+            onClick={() => onResolvePermission?.(tool.id, 'allow_session')}
+            style={{
+              padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
+              background: 'var(--bg)', color: 'var(--text)', fontSize: 'var(--font-sm)', cursor: 'pointer',
+            }}
+          >
+            本会话允许
+          </button>
+          <button
+            onClick={() => onResolvePermission?.(tool.id, 'deny')}
+            style={{
+              padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
+              background: 'transparent', color: 'var(--text)', fontSize: 'var(--font-sm)', cursor: 'pointer',
+            }}
+          >
+            拒绝
+          </button>
+        </div>
+      )}
+
+      {expanded && (
         <div className="tool-call-result">
+          {stuckHint && (
+            <div style={{ color: 'var(--error)', fontSize: 'var(--font-xs)', marginBottom: 6, lineHeight: 1.4 }}>
+              {stuckHint}
+            </div>
+          )}
           {resultText}
         </div>
       )}
@@ -226,5 +280,6 @@ export function ToolCallCard({ toolCalls }: Props) {
     </div>
   )
 }
+
 
 export type { ToolCallInfo as ToolEventView }

@@ -6,15 +6,6 @@ interface Props {
   onClose: () => void
 }
 
-const DEFAULT_CONTENT = `Describe when this skill should be used and how the agent should behave.
-
-## Workflow
-
-1. Understand the user's goal.
-2. Gather the necessary context.
-3. Produce the requested result.
-`
-
 function SkillCard({ skill }: { skill: SkillInfo }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--bg)' }}>
@@ -32,7 +23,7 @@ function SkillCard({ skill }: { skill: SkillInfo }) {
   )
 }
 
-export function SkillsPanel({ cwd, onClose }: Props) {
+export function SkillsPanel({ cwd: _cwd, onClose }: Props) {
   const [installedSkills, setInstalledSkills] = useState<SkillInfo[]>([])
   const [effectiveSkills, setEffectiveSkills] = useState<SkillInfo[]>([])
   const [skillsRoot, setSkillsRoot] = useState<string>('')
@@ -91,7 +82,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {!unsupported && (
               <>
-                <button onClick={loadSkills} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
+                <button onClick={() => { void loadSkills() }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
                 <button onClick={async () => { try { await openLocalFolder(skillsRoot) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
               </>
             )}

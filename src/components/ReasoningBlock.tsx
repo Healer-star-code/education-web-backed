@@ -5,9 +5,10 @@ import { ThinkingBlock } from './ThinkingBlock'
 
 interface Props {
   steps: AgentStep[]
+  onResolveToolPermission?: (toolStepId: string, decision: 'allow_once' | 'allow_session' | 'deny') => void
 }
 
-export function ReasoningBlock({ steps }: Props) {
+export function ReasoningBlock({ steps, onResolveToolPermission }: Props) {
   const thinkingSteps = steps.filter((s) => s.type === 'thinking')
   const toolSteps = steps.filter((s) => s.type === 'tool')
 
@@ -114,7 +115,7 @@ export function ReasoningBlock({ steps }: Props) {
             }
             return (
               <div key={step.id} style={{ marginTop: idx > 0 ? 4 : 0 }}>
-                <ToolCallRow tool={step} />
+                <ToolCallRow tool={step} onResolvePermission={onResolveToolPermission} />
               </div>
             )
           })}

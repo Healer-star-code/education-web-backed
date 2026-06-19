@@ -12,6 +12,9 @@ export interface SessionInfo {
   sessionFile?: string
   error?: boolean
   orphaned?: boolean
+  model?: { provider: string; modelId: string } | null
+  cost?: number
+  tokens?: { input: number; output: number; total: number }
 }
 
 export interface MessageAttachment {
@@ -43,18 +46,21 @@ export interface LocalAttachment {
   progress: number
 }
 
+export type ToolStatus = 'running' | 'done' | 'error' | 'waiting_permission'
+
 export interface ToolCallInfo {
   id: string
   name: string
-  status: 'running' | 'done' | 'error'
+  status: ToolStatus
   args?: unknown
   result?: unknown
   partialResult?: unknown
+  permissionId?: string
 }
 
 export type AgentStep =
   | { type: 'thinking'; id: string; content: string; durationMs: number; isThinking: boolean }
-  | { type: 'tool'; id: string; name: string; status: 'running' | 'done' | 'error'; args?: unknown; result?: unknown; partialResult?: unknown }
+  | { type: 'tool'; id: string; name: string; status: ToolStatus; args?: unknown; result?: unknown; partialResult?: unknown; permissionId?: string }
 
 export interface Message {
   id: string

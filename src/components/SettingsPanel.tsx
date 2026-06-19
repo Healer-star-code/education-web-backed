@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { testConnection } from '../lib/piApi'
 
 interface Props {
   isDark: boolean
@@ -25,6 +26,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   const [draftLocalHelperUrl, setDraftLocalHelperUrl] = useState(localHelperUrl)
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+  const [testStatus, setTestStatus] = useState<{ loading: boolean; ok?: boolean; message?: string } | null>(null)
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -174,6 +176,51 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               {!passwordError && !draftPassword && (
                 <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
                   当前后端已启用认证，必须填写密码才能连接
+                </div>
+              )}
+              <button
+                onClick={async () => {
+                  if (!draftPassword) {
+                    setPasswordError('必须设置访问密码才能测试连接')
+                    setTestStatus(null)
+                    return
+                  }
+                  setPasswordError(null)
+                  setTestStatus({ loading: true })
+                  try {
+                    localStorage.setItem('pi-server-url', draftServerUrl.trim())
+                    localStorage.setItem('pi-server-password', draftPassword)
+                    await testConnection()
+                    setTestStatus({ loading: false, ok: true, message: '连接成功' })
+                  } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err)
+                    setTestStatus({ loading: false, ok: false, message })
+                  }
+                }}
+                disabled={testStatus?.loading}
+                style={{
+                  marginTop: 10,
+                  padding: '8px 14px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  cursor: testStatus?.loading ? 'wait' : 'pointer',
+                }}
+              >
+                {testStatus?.loading ? '测试中...' : '测试连接'}
+              </button>
+              {testStatus && !testStatus.loading && (
+                <div
+                  style={{
+                    marginTop: 6,
+                    fontSize: 12,
+                    lineHeight: 1.4,
+                    color: testStatus.ok ? '#16a34a' : '#ef4444',
+                  }}
+                >
+                  {testStatus.ok ? '✓ ' : '✗ '}{testStatus.message}
                 </div>
               )}
             </div>

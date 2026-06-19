@@ -104,7 +104,10 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const cwdButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -116,9 +119,19 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const filteredSessions = selectedCwd
-    ? sessions.filter((s) => s.cwd.replace(/[/\\]+/g, '/') === selectedCwd.replace(/[/\\]+/g, '/'))
-    : sessions
+  const filteredSessions = useMemo(() => {
+    let list = selectedCwd
+      ? sessions.filter((s) => s.cwd.replace(/[/\\]+/g, '/') === selectedCwd.replace(/[/\\]+/g, '/'))
+      : sessions
+    const q = search.trim().toLowerCase()
+    if (q) {
+      list = list.filter((s) => {
+        const text = `${s.name ?? ''} ${s.firstMessage ?? ''} ${s.cwd ?? ''} ${s.model?.provider ?? ''} ${s.model?.modelId ?? ''}`.toLowerCase()
+        return text.includes(q)
+      })
+    }
+    return list
+  }, [sessions, selectedCwd, search])
 
   const sessionTree = useMemo(() => buildSessionTree(filteredSessions, pinnedIds), [filteredSessions, pinnedIds])
 
@@ -160,8 +173,14 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
           <PiAgentTitle />
           <div style={{ display: 'flex', gap: 6 }}>
             <button
-              onClick={onNewSession}
-              disabled={!selectedCwd}
+              onClick={() => {
+                if (!selectedCwd) {
+                  setDropdownOpen(true)
+                  cwdButtonRef.current?.focus()
+                  return
+                }
+                onNewSession()
+              }}
               className="btn-text"
               title={selectedCwd ? '在当前项目中新建对话' : '请先选择项目目录'}
             >
@@ -175,17 +194,76 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
           </div>
         </div>
 
+        {/* Search */}
+        <div style={{ marginTop: 10, marginBottom: 8, position: 'relative' }}>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--text-dim)"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            ref={searchRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索会话..."
+            style={{
+              width: '100%',
+              padding: '6px 10px 6px 28px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 7,
+              color: 'var(--text)',
+              fontSize: 'var(--font-sm)',
+              outline: 'none',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(''); searchRef.current?.focus() }}
+              style={{
+                position: 'absolute',
+                right: 6,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 18,
+                height: 18,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+              }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+
         {/* CWD picker */}
         <div ref={dropdownRef} style={{ position: 'relative' }}>
           <button
+            ref={cwdButtonRef}
             onClick={() => setDropdownOpen((v) => !v)}
             style={{
               width: '100%',
               display: 'flex',
               alignItems: 'center',
               padding: '6px 10px',
-              background: selectedCwd ? 'var(--bg-hover)' : 'rgba(37,99,235,0.06)',
-              border: selectedCwd ? '1px solid var(--border)' : '1px solid rgba(37,99,235,0.4)',
+              background: selectedCwd ? 'var(--bg-hover)' : 'rgba(37,99,235,0.08)',
+              border: selectedCwd ? '1px solid var(--border)' : '1px dashed rgba(37,99,235,0.5)',
               borderRadius: 7,
               cursor: 'pointer',
               fontSize: 'var(--font-sm)',
@@ -504,15 +582,26 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
     navigator.clipboard?.writeText(text).catch(() => {})
   }
 
+  const detailTitle = [
+    `项目：${session.cwd}`,
+    session.model ? `模型：${session.model.provider}/${session.model.modelId}` : null,
+    session.tokens?.total ? `tokens：${session.tokens.total.toLocaleString()}` : null,
+    session.cost && session.cost > 0 ? `费用：$${session.cost.toFixed(4)}` : null,
+    `时间：${session.modified}`,
+    `消息：${session.messageCount} 条`,
+  ].filter(Boolean).join('\n')
+
   return (
     <div
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { setHovered(false); if (!menuOpen) setConfirming(false) }}
       style={{
-        height: 'var(--session-item-height, 54px)',
+        minHeight: 48,
         display: 'flex',
         alignItems: 'center',
+        paddingTop: 6,
+        paddingBottom: 6,
         paddingLeft: depth > 0 ? depth * 12 + 14 : 14,
         paddingRight: 8,
         cursor: 'pointer',
@@ -522,6 +611,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
         gap: 6,
         overflow: 'hidden',
       }}
+      title={detailTitle}
     >
       {depth > 0 && (
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -589,15 +679,20 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
             </span>
           )}
         </div>
-        <div style={{ marginTop: 2, display: 'flex', gap: 8, color: 'var(--text-dim)', fontSize: 'var(--sidebar-meta-size, 11px)' }}>
-          <span title={session.modified}>{formatRelativeTime(session.modified)}</span>
-          <span>{session.messageCount} 条消息</span>
+        <div style={{ marginTop: 2, display: 'flex', gap: 8, color: 'var(--text-dim)', fontSize: 'var(--sidebar-meta-size, 11px)', overflow: 'hidden' }}>
+          <span title={session.modified} style={{ flexShrink: 0 }}>{formatRelativeTime(session.modified)}</span>
+          <span style={{ flexShrink: 0 }}>{session.messageCount} 条消息</span>
+          {session.model && (
+            <span title={`${session.model.provider}/${session.model.modelId}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {session.model.modelId}
+            </span>
+          )}
         </div>
         <div style={{
           marginTop: 1, fontSize: 'var(--sidebar-path-size, 10px)', color: 'var(--text-dim)',
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {session.cwd}
+          {shortenCwd(session.cwd)}
         </div>
       </div>
 

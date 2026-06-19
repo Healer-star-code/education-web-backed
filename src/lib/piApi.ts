@@ -31,7 +31,7 @@ export interface WebSessionInfo {
 export interface WebToolCall {
   id: string
   name: string
-  status: 'running' | 'done' | 'error'
+  status: 'running' | 'done' | 'error' | 'waiting_permission'
   args?: unknown
   result?: unknown
 }
@@ -72,6 +72,21 @@ export interface ArtifactInfo {
   messageIndex?: number
 }
 
+export interface PermissionRequestInfo {
+  permissionId: string
+  sessionId: string
+  kind: string
+  message: string
+  options?: unknown
+  diff?: string
+}
+
+export interface QuestionInfo {
+  questionId: string
+  sessionId: string
+  questions: { label: string; value?: string }[][]
+}
+
 export type WebAgentEvent =
   | { type: 'connected'; sessionId: string }
   | { type: 'agent_start' }
@@ -83,19 +98,34 @@ export type WebAgentEvent =
   | { type: 'tool_start'; toolCallId: string; toolName: string; args: unknown }
   | { type: 'tool_update'; toolCallId: string; toolName: string; partialResult: unknown }
   | { type: 'tool_end'; toolCallId: string; toolName: string; result: unknown; isError: boolean }
+  | { type: 'permission_requested'; request: PermissionRequestInfo }
+  | { type: 'permission_resolved'; permissionId: string; approved: boolean }
+  | { type: 'question'; question: QuestionInfo }
+  | { type: 'question_resolved'; questionId: string; answer?: string }
   | { type: 'session_renamed'; sessionId: string; name: string; titleSource: 'ai' | 'user'; aiTitleGenerated: boolean }
   | { type: 'artifact_created'; artifact: ArtifactInfo }
   | { type: 'agent_end' }
   | { type: 'error'; message: string }
 
-const DEFAULT_API_BASE = 'http://127.0.0.1:30142'
+const DEFAULT_API_BASE = '/superking-api'
 const LS_SERVER_URL = 'pi-server-url'
 const LS_PASSWORD = 'pi-server-password'
+
+function isDevFrontend(): boolean {
+  return typeof window !== 'undefined' && window.location.host === 'localhost:5173'
+}
+
+function shouldUseProxy(savedUrl: string): boolean {
+  return isDevFrontend() && /^https?:\/\/(127\.0\.0\.1|localhost):30142\/?$/.test(savedUrl.trim())
+}
 
 export function getApiBase(): string {
   try {
     const fromLs = localStorage.getItem(LS_SERVER_URL)
-    if (fromLs) return fromLs
+    if (fromLs) {
+      if (shouldUseProxy(fromLs)) return DEFAULT_API_BASE
+      return fromLs
+    }
   } catch { /* ignore */ }
   return (import.meta.env.VITE_PI_API_BASE as string | undefined) ?? DEFAULT_API_BASE
 }
@@ -446,6 +476,83 @@ export async function switchModel(sessionId: string, provider: string, modelId: 
 }
 
 // ---------------------------------------------------------------------------
+// Health / connection test (按 super-king 文档)
+// ---------------------------------------------------------------------------
+
+export async function testConnection(): Promise<{ ok: true }> {
+  return requestJson<{ ok: true }>('/api/health', { method: 'GET' }, { timeoutMs: 10000 })
+}
+
+// ---------------------------------------------------------------------------
+// Models & config (按 super-king 文档)
+// ---------------------------------------------------------------------------
+
+export interface ModelProviderInfo {
+  id: string
+  name: string
+  models: {
+    id: string
+    name: string
+    reasoning: boolean
+    input: string[]
+    contextWindow: number
+    maxTokens: number
+  }[]
+}
+
+export async function listModels(): Promise<ModelProviderInfo[]> {
+  const data = await requestJson<{ providers: ModelProviderInfo[] }>('/api/models')
+  return data.providers
+}
+
+export interface ConfigInfo {
+  defaultModel: { id: string; provider: string; modelId?: string } | null
+}
+
+export async function getConfig(): Promise<ConfigInfo> {
+  return requestJson<ConfigInfo>('/api/config')
+}
+
+// ---------------------------------------------------------------------------
+// Permissions (按 super-king 文档)
+// ---------------------------------------------------------------------------
+
+export async function listPermissions(sessionId: string): Promise<PermissionRequestInfo[]> {
+  const data = await requestJson<{ permissions: PermissionRequestInfo[] }>(`/api/sessions/${encodeURIComponent(sessionId)}/permissions`)
+  return data.permissions
+}
+
+export async function resolvePermission(sessionId: string, permissionId: string, approved: boolean): Promise<void> {
+  await requestJson<{ ok: true }>(`/api/sessions/${encodeURIComponent(sessionId)}/permissions/${encodeURIComponent(permissionId)}`, {
+    method: 'POST',
+    body: JSON.stringify({ approved }),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Questions (按 super-king 文档)
+// ---------------------------------------------------------------------------
+
+export async function listQuestions(): Promise<QuestionInfo[]> {
+  const data = await requestJson<{ questions: QuestionInfo[] }>('/api/questions')
+  return data.questions
+}
+
+export async function answerQuestion(questionId: string, answers: string[][]): Promise<void> {
+  await requestJson<{ ok: true }>(`/api/questions/${encodeURIComponent(questionId)}`, {
+    method: 'POST',
+    body: JSON.stringify({ answers }),
+  })
+}
+
+export async function rejectQuestion(questionId: string): Promise<void> {
+  await requestJson<{ ok: true }>(`/api/questions/${encodeURIComponent(questionId)}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // SSE (按 super-king 文档 named events；内部转换为前端 WebAgentEvent)
 // ---------------------------------------------------------------------------
 
@@ -514,12 +621,22 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     onEvent({ type: 'connected', sessionId })
   })
 
+  // 兜底：某些环境/代理下 open 事件不可靠，首次收到任意命名事件也视为已连接
+  let anyEventReceived = false
+  const markConnectedOnce = () => {
+    if (anyEventReceived) return
+    anyEventReceived = true
+    onEvent({ type: 'connected', sessionId })
+  }
+
   es.addEventListener('agent_start', () => {
+    markConnectedOnce()
     reset()
     onEvent({ type: 'agent_start' })
   })
 
   es.addEventListener('message_start', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       const content = data.message?.content ?? []
@@ -542,6 +659,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('message_update', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       const content: SuperKingContent[] = data.message?.content ?? []
@@ -559,6 +677,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('message_end', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       flushFinal(data.message)
@@ -569,6 +688,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('tool_execution_start', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       onEvent({
@@ -583,6 +703,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('tool_execution_update', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       onEvent({
@@ -597,6 +718,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('tool_execution_end', (event) => {
+    markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
       onEvent({
@@ -612,8 +734,121 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
   })
 
   es.addEventListener('agent_end', () => {
+    markConnectedOnce()
     flushFinal()
     onEvent({ type: 'agent_end' })
+  })
+
+  // super-king 实际也会把权限/问题作为独立 named event 发送
+  es.addEventListener('permission_requested', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      onEvent({
+        type: 'permission_requested',
+        request: {
+          permissionId: data.permissionId,
+          sessionId: data.sessionId,
+          kind: data.kind,
+          message: data.message,
+          options: data.options,
+          diff: data.diff,
+        },
+      })
+    } catch {
+      // ignore
+    }
+  })
+
+  es.addEventListener('permission_resolved', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      onEvent({
+        type: 'permission_resolved',
+        permissionId: data.permissionId ?? data.requestId,
+        approved: data.approved ?? (data.decision === 'allow_once' || data.decision === 'allow_session'),
+      })
+    } catch {
+      // ignore
+    }
+  })
+
+  es.addEventListener('question', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      onEvent({
+        type: 'question',
+        question: {
+          questionId: data.questionId,
+          sessionId: data.sessionId,
+          questions: data.questions ?? [],
+        },
+      })
+    } catch {
+      // ignore
+    }
+  })
+
+  es.addEventListener('question_resolved', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      onEvent({
+        type: 'question_resolved',
+        questionId: data.questionId,
+        answer: data.answer,
+      })
+    } catch {
+      // ignore
+    }
+  })
+
+  // 保留 custom event 兜底（某些版本/代理可能仍走这里）
+  es.addEventListener('custom', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      if (!data || typeof data !== 'object' || !data.type) return
+
+      if (data.type === 'permission_requested') {
+        onEvent({
+          type: 'permission_requested',
+          request: {
+            permissionId: data.permissionId,
+            sessionId: data.sessionId,
+            kind: data.kind,
+            message: data.message,
+            options: data.options,
+            diff: data.diff,
+          },
+        })
+      } else if (data.type === 'permission_resolved') {
+        onEvent({
+          type: 'permission_resolved',
+          permissionId: data.permissionId ?? data.requestId,
+          approved: data.approved ?? (data.decision === 'allow_once' || data.decision === 'allow_session'),
+        })
+      } else if (data.type === 'question' || data.type === 'question_requested') {
+        onEvent({
+          type: 'question',
+          question: {
+            questionId: data.questionId,
+            sessionId: data.sessionId,
+            questions: data.questions ?? [],
+          },
+        })
+      } else if (data.type === 'question_resolved') {
+        onEvent({
+          type: 'question_resolved',
+          questionId: data.questionId,
+          answer: data.answer,
+        })
+      }
+    } catch {
+      // ignore
+    }
   })
 
   es.addEventListener('server.heartbeat', () => {

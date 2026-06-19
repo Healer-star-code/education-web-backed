@@ -575,6 +575,11 @@ html.dark .noise-overlay {
   font-weight: 500;
 }
 
+.tool-call-button--waiting_permission {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
 .tool-call-status-icon {
   flex-shrink: 0;
 }
@@ -585,6 +590,10 @@ html.dark .noise-overlay {
 
 .tool-call-status-error {
   color: #f97316;
+}
+
+.tool-call-status-waiting {
+  color: #f59e0b;
 }
 
 .tool-call-spinner {

@@ -6,7 +6,12 @@ import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { Typewriter } from './components/Typewriter'
-import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession, listLocalSkills } from './lib/piApi'
+import {
+  listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession,
+  listLocalSkills, listModels, getConfig, switchModel,
+  type ModelProviderInfo,
+  type ConfigInfo,
+} from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
@@ -76,7 +81,14 @@ export default function App() {
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [serverUrl, setServerUrl] = useState(() => {
-    try { return localStorage.getItem('pi-server-url') || (import.meta.env.VITE_PI_API_BASE as string | undefined) || 'http://127.0.0.1:30142' } catch { return 'http://127.0.0.1:30142' }
+    try {
+      const saved = localStorage.getItem('pi-server-url')
+      if (saved && typeof window !== 'undefined' && window.location.host === 'localhost:5173' && /^https?:\/\/(127\.0\.0\.1|localhost):30142\/?$/.test(saved.trim())) {
+        localStorage.setItem('pi-server-url', '/superking-api')
+        return '/superking-api'
+      }
+      return saved || (import.meta.env.VITE_PI_API_BASE as string | undefined) || '/superking-api'
+    } catch { return '/superking-api' }
   })
   const [password, setPassword] = useState(() => {
     try { return localStorage.getItem('pi-server-password') || '' } catch { return '' }
@@ -84,6 +96,8 @@ export default function App() {
   const [localHelperUrl, setLocalHelperUrl] = useState(() => {
     try { return localStorage.getItem('pi-local-helper-url') || (import.meta.env.VITE_LOCAL_HELPER_BASE as string | undefined) || 'http://127.0.0.1:30143' } catch { return 'http://127.0.0.1:30143' }
   })
+  const [modelProviders, setModelProviders] = useState<ModelProviderInfo[]>([])
+  const [config, setConfig] = useState<ConfigInfo | null>(null)
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('pi-pinned-sessions')
@@ -124,6 +138,18 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('pi-local-helper-url', localHelperUrl)
   }, [localHelperUrl])
+
+  // 加载模型列表与全局配置
+  useEffect(() => {
+    let cancelled = false
+    Promise.all([
+      listModels().then((providers) => { if (!cancelled) setModelProviders(providers) }),
+      getConfig().then((cfg) => { if (!cancelled) setConfig(cfg) }),
+    ]).catch((err) => {
+      console.error('Failed to load models/config:', err)
+    })
+    return () => { cancelled = true }
+  }, [serverUrl, password])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -229,6 +255,17 @@ export default function App() {
     }
   }, [selectedSession, selectedCwd])
 
+  const handleSwitchModel = useCallback(async (sessionId: string, provider: string, modelId: string) => {
+    try {
+      await switchModel(sessionId, provider, modelId)
+      const updated: Partial<SessionInfo> = { model: { provider, modelId } }
+      setSessions((current) => current.map((s) => s.id === sessionId ? { ...s, ...updated } : s))
+      setSelectedSession((current) => current?.id === sessionId ? { ...current, ...updated } : current)
+    } catch (err) {
+      setToast('切换模型失败：' + (err instanceof Error ? err.message : String(err)))
+    }
+  }, [])
+
   const showChat = selectedSession !== null || newSessionCwd !== null
 
   return (
@@ -333,6 +370,9 @@ export default function App() {
                 newSessionCwd={newSessionCwd}
                 chatInputRef={chatInputRef}
                 onSessionCreated={handleSessionCreated}
+                modelProviders={modelProviders}
+                config={config}
+                onSwitchModel={handleSwitchModel}
               />
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
