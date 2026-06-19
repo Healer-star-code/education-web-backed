@@ -32,12 +32,12 @@ export function ReasoningBlock({ steps }: Props) {
 
   let summary = ''
   if (isActive) {
-    summary = '正在处理您的任务'
+    summary = '正在处理'
   } else {
     const durationText = formatDuration(totalDurationMs)
     summary = durationText
-      ? `您的任务已经处理完成，用时 ${durationText}`
-      : '您的任务已经处理完成'
+      ? `已处理 ${durationText}`
+      : '已处理'
   }
 
   const [expanded, setExpanded] = useState(isActive)
