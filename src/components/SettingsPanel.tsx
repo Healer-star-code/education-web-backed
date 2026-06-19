@@ -39,10 +39,17 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   }, [saveAndClose])
 
   const saveAndClose = () => {
+    const trimmedUrl = draftServerUrl.trim()
+    try {
+      localStorage.setItem('pi-server-url', trimmedUrl)
+      localStorage.setItem('pi-server-password', draftPassword)
+    } catch (err) {
+      console.error('Failed to save server settings to localStorage:', err)
+    }
     onThemeChange(draftTheme)
     onFontSizeChange(draftFontSize)
     onModeChange(draftMode)
-    onServerUrlChange(draftServerUrl.trim())
+    onServerUrlChange(trimmedUrl)
     onPasswordChange(draftPassword)
     onClose()
   }
