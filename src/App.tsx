@@ -281,14 +281,6 @@ export default function App() {
             </button>
             <div style={{ flex: 1 }} />
             <button
-              onClick={() => setSkillsOpen(!skillsOpen)}
-              title="Skills"
-              className={`btn-text ${skillsOpen ? 'active' : ''}`}
-              style={{ marginRight: 4, fontWeight: 600 }}
-            >
-              Skills
-            </button>
-            <button
               onClick={() => setSettingsOpen(!settingsOpen)}
               title="设置"
               className={`btn-icon ${settingsOpen ? 'active' : ''}`}
