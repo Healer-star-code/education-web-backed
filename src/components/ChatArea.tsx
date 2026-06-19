@@ -550,7 +550,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             开始新对话
           </div>
           <div style={{ fontSize: 'var(--font-base)', color: 'var(--text-muted)', textAlign: 'center' }}>
-            点击左侧「New」按钮创建一个会话
+            点击左侧「新建对话」开始
           </div>
         </div>
       </div>

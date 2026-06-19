@@ -150,13 +150,13 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               onClick={onNewSession}
               disabled={!selectedCwd}
               className="btn-text"
-              title={selectedCwd ? `New session in ${selectedCwd}` : 'Select a project first'}
+              title={selectedCwd ? '在当前项目中新建对话' : '请先选择项目目录'}
             >
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <line x1="6" y1="1" x2="6" y2="11" />
                 <line x1="1" y1="6" x2="11" y2="6" />
               </svg>
-              New
+              新建对话
             </button>
             <button
               title="Refresh"
@@ -316,7 +316,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               {sessionLoadError ? '连接失败' : '暂无会话'}
             </div>
             <div style={{ fontSize: 'var(--font-xs)', lineHeight: 1.5 }}>
-              {sessionLoadError ? `无法加载历史会话：${sessionLoadError}` : '点击上方「New」创建一个新会话开始对话'}
+              {sessionLoadError ? `无法加载历史会话：${sessionLoadError}` : '点击上方「新建对话」开始'}
             </div>
           </div>
         )}
