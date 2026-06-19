@@ -21,6 +21,12 @@
   --shadow-xl: 0 16px 48px rgba(0,0,0,0.18);
   --overlay-bg: rgba(0,0,0,0.45);
   --font-mono: 'Geist Mono Variable', 'JetBrains Mono', 'Fira Code', 'Consolas', ui-monospace, 'PingFang SC', 'Microsoft YaHei', monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
 }
 
 html.dark {
@@ -526,6 +532,110 @@ html.dark .noise-overlay {
 @keyframes streaming-breathe {
   0%, 100% { box-shadow: 0 0 0 1px var(--streaming-dim); }
   50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--streaming) 55%, transparent), 0 0 10px 0 color-mix(in srgb, var(--streaming) 12%, transparent); }
+}
+
+/* Tool call cards -------------------------------------------------------- */
+
+.tool-call-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 4px 0 8px;
+}
+
+.tool-call-row {
+  font-size: var(--font-sm);
+  margin-bottom: 2px;
+}
+
+.tool-call-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: var(--font-sm);
+  font-weight: 400;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.tool-call-button:hover {
+  background: var(--bg-hover);
+}
+
+.tool-call-button--running {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.tool-call-status-icon {
+  flex-shrink: 0;
+}
+
+.tool-call-status-done {
+  color: var(--text-dim);
+}
+
+.tool-call-status-error {
+  color: #f97316;
+}
+
+.tool-call-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.tool-call-type-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tool-call-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-call-chevron {
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: transform 0.15s ease;
+}
+
+.tool-call-chevron[data-expanded="true"] {
+  transform: rotate(180deg);
+}
+
+.tool-call-result {
+  margin: 2px 8px 4px 30px;
+  padding: 6px 10px;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 /* Senior mode: slow the breathe animation */

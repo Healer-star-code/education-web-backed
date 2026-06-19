@@ -20,12 +20,6 @@ function getToolMeta(name: string) {
   return TOOL_META[name] ?? { label: name, pastTense: name }
 }
 
-const TOOL_ICON: Record<string, string> = {
-  grep: '🔍', find: '🔍', glob: '🔍',
-  read: '📖', ls: '📁', bash: '▶',
-  edit: '✏️', write: '📝',
-}
-
 function extractContext(name: string, args: unknown): string {
   if (!args || typeof args !== 'object') return ''
   const a = args as Record<string, unknown>
@@ -68,6 +62,100 @@ function formatResult(result: unknown): string {
   }
 }
 
+function ToolIcon({ name }: { name: string }) {
+  const common = { width: 13, height: 13, stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' } as const
+  if (name === 'grep' || name === 'find' || name === 'glob') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
+    )
+  }
+  if (name === 'read') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    )
+  }
+  if (name === 'ls') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+      </svg>
+    )
+  }
+  if (name === 'bash') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <polyline points="4 17 10 11 4 5" />
+        <line x1="12" y1="19" x2="20" y2="19" />
+      </svg>
+    )
+  }
+  if (name === 'edit') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+      </svg>
+    )
+  }
+  if (name === 'write') {
+    return (
+      <svg {...common} viewBox="0 0 24 24">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="12" y1="18" x2="12" y2="18" />
+      </svg>
+    )
+  }
+  // Fallback gear icon
+  return (
+    <svg {...common} viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function ToolStatusIcon({ status }: { status: ToolCallInfo['status'] }) {
+  if (status === 'running') {
+    return <span className="tool-call-spinner" aria-hidden="true" />
+  }
+  if (status === 'done') {
+    return (
+      <svg className="tool-call-status-icon tool-call-status-done" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="2.5 7.5 5.5 10.5 11.5 4.5" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="tool-call-status-icon tool-call-status-error" width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" />
+      <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ expanded }: { expanded: boolean }) {
+  return (
+    <svg
+      className="tool-call-chevron"
+      data-expanded={expanded}
+      width="9" height="9" viewBox="0 0 10 10" fill="none"
+      stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="2 3.5 5 6.5 8 3.5" />
+    </svg>
+  )
+}
+
 export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   const [expanded, setExpanded] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
@@ -87,90 +175,39 @@ export function ToolCallRow({ tool }: { tool: ToolCallInfo }) {
   }, [tool.status])
 
   const meta = getToolMeta(tool.name)
-  const icon = TOOL_ICON[tool.name] ?? '⚙️'
   const ctx = truncateContext(extractContext(tool.name, tool.args))
   const resultText = formatResult(tool.result ?? tool.partialResult)
 
   const durationText = elapsedMs >= 1000
-    ? ` ⏱ ${(elapsedMs / 1000).toFixed(1)}秒`
+    ? ` · ${(elapsedMs / 1000).toFixed(1)}秒`
     : elapsedMs > 0
-      ? ` ⏱ ${elapsedMs}毫秒`
+      ? ` · ${elapsedMs}毫秒`
       : ''
 
   let label = ''
   if (tool.status === 'running') {
-    label = `正在${meta.label}${ctx ? ' ' + ctx : ''}...${durationText}`
+    label = `正在${meta.label}${ctx ? ' · ' + ctx : ''}${durationText}`
   } else if (tool.status === 'done') {
-    label = `${meta.pastTense}${ctx ? ' ' + ctx : ''}`
+    label = `${meta.pastTense}${ctx ? ' · ' + ctx : ''}`
   } else {
-    label = `${meta.label}失败${ctx ? ' ' + ctx : ''}`
+    label = `${meta.label}失败${ctx ? ' · ' + ctx : ''}`
   }
 
   return (
-    <div style={{       fontSize: 'var(--font-sm)', marginBottom: 2 }}>
+    <div className="tool-call-row">
       <button
         onClick={() => setExpanded((v) => !v)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          width: '100%', padding: '4px 8px',
-          background: 'none', border: 'none',
-          borderRadius: 5,
-          color: tool.status === 'running' ? 'var(--accent)' : 'var(--text-dim)',
-          fontSize: 'var(--font-sm)', fontWeight: tool.status === 'running' ? 500 : 400,
-          cursor: 'pointer', textAlign: 'left',
-          fontFamily: 'inherit',
-          transition: 'background 0.1s',
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
+        className={`tool-call-button tool-call-button--${tool.status}`}
+        aria-expanded={expanded}
       >
-        {tool.status === 'running' ? (
-          <span style={{
-            width: 12, height: 12, borderRadius: '50%',
-            border: '1.5px solid var(--accent)',
-            borderTopColor: 'transparent',
-            animation: 'spin 0.8s linear infinite',
-            display: 'inline-block', flexShrink: 0,
-          }} />
-        ) : tool.status === 'done' ? (
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="var(--text-dim)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <polyline points="2.5 7.5 5.5 10.5 11.5 4.5" />
-          </svg>
-        ) : (
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="#f97316" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-            <line x1="3.5" y1="3.5" x2="10.5" y2="10.5" />
-            <line x1="10.5" y1="3.5" x2="3.5" y2="10.5" />
-          </svg>
-        )}
-        <span style={{ flexShrink: 0 }}>{icon}</span>
-        <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {label}
-        </span>
-        <svg
-          width="9" height="9" viewBox="0 0 10 10" fill="none"
-          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{
-            transform: expanded ? 'rotate(180deg)' : 'none',
-            transition: 'transform 0.15s',
-            flexShrink: 0, opacity: 0.4,
-          }}
-        >
-          <polyline points="2 3.5 5 6.5 8 3.5" />
-        </svg>
+        <ToolStatusIcon status={tool.status} />
+        <span className="tool-call-type-icon"><ToolIcon name={tool.name} /></span>
+        <span className="tool-call-label">{label}</span>
+        <ChevronIcon expanded={expanded} />
       </button>
 
       {expanded && resultText && (
-        <div style={{
-          margin: '2px 8px 4px 30px',
-          padding: '6px 10px',
-          background: 'rgba(0,0,0,0.03)',
-          borderRadius: 6,
-          fontSize: 'var(--font-xs)', lineHeight: 1.5,
-          color: 'var(--text-muted)',
-          fontFamily: 'var(--font-mono)',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-          maxHeight: 200, overflowY: 'auto',
-        }}>
+        <div className="tool-call-result">
           {resultText}
         </div>
       )}
@@ -182,10 +219,7 @@ export function ToolCallCard({ toolCalls }: Props) {
   if (toolCalls.length === 0) return null
 
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', gap: 0,
-      margin: '4px 0 8px',
-    }}>
+    <div className="tool-call-card">
       {toolCalls.map((tool) => (
         <ToolCallRow key={tool.id} tool={tool} />
       ))}
