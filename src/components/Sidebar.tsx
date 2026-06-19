@@ -361,7 +361,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
 
 
       {/* Bottom Skills button */}
-      <div style={{ padding: '8px', flexShrink: 0 }}>
+      <div style={{ padding: '8px', flexShrink: 0, borderTop: '1px solid var(--border)' }}>
         <button
           title="Skills"
           onClick={() => onOpenSkills?.()}
