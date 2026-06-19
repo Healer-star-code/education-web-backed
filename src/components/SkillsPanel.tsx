@@ -41,6 +41,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
   const [skillsRoot, setSkillsRoot] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [unsupported, setUnsupported] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -50,6 +51,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
   const loadSkills = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setUnsupported(false)
     try {
       const installed = await listInstalledSkills()
       const effective = await listSkills(cwd ?? undefined)
@@ -57,7 +59,13 @@ export function SkillsPanel({ cwd, onClose }: Props) {
       setSkillsRoot(installed.root)
       setEffectiveSkills(effective)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      // super-king 等后端没有 /api/skills 接口，按文档没有的走前端降级
+      if (message.includes('404') || message.includes('Not Found') || message.toLowerCase().includes('not found')) {
+        setUnsupported(true)
+      } else {
+        setError(message)
+      }
     } finally {
       setLoading(false)
     }
@@ -117,14 +125,18 @@ export function SkillsPanel({ cwd, onClose }: Props) {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--text)' }}>全局 Skills</div>
             <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              安装目录：{skillsRoot || '加载中...'}
+              {unsupported ? '当前后端未提供 Skills 管理接口' : `安装目录：${skillsRoot || '加载中...'}`}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            <button onClick={loadSkills} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
-            <button onClick={handleReinstallOffice} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>重装 Office Skills</button>
-            <button onClick={async () => { try { await openFolder(await getSkillsRoot()) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
-            <button onClick={() => setShowAddForm((v) => !v)} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: showAddForm ? 'var(--bg-selected)' : 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>{showAddForm ? 'Cancel' : '+ Add Skill'}</button>
+            {!unsupported && (
+              <>
+                <button onClick={loadSkills} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
+                <button onClick={handleReinstallOffice} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>重装 Office Skills</button>
+                <button onClick={async () => { try { await openFolder(await getSkillsRoot()) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
+                <button onClick={() => setShowAddForm((v) => !v)} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: showAddForm ? 'var(--bg-selected)' : 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>{showAddForm ? 'Cancel' : '+ Add Skill'}</button>
+              </>
+            )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 'var(--font-lg)' }}>×</button>
           </div>
         </div>
@@ -152,7 +164,24 @@ export function SkillsPanel({ cwd, onClose }: Props) {
           {loading && <div style={{ color: 'var(--text-muted)', fontSize: 'calc(var(--font-base) * 0.929)' }}>Loading skills...</div>}
           {error && <div style={{ color: '#ef4444', fontSize: 'calc(var(--font-base) * 0.929)', marginBottom: 10 }}>{error}</div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {unsupported && (
+            <div style={{
+              padding: '24px 20px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              textAlign: 'center',
+              color: 'var(--text-muted)',
+              fontSize: 'calc(var(--font-base) * 0.929)',
+              lineHeight: 1.6,
+            }}>
+              <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>当前后端不支持 Skills 管理</div>
+              <div>super-king 文档未提供 Skills 列表/安装接口。</div>
+              <div style={{ marginTop: 4 }}>如需使用技能，直接在对话中让 AI 调用即可。</div>
+            </div>
+          )}
+
+          {!unsupported && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <section>
               <div style={{ fontSize: 'var(--font-sm)', fontWeight: 800, color: 'var(--text)', marginBottom: 8 }}>已安装到本系统的 Skills（{installedSkills.length}）</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -178,7 +207,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
                 {effectiveSkills.map((skill) => <SkillCard key={`effective:${skill.source}:${skill.name}`} skill={skill} />)}
               </div>
             </section>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
