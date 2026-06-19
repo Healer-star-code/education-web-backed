@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getLocalSkillsRoot, listLocalSkills, openLocalFolder, type SkillInfo } from '../lib/piApi'
+import { getCachedLocalSkills, listLocalSkills, openLocalFolder, type SkillInfo } from '../lib/piApi'
 
 interface Props {
   cwd: string | null
@@ -40,10 +40,22 @@ export function SkillsPanel({ cwd, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [unsupported, setUnsupported] = useState(false)
 
-  const loadSkills = useCallback(async () => {
-    setLoading(true)
+  const loadSkills = useCallback(async (options?: { silent?: boolean }) => {
+    const cached = getCachedLocalSkills()
+
+    // 有缓存时先立即显示，不闪 loading
+    if (cached) {
+      setInstalledSkills(cached.skills)
+      setEffectiveSkills(cached.skills)
+      setSkillsRoot(cached.root)
+    }
+
+    if (!options?.silent) {
+      setLoading(!cached)
+    }
     setError(null)
     setUnsupported(false)
+
     try {
       const { skills, root } = await listLocalSkills()
       setInstalledSkills(skills)
@@ -54,7 +66,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
       // 本地增强服务未启动或没有 skills 接口
       if (message.includes('404') || message.includes('Not Found') || message.toLowerCase().includes('not found')) {
         setUnsupported(true)
-      } else {
+      } else if (!cached) {
         setError(message)
       }
     } finally {

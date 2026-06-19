@@ -6,7 +6,7 @@ import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { Typewriter } from './components/Typewriter'
-import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession } from './lib/piApi'
+import { listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession, listLocalSkills } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
@@ -42,6 +42,11 @@ export default function App() {
     listRecentPaths()
       .then((paths) => setRecentCwds(paths.map((p) => p.path)))
       .catch(() => {})
+  }, [])
+
+  // 预加载本地 Skills 到缓存，打开 Skills 面板时可立即显示
+  useEffect(() => {
+    listLocalSkills().catch(() => {})
   }, [])
 
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)

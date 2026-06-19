@@ -241,8 +241,45 @@ export async function getLocalSkillsRoot(): Promise<{ path: string }> {
   return localRequestJson<{ path: string }>('/api/local/skills/root')
 }
 
+const LS_SKILLS_CACHE = 'pi-local-skills-cache'
+
+export interface LocalSkillsCache {
+  root: string
+  skills: SkillInfo[]
+  updatedAt: number
+}
+
+export function getCachedLocalSkills(): LocalSkillsCache | null {
+  try {
+    const raw = localStorage.getItem(LS_SKILLS_CACHE)
+    if (!raw) return null
+    return JSON.parse(raw) as LocalSkillsCache
+  } catch { return null }
+}
+
+function setCachedLocalSkills(root: string, skills: SkillInfo[]) {
+  try {
+    localStorage.setItem(LS_SKILLS_CACHE, JSON.stringify({ root, skills, updatedAt: Date.now() }))
+  } catch { /* ignore */ }
+}
+
 export async function listLocalSkills(): Promise<{ skills: SkillInfo[]; root: string }> {
-  return localRequestJson<{ skills: SkillInfo[]; root: string }>('/api/local/skills')
+  const data = await localRequestJson<{ skills: SkillInfo[]; root: string }>('/api/local/skills')
+  setCachedLocalSkills(data.root, data.skills)
+  return data
+}
+
+export async function listLocalSkillsWithCache(): Promise<{ skills: SkillInfo[]; root: string; fromCache: boolean }> {
+  try {
+    const data = await listLocalSkills()
+    return { ...data, fromCache: false }
+  } catch (err) {
+    const cached = getCachedLocalSkills()
+    if (cached) {
+      return { skills: cached.skills, root: cached.root, fromCache: true }
+    }
+    throw err
+  }
 }
 
 export async function openLocalFolder(path?: string): Promise<void> {
