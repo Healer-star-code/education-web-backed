@@ -391,33 +391,11 @@ function cleanTitle(raw: string): string {
     .slice(0, 30)
 }
 
-async function autoNameSessionIfNeeded(sessionId: string, firstUserMessage: string): Promise<void> {
-  const managed = sessions.get(sessionId)
-  const sessionFile = managed?.session.sessionFile
-  if (!managed || !sessionFile || managed.autoNaming) return
-  const meta = getSessionTitleMeta(sessionFile)
-  if (meta?.titleSource === 'user' || meta?.aiTitleGenerated) return
-
-  managed.autoNaming = true
-  managed.suppressEvents = true
-  try {
-    await managed.session.prompt(`请根据用户的第一条消息，为这个会话生成一个简短标题。\n要求：只输出标题，不要解释；中文优先；不超过12个汉字或30个英文字符。\n\n用户第一条消息：${firstUserMessage}`)
-    const lastAssistant = [...managed.session.messages].reverse().find((msg) => isRecord(msg) && msg.role === 'assistant')
-    const title = cleanTitle(isRecord(lastAssistant) ? extractTextContent(lastAssistant.content) : '')
-    if (!title) return
-    managed.session.setSessionName(title)
-    const titleMeta = markAiTitleGenerated(sessionFile)
-    broadcastAgentEvent(sessionId, {
-      type: 'session_renamed',
-      sessionId,
-      name: title,
-      titleSource: 'ai',
-      aiTitleGenerated: titleMeta.aiTitleGenerated,
-    })
-  } finally {
-    managed.suppressEvents = false
-    managed.autoNaming = false
-  }
+// Disabled: using the same SDK session for auto-naming pollutes the chat history
+// with the title-generation prompt and its response, which then appear on reload.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function autoNameSessionIfNeeded(_sessionId: string, _firstUserMessage: string): Promise<void> {
+  return
 }
 
 export async function sendPrompt(sessionId: string, message: string, images?: ApiImagePayload[]): Promise<void> {
