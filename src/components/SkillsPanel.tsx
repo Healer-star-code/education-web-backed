@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { createSkill, deleteSkill, getSkillsRoot, listInstalledSkills, listSkills, openFolder, reinstallOfficeSkills, type SkillInfo } from '../lib/piApi'
+import { getLocalSkillsRoot, listLocalSkills, openLocalFolder, type SkillInfo } from '../lib/piApi'
 
 interface Props {
   cwd: string | null
@@ -15,7 +15,7 @@ const DEFAULT_CONTENT = `Describe when this skill should be used and how the age
 3. Produce the requested result.
 `
 
-function SkillCard({ skill, canDelete, onDelete }: { skill: SkillInfo; canDelete?: boolean; onDelete?: () => void }) {
+function SkillCard({ skill }: { skill: SkillInfo }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -24,9 +24,6 @@ function SkillCard({ skill, canDelete, onDelete }: { skill: SkillInfo; canDelete
           {skill.enabled ? 'enabled' : 'disabled'}
         </span>
         <span style={{ marginLeft: 'auto', fontSize: 'var(--font-xs)', color: 'var(--text-dim)' }}>{skill.source}</span>
-        {canDelete && (
-          <button onClick={onDelete} style={{ border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontSize: 'var(--font-xs)' }}>删除</button>
-        )}
       </div>
       <div style={{ marginTop: 6, fontSize: 'var(--font-sm)', lineHeight: 1.5, color: 'var(--text-muted)' }}>
         {skill.description || 'No description'}
@@ -42,25 +39,19 @@ export function SkillsPanel({ cwd, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [unsupported, setUnsupported] = useState(false)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [content, setContent] = useState(DEFAULT_CONTENT)
-  const [saving, setSaving] = useState(false)
 
   const loadSkills = useCallback(async () => {
     setLoading(true)
     setError(null)
     setUnsupported(false)
     try {
-      const installed = await listInstalledSkills()
-      const effective = await listSkills(cwd ?? undefined)
-      setInstalledSkills(installed.skills)
-      setSkillsRoot(installed.root)
-      setEffectiveSkills(effective)
+      const { skills, root } = await listLocalSkills()
+      setInstalledSkills(skills)
+      setEffectiveSkills(skills)
+      setSkillsRoot(root)
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      // super-king 等后端没有 /api/skills 接口，按文档没有的走前端降级
+      // 本地增强服务未启动或没有 skills 接口
       if (message.includes('404') || message.includes('Not Found') || message.toLowerCase().includes('not found')) {
         setUnsupported(true)
       } else {
@@ -69,54 +60,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
     } finally {
       setLoading(false)
     }
-  }, [cwd])
-
-  useEffect(() => { void loadSkills() }, [loadSkills])
-
-  const resetForm = useCallback(() => {
-    setName('')
-    setDescription('')
-    setContent(DEFAULT_CONTENT)
   }, [])
-
-  const handleCreate = useCallback(async () => {
-    if (saving) return
-    setSaving(true)
-    setError(null)
-    try {
-      await createSkill({
-        cwd: cwd ?? undefined,
-        name: name.trim(),
-        description: description.trim(),
-        content,
-      })
-      resetForm()
-      setShowAddForm(false)
-      await loadSkills()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setSaving(false)
-    }
-  }, [content, cwd, description, loadSkills, name, resetForm, saving])
-
-  const handleReinstallOffice = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const installed = await reinstallOfficeSkills()
-      const effective = await listSkills(cwd ?? undefined)
-      setInstalledSkills(installed.skills)
-      setSkillsRoot(installed.root)
-      setEffectiveSkills(effective)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setLoading(false)
-    }
-  }, [cwd])
-
-  const canCreate = !!name.trim() && !!description.trim() && !saving
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -125,16 +69,14 @@ export function SkillsPanel({ cwd, onClose }: Props) {
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--text)' }}>全局 Skills</div>
             <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {unsupported ? '当前后端未提供 Skills 管理接口' : `安装目录：${skillsRoot || '加载中...'}`}
+              {unsupported ? '本地增强服务未启动或未找到 Skills' : `安装目录：${skillsRoot || '加载中...'}`}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {!unsupported && (
               <>
                 <button onClick={loadSkills} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
-                <button onClick={handleReinstallOffice} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>重装 Office Skills</button>
-                <button onClick={async () => { try { await openFolder(await getSkillsRoot()) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
-                <button onClick={() => setShowAddForm((v) => !v)} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: showAddForm ? 'var(--bg-selected)' : 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>{showAddForm ? 'Cancel' : '+ Add Skill'}</button>
+                <button onClick={async () => { try { await openLocalFolder(skillsRoot) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
               </>
             )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 'var(--font-lg)' }}>×</button>
@@ -142,25 +84,6 @@ export function SkillsPanel({ cwd, onClose }: Props) {
         </div>
 
         <div style={{ padding: 14, overflowY: 'auto' }}>
-          {showAddForm && (
-            <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, marginBottom: 12, background: 'var(--bg)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div style={{ fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 700, color: 'var(--text)' }}>Add global skill</div>
-                <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)' }}>支持文件夹 SKILL.md 和根目录 .md</div>
-              </div>
-              <label style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 4 }}>Name</label>
-              <input value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="lesson-planner" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-panel)', color: 'var(--text)', fontSize: 'calc(var(--font-base) * 0.929)' }} />
-              <label style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 4 }}>Description</label>
-              <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="When should the agent use this skill?" style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-panel)', color: 'var(--text)', fontSize: 'calc(var(--font-base) * 0.929)' }} />
-              <label style={{ display: 'block', fontSize: 'var(--font-xs)', color: 'var(--text-muted)', marginBottom: 4 }}>Content</label>
-              <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={8} style={{ width: '100%', boxSizing: 'border-box', marginBottom: 10, padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-panel)', color: 'var(--text)', fontSize: 'var(--font-sm)', lineHeight: 1.5, resize: 'vertical', fontFamily: 'var(--font-mono)' }} />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                <button onClick={() => { resetForm(); setShowAddForm(false) }} disabled={saving} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'none', color: 'var(--text-muted)', cursor: saving ? 'not-allowed' : 'pointer', fontSize: 'var(--font-sm)' }}>Cancel</button>
-                <button onClick={handleCreate} disabled={!canCreate} style={{ height: 30, padding: '0 12px', borderRadius: 8, border: 'none', background: canCreate ? 'var(--accent)' : 'var(--bg-hover)', color: canCreate ? '#fff' : 'var(--text-dim)', cursor: canCreate ? 'pointer' : 'not-allowed', fontSize: 'var(--font-sm)', fontWeight: 700 }}>{saving ? 'Creating...' : 'Create Skill'}</button>
-              </div>
-            </div>
-          )}
-
           {loading && <div style={{ color: 'var(--text-muted)', fontSize: 'calc(var(--font-base) * 0.929)' }}>Loading skills...</div>}
           {error && <div style={{ color: '#ef4444', fontSize: 'calc(var(--font-base) * 0.929)', marginBottom: 10 }}>{error}</div>}
 
@@ -187,16 +110,7 @@ export function SkillsPanel({ cwd, onClose }: Props) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {!loading && installedSkills.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: 'calc(var(--font-base) * 0.929)' }}>No installed skills found.</div>}
                 {installedSkills.map((skill) => (
-                  <SkillCard
-                    key={`installed:${skill.name}`}
-                    skill={skill}
-                    canDelete={skill.source === 'global'}
-                    onDelete={async () => {
-                      if (!confirm(`删除 skill：${skill.name}？`)) return
-                      await deleteSkill(skill.name)
-                      await loadSkills()
-                    }}
-                  />
+                  <SkillCard key={`installed:${skill.name}`} skill={skill} />
                 ))}
               </div>
             </section>

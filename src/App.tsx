@@ -76,6 +76,9 @@ export default function App() {
   const [password, setPassword] = useState(() => {
     try { return localStorage.getItem('pi-server-password') || '' } catch { return '' }
   })
+  const [localHelperUrl, setLocalHelperUrl] = useState(() => {
+    try { return localStorage.getItem('pi-local-helper-url') || (import.meta.env.VITE_LOCAL_HELPER_BASE as string | undefined) || 'http://127.0.0.1:30143' } catch { return 'http://127.0.0.1:30143' }
+  })
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('pi-pinned-sessions')
@@ -112,6 +115,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('pi-server-password', password)
   }, [password])
+
+  useEffect(() => {
+    localStorage.setItem('pi-local-helper-url', localHelperUrl)
+  }, [localHelperUrl])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -381,6 +388,8 @@ export default function App() {
           onServerUrlChange={setServerUrl}
           password={password}
           onPasswordChange={setPassword}
+          localHelperUrl={localHelperUrl}
+          onLocalHelperUrlChange={setLocalHelperUrl}
           onClose={() => setSettingsOpen(false)}
         />
       )}

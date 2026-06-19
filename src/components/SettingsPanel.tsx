@@ -11,15 +11,18 @@ interface Props {
   onServerUrlChange: (url: string) => void
   password: string
   onPasswordChange: (password: string) => void
+  localHelperUrl: string
+  onLocalHelperUrlChange: (url: string) => void
   onClose: () => void
 }
 
-export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChange, mode, onModeChange, serverUrl, onServerUrlChange, password, onPasswordChange, onClose }: Props) {
+export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChange, mode, onModeChange, serverUrl, onServerUrlChange, password, onPasswordChange, localHelperUrl, onLocalHelperUrlChange, onClose }: Props) {
   const [draftTheme, setDraftTheme] = useState(isDark)
   const [draftFontSize, setDraftFontSize] = useState(fontSize)
   const [draftMode, setDraftMode] = useState(mode)
   const [draftServerUrl, setDraftServerUrl] = useState(serverUrl)
   const [draftPassword, setDraftPassword] = useState(password)
+  const [draftLocalHelperUrl, setDraftLocalHelperUrl] = useState(localHelperUrl)
   const [showPassword, setShowPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
@@ -30,9 +33,10 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       setDraftMode(mode)
       setDraftServerUrl(serverUrl)
       setDraftPassword(password)
+      setDraftLocalHelperUrl(localHelperUrl)
       setPasswordError(null)
     })
-  }, [isDark, fontSize, mode, serverUrl, password])
+  }, [isDark, fontSize, mode, serverUrl, password, localHelperUrl])
 
   const saveAndClose = useCallback(() => {
     if (!draftPassword) {
@@ -40,9 +44,11 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       return
     }
     const trimmedUrl = draftServerUrl.trim()
+    const trimmedLocalHelperUrl = draftLocalHelperUrl.trim()
     try {
       localStorage.setItem('pi-server-url', trimmedUrl)
       localStorage.setItem('pi-server-password', draftPassword)
+      localStorage.setItem('pi-local-helper-url', trimmedLocalHelperUrl)
     } catch (err) {
       console.error('Failed to save server settings to localStorage:', err)
       setPasswordError('保存失败，请检查浏览器是否允许 localStorage')
@@ -54,8 +60,9 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     onModeChange(draftMode)
     onServerUrlChange(trimmedUrl)
     onPasswordChange(draftPassword)
+    onLocalHelperUrlChange(trimmedLocalHelperUrl)
     onClose()
-  }, [draftPassword, draftServerUrl, draftTheme, draftFontSize, draftMode, onThemeChange, onFontSizeChange, onModeChange, onServerUrlChange, onPasswordChange, onClose])
+  }, [draftPassword, draftServerUrl, draftLocalHelperUrl, draftTheme, draftFontSize, draftMode, onThemeChange, onFontSizeChange, onModeChange, onServerUrlChange, onPasswordChange, onLocalHelperUrlChange, onClose])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') saveAndClose() }
@@ -169,6 +176,25 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   当前后端已启用认证，必须填写密码才能连接
                 </div>
               )}
+            </div>
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>本地增强服务地址</div>
+              <input
+                type="text"
+                value={draftLocalHelperUrl}
+                onChange={(e) => setDraftLocalHelperUrl(e.target.value)}
+                placeholder="http://127.0.0.1:30143"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '10px 12px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                  fontSize: 14, fontFamily: 'var(--font-mono)',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                用于读取本地 Skills、Artifacts 等 super-king 文档未定义的增强能力
+              </div>
             </div>
           </div>
         </div>

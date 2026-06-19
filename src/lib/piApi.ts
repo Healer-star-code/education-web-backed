@@ -189,6 +189,70 @@ async function requestJson<T>(path: string, init?: RequestInit, options?: { time
 }
 
 // ---------------------------------------------------------------------------
+// Local helper (文档未定义，由前端本地服务补充)
+// ---------------------------------------------------------------------------
+
+const DEFAULT_LOCAL_HELPER_BASE = 'http://127.0.0.1:30143'
+const LS_LOCAL_HELPER_URL = 'pi-local-helper-url'
+
+export function getLocalHelperBase(): string {
+  try {
+    const fromLs = localStorage.getItem(LS_LOCAL_HELPER_URL)
+    if (fromLs) return fromLs
+  } catch { /* ignore */ }
+  return (import.meta.env.VITE_LOCAL_HELPER_BASE as string | undefined) ?? DEFAULT_LOCAL_HELPER_BASE
+}
+
+async function localRequestJson<T>(path: string, init?: RequestInit, options?: { timeoutMs?: number | null }): Promise<T> {
+  const timeoutMs = options?.timeoutMs === undefined ? 10000 : options.timeoutMs
+  const controller = timeoutMs === null ? undefined : new AbortController()
+  const timer = timeoutMs === null ? undefined : setTimeout(() => controller?.abort(), timeoutMs)
+  const base = getLocalHelperBase()
+  const headers = new Headers(init?.headers)
+  headers.set('Content-Type', 'application/json')
+  try {
+    const res = await fetch(`${base}${path}`, {
+      ...init,
+      signal: controller?.signal,
+      headers,
+    })
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      data = undefined
+    }
+    if (!res.ok) {
+      const msg = extractErrorMessage(data) ?? `HTTP ${res.status}`
+      throw new Error(msg)
+    }
+    return data as T
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw new Error('本地助手服务请求超时')
+    }
+    throw normalizeError(err)
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
+export async function getLocalSkillsRoot(): Promise<{ path: string }> {
+  return localRequestJson<{ path: string }>('/api/local/skills/root')
+}
+
+export async function listLocalSkills(): Promise<{ skills: SkillInfo[]; root: string }> {
+  return localRequestJson<{ skills: SkillInfo[]; root: string }>('/api/local/skills')
+}
+
+export async function openLocalFolder(path?: string): Promise<void> {
+  await localRequestJson<{ ok: true }>('/api/local/open-folder', {
+    method: 'POST',
+    body: JSON.stringify(path ? { path } : {}),
+  })
+}
+
+// ---------------------------------------------------------------------------
 // Super-king internal types
 // ---------------------------------------------------------------------------
 
