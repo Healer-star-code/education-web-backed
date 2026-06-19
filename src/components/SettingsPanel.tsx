@@ -53,14 +53,14 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 299,
-      background: 'rgba(0,0,0,0.5)',
+      background: 'var(--overlay-bg)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       animation: 'fadeIn 0.15s ease',
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
         width: 460, maxWidth: '90vw',
         background: 'var(--bg-panel)', border: '1px solid var(--border)',
-        borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+        borderRadius: 16, boxShadow: 'var(--shadow-xl)',
         padding: '24px 28px 20px',
         animation: 'fadeIn 0.2s ease',
         maxHeight: '90vh', overflowY: 'auto',
@@ -229,7 +229,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               padding: '12px 0', borderRadius: 10, fontSize: 14,
               background: draftTheme ? '#1e293b' : 'var(--bg-hover)',
               color: draftTheme ? '#fff' : 'var(--text-muted)',
-              border: draftTheme ? '2px solid #60a5fa' : '1px solid var(--border)',
+              border: draftTheme ? '2px solid var(--accent)' : '1px solid var(--border)',
               cursor: 'pointer', fontWeight: draftTheme ? 700 : 500,
               transition: 'all 0.15s',
             }}>

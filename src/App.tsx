@@ -393,7 +393,7 @@ export default function App() {
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
           padding: '10px 20px', borderRadius: 10, background: '#dc2626', color: '#fff',
-          fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 600, boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 600, boxShadow: 'var(--shadow-lg)',
           zIndex: 999, transition: 'opacity 0.3s',
         }}>
           {toast}

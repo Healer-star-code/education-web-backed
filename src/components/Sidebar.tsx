@@ -262,7 +262,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',
                 borderRadius: 8,
-                boxShadow: '0 6px 20px rgba(0,0,0,0.10)',
+                boxShadow: 'var(--shadow-md)',
                 overflow: 'hidden',
               }}
             >
@@ -678,7 +678,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
               borderRadius: 8,
-              boxShadow: '0 12px 32px rgba(0,0,0,0.22)',
+              boxShadow: 'var(--shadow-lg)',
               overflow: 'hidden',
               padding: 4,
             }}

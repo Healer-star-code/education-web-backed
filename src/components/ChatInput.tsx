@@ -342,7 +342,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             border: '1px solid color-mix(in srgb, var(--border) 70%, transparent)',
             borderRadius: 24,
             padding: '14px 16px 14px 20px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+            boxShadow: 'var(--shadow-md)',
             transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
         >
@@ -507,7 +507,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 fontSize: 'calc(var(--font-base) * 0.929)',
                 fontWeight: 600,
                 letterSpacing: '-0.01em',
-                boxShadow: '0 1px 3px rgba(37,99,235,0.25)',
+                boxShadow: '0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)',
                 transition: 'background 0.15s, box-shadow 0.15s',
               }}
             >

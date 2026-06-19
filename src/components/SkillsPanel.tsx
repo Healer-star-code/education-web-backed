@@ -111,8 +111,8 @@ export function SkillsPanel({ cwd, onClose }: Props) {
   const canCreate = !!name.trim() && !!description.trim() && !saving
 
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxHeight: '86vh', overflow: 'hidden', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: '0 16px 48px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column' }}>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'var(--overlay-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxHeight: '86vh', overflow: 'hidden', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--text)' }}>全局 Skills</div>

@@ -3,7 +3,7 @@ interface IconProps {
 }
 
 const DIM = 'var(--text-dim)'
-const WORD = '#2563eb'
+const WORD = 'var(--accent)'
 const PPT = '#ea580c'
 const EXCEL = '#16a34a'
 const PDF = '#dc2626'
