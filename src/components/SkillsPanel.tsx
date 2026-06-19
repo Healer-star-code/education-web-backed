@@ -74,6 +74,10 @@ export function SkillsPanel({ cwd, onClose }: Props) {
     }
   }, [])
 
+  useEffect(() => {
+    void loadSkills()
+  }, [loadSkills])
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxHeight: '86vh', overflow: 'hidden', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column' }}>
