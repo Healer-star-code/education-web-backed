@@ -67,6 +67,7 @@ export interface Message {
   thinkingContent?: string
   thinkingDurationMs?: number
   toolCalls?: ToolCallInfo[]
+  pendingTask?: 'word' | 'default'
 }
 
 export interface FileNode {

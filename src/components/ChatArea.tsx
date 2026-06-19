@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
@@ -16,6 +16,51 @@ interface Props {
 }
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
+
+function formatPendingElapsed(ms: number) {
+  if (ms <= 0) return ''
+  if (ms < 1000) return `${ms}毫秒`
+  if (ms < 60000) return `${Math.round(ms / 1000)}秒`
+  const minutes = Math.floor(ms / 60000)
+  const seconds = Math.round((ms % 60000) / 1000)
+  return seconds > 0 ? `${minutes}分${seconds}秒` : `${minutes}分钟`
+}
+
+function PendingTaskCard({ task }: { task?: 'word' | 'default' }) {
+  const [elapsedMs, setElapsedMs] = useState(0)
+  const startRef = useRef(Date.now())
+
+  useEffect(() => {
+    startRef.current = Date.now()
+    setElapsedMs(0)
+    const timer = setInterval(() => {
+      setElapsedMs(Date.now() - startRef.current)
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [task])
+
+  const label = task === 'word' ? '正在生成 Word 文档' : '正在处理'
+  const timeText = formatPendingElapsed(elapsedMs)
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8,
+      padding: '8px 12px', borderRadius: 10,
+      background: 'var(--bg-panel)', border: '1px solid var(--border)',
+      color: 'var(--text-muted)', fontSize: 'var(--font-sm)',
+      marginBottom: 8,
+    }}>
+      <span style={{
+        width: 12, height: 12, borderRadius: '50%',
+        border: '1.5px solid var(--accent)',
+        borderTopColor: 'transparent',
+        animation: 'spin 0.8s linear infinite',
+        display: 'inline-block', flexShrink: 0,
+      }} />
+      <span>{timeText ? `${label} · 已耗时 ${timeText}` : label}</span>
+    </div>
+  )
+}
 
 const TYPEWRITER_PHRASES = [
   '准备好了吗？',
@@ -243,12 +288,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       timestamp: new Date().toISOString(),
     }
     const assistantId = 'a' + Date.now()
+    const lower = text.toLowerCase()
+    const isWordTask = lower.includes('word') || lower.includes('docx') || lower.includes('文档') || lower.includes('word文档') || lower.includes('word文件')
     const assistantMsg: Message = {
       id: assistantId,
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
       steps: [],
+      pendingTask: isWordTask ? 'word' : 'default',
     }
 
     setMessages((prev) => [...prev, userMsg, assistantMsg])
@@ -558,17 +606,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                   <ReasoningBlock steps={m.steps!} />
                 )}
                 {!hasSteps && isActiveAssistant && !m.content && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <span style={{ display: 'inline-flex', gap: 3 }}>
-                      {[0, 1, 2].map((i) => (
-                        <span key={i} style={{
-                          width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)',
-                          animation: `pulse 1.4s ease-in-out ${i * 0.2}s infinite`,
-                        }} />
-                      ))}
-                    </span>
-                    <span style={{ color: 'var(--text-dim)', fontSize: 'calc(var(--font-base) * 0.929)' }}>正在思考...</span>
-                  </div>
+                  <PendingTaskCard task={m.pendingTask} />
                 )}
                 {hasText && (
                   <MessageView message={m} isStreaming={isLast && streaming} />
