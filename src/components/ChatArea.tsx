@@ -17,6 +17,24 @@ interface Props {
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
 
+function mergeConsecutiveAssistantMessages(messages: Message[]): Message[] {
+  const merged: Message[] = []
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && merged.length > 0) {
+      const prev = merged[merged.length - 1]
+      if (prev.role === 'assistant') {
+        prev.content = [prev.content, msg.content].filter(Boolean).join('\n')
+        prev.steps = [...(prev.steps ?? []), ...(msg.steps ?? [])]
+        prev.artifacts = [...(prev.artifacts ?? []), ...(msg.artifacts ?? [])]
+        if (msg.pendingTask) prev.pendingTask = msg.pendingTask
+        continue
+      }
+    }
+    merged.push({ ...msg })
+  }
+  return merged
+}
+
 function formatPendingElapsed(ms: number) {
   if (ms <= 0) return ''
   if (ms < 1000) return `${ms}毫秒`
@@ -392,7 +410,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             connectEvents(opened.id)
             const loadedMessages = await getMessages(opened.id)
             if (cancelled) return
-            setMessages(loadedMessages.map((msg) => {
+            const convertedMessages: Message[] = loadedMessages.map((msg) => {
               const steps: AgentStep[] = []
               if (msg.thinkingContent) {
                 steps.push({
@@ -423,7 +441,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 steps,
                 artifacts: msg.artifacts,
               }
-            }))
+            })
+            setMessages(mergeConsecutiveAssistantMessages(convertedMessages))
             forceScrollRef.current = true
           })
           .catch((err) => {

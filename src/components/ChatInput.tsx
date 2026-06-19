@@ -30,7 +30,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [value, setValue] = useState('')
   const [recording, setRecording] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
-  const [elapsedMs, setElapsedMs] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -41,9 +40,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
   const uploadTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
-  const streamingStartRef = useRef<number | null>(null)
-  const elapsedTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const isWordTaskRef = useRef(false)
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
 
   function createRecognition() {
@@ -254,8 +250,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     const msg = value.trim()
     if (!msg && attachments.length === 0) return
     if (isStreaming) return
-    const lower = msg.toLowerCase()
-    isWordTaskRef.current = lower.includes('word') || lower.includes('docx') || lower.includes('文档') || lower.includes('word文档') || lower.includes('word文件')
     const readyAttachments = attachments.filter((a) => a.progress >= 100)
     onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
     setValue('')
@@ -293,36 +287,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return () => {
       uploadTimersRef.current.forEach((t) => clearTimeout(t))
       uploadTimersRef.current = []
-      if (elapsedTimerRef.current) {
-        clearInterval(elapsedTimerRef.current)
-        elapsedTimerRef.current = null
-      }
     }
   }, [])
-
-  useEffect(() => {
-    if (isStreaming) {
-      streamingStartRef.current = Date.now() - elapsedMs
-      elapsedTimerRef.current = setInterval(() => {
-        if (streamingStartRef.current != null) {
-          setElapsedMs(Date.now() - streamingStartRef.current)
-        }
-      }, 1000)
-    } else {
-      if (elapsedTimerRef.current) {
-        clearInterval(elapsedTimerRef.current)
-        elapsedTimerRef.current = null
-      }
-      streamingStartRef.current = null
-      setElapsedMs(0)
-    }
-    return () => {
-      if (elapsedTimerRef.current) {
-        clearInterval(elapsedTimerRef.current)
-        elapsedTimerRef.current = null
-      }
-    }
-  }, [isStreaming])
 
   useEffect(() => {
     if (!recording) {
@@ -430,21 +396,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder={(() => {
-              if (recording) return '正在听...'
-              if (placeholder) return placeholder
-              if (!isStreaming) return '发消息...'
-              const taskLabel = isWordTaskRef.current ? '正在生成 Word 文档' : '正在处理'
-              const t = elapsedMs
-              const timeText = t >= 60000
-                ? `${Math.floor(t / 60000)}分${Math.round((t % 60000) / 1000)}秒`
-                : t >= 1000
-                  ? `${Math.round(t / 1000)}秒`
-                  : t > 0
-                    ? `${t}毫秒`
-                    : ''
-              return timeText ? `${taskLabel} · 已耗时 ${timeText}` : taskLabel
-            })()}
+            placeholder={recording ? '正在听...' : (placeholder ?? (isStreaming ? '智能体运行中...' : '发消息...'))}
             rows={1}
             style={{
               flex: 1,
