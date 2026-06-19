@@ -682,52 +682,29 @@ function saveRecentPathsToStorage(paths: RecentPathInfo[]) {
   } catch { /* ignore */ }
 }
 
+// super-king 文档未定义 /api/recent-paths，完全由前端 localStorage 管理
 export async function listRecentPaths(): Promise<RecentPathInfo[]> {
-  try {
-    const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths')
-    saveRecentPathsToStorage(data.paths)
-    return data.paths
-  } catch {
-    return loadRecentPathsFromStorage()
-  }
+  return loadRecentPathsFromStorage()
 }
 
 export async function addRecentPath(path: string): Promise<RecentPathInfo[]> {
-  try {
-    const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths', {
-      method: 'POST',
-      body: JSON.stringify({ path, action: 'add' }),
-    })
-    saveRecentPathsToStorage(data.paths)
-    return data.paths
-  } catch {
-    const paths = loadRecentPathsFromStorage()
-    const existing = paths.find((p) => p.path === path)
-    const now = Date.now()
-    if (existing) {
-      existing.timeUpdated = now
-    } else {
-      paths.unshift({ path, name: path, timeCreated: now, timeUpdated: now })
-    }
-    const trimmed = paths.slice(0, 20)
-    saveRecentPathsToStorage(trimmed)
-    return trimmed
+  const paths = loadRecentPathsFromStorage()
+  const existing = paths.find((p) => p.path === path)
+  const now = Date.now()
+  if (existing) {
+    existing.timeUpdated = now
+  } else {
+    paths.unshift({ path, name: path, timeCreated: now, timeUpdated: now })
   }
+  const trimmed = paths.slice(0, 20)
+  saveRecentPathsToStorage(trimmed)
+  return trimmed
 }
 
 export async function removeRecentPath(path: string): Promise<RecentPathInfo[]> {
-  try {
-    const data = await requestJson<{ paths: RecentPathInfo[] }>('/api/recent-paths', {
-      method: 'POST',
-      body: JSON.stringify({ path, action: 'remove' }),
-    })
-    saveRecentPathsToStorage(data.paths)
-    return data.paths
-  } catch {
-    const paths = loadRecentPathsFromStorage().filter((p) => p.path !== path)
-    saveRecentPathsToStorage(paths)
-    return paths
-  }
+  const paths = loadRecentPathsFromStorage().filter((p) => p.path !== path)
+  saveRecentPathsToStorage(paths)
+  return paths
 }
 
 // ---------------------------------------------------------------------------
