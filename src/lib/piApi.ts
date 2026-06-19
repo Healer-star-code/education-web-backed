@@ -169,6 +169,10 @@ async function requestJson<T>(path: string, init?: RequestInit, options?: { time
     if (err instanceof DOMException && err.name === 'AbortError') {
       throw new Error('请求超时，请稍后重试')
     }
+    const message = err instanceof Error ? err.message : String(err)
+    if (message.toLowerCase().includes('fetch') || message.toLowerCase().includes('network') || err instanceof TypeError) {
+      throw new Error(`无法连接到服务器 ${getApiBase()}。请检查：1. 后端是否已启动；2. 服务器地址是否正确；3. 当前后端是否为 super-king（旧版 v3-web 后端不支持当前 API 认证头）。`)
+    }
     throw normalizeError(err)
   } finally {
     if (timer) clearTimeout(timer)
