@@ -162,6 +162,9 @@ async function requestJson<T>(path: string, init?: RequestInit, options?: { time
     }
     if (!res.ok) {
       const msg = extractErrorMessage(data) ?? `HTTP ${res.status}`
+      if (res.status === 401) {
+        throw new Error(`认证失败：请检查设置面板中的「访问密码」是否正确并已保存。当前服务器：${getApiBase()}`)
+      }
       throw new Error(msg)
     }
     return data as T

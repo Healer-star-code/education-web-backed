@@ -33,12 +33,12 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   }, [isDark, fontSize, mode, serverUrl, password])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') saveAndClose() }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
+  }, [saveAndClose])
 
-  const handleSave = () => {
+  const saveAndClose = () => {
     onThemeChange(draftTheme)
     onFontSizeChange(draftFontSize)
     onModeChange(draftMode)
@@ -62,7 +62,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   const accentHover = draftMode === 'senior' ? '#c2410c' : 'var(--accent-hover)'
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={saveAndClose} style={{ 
       position: 'fixed', inset: 0, zIndex: 299,
       background: 'var(--overlay-bg)',
       backdropFilter: 'blur(4px)',
@@ -326,7 +326,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         </div>
 
         {/* Save button */}
-        <button onClick={handleSave} style={{
+        <button onClick={saveAndClose} style={{
           width: '100%', padding: '14px 0', borderRadius: 10,
           background: accentColor,
           border: 'none', color: '#fff', fontSize: 15, fontWeight: 700,
