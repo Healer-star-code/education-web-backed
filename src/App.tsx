@@ -239,14 +239,8 @@ export default function App() {
             <button
               onClick={() => setSidebarOpen((v) => !v)}
               title={sidebarOpen ? '收起侧边栏 (Ctrl+B)' : '展开侧边栏 (Ctrl+B)'}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 36, height: 36, padding: 0,
-                background: 'none', border: 'none', borderRight: '1px solid var(--border)',
-                color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)' }}
+              className="btn-ghost-icon"
+              style={{ width: 36, height: 36 }}
             >
               {sidebarOpen ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -261,14 +255,8 @@ export default function App() {
             <button
               onClick={() => setIsDark((v) => !v)}
               title={isDark ? '切换到浅色模式' : '切换到深色模式'}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 36, height: 36, padding: 0,
-                background: 'none', border: 'none', borderRight: '1px solid var(--border)',
-                color: 'var(--text-muted)', cursor: 'pointer', flexShrink: 0, transition: 'color 0.12s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-muted)' }}
+              className="btn-ghost-icon"
+              style={{ width: 36, height: 36 }}
             >
               {isDark ? (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -288,31 +276,16 @@ export default function App() {
             <button
               onClick={() => setSkillsOpen(!skillsOpen)}
               title="Skills"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                height: 32, padding: '0 10px', marginRight: 4,
-                background: skillsOpen ? 'var(--bg-selected)' : 'var(--bg-hover)',
-                border: skillsOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
-                borderRadius: 7, color: skillsOpen ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
-                fontSize: 'var(--font-sm)', fontWeight: 600,
-              }}
+              className={`btn-text ${skillsOpen ? 'active' : ''}`}
+              style={{ marginRight: 4, fontWeight: 600 }}
             >
               Skills
             </button>
             <button
               onClick={() => setSettingsOpen(!settingsOpen)}
               title="设置"
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 32, height: 32, padding: 0, marginRight: 4,
-                background: settingsOpen ? 'var(--bg-selected)' : 'var(--bg-hover)',
-                border: settingsOpen ? '1px solid var(--accent)' : '1px solid var(--border)',
-                borderRadius: 7, color: settingsOpen ? 'var(--accent)' : 'var(--text-muted)',
-                cursor: 'pointer', flexShrink: 0, transition: 'all 0.12s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
-              onMouseLeave={(e) => { if (!settingsOpen) e.currentTarget.style.color = 'var(--text-muted)' }}
+              className={`btn-icon ${settingsOpen ? 'active' : ''}`}
+              style={{ width: 32, height: 32, marginRight: 4 }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="3" />

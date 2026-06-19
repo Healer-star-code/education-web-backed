@@ -467,24 +467,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           ) : isStreaming ? (
             <button
               onClick={onAbort}
-              style={{
-                flexShrink: 0,
-                alignSelf: 'flex-end',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                height: 'var(--input-height, 40px)', padding: '0 14px',
-                background: '#dc2626',
-                border: 'none',
-                borderRadius: 8,
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: 'calc(var(--font-base) * 0.929)',
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                boxShadow: '0 1px 3px rgba(220,38,38,0.25)',
-                transition: 'background 0.15s, box-shadow 0.15s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = '#b91c1c' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = '#dc2626' }}
+              className="btn-danger"
+              style={{ alignSelf: 'flex-end', flexShrink: 0 }}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                 <rect x="3" y="3" width="8" height="8" rx="1" />
@@ -494,22 +478,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           ) : (
             <button
               onClick={handleSend}
-              style={{
-                flexShrink: 0,
-                alignSelf: 'flex-end',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                height: 'var(--input-height, 40px)', padding: '0 14px',
-                background: 'var(--accent)',
-                border: 'none',
-                borderRadius: 8,
-                color: '#fff',
-                cursor: 'pointer',
-                fontSize: 'calc(var(--font-base) * 0.929)',
-                fontWeight: 600,
-                letterSpacing: '-0.01em',
-                boxShadow: '0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)',
-                transition: 'background 0.15s, box-shadow 0.15s',
-              }}
+              className="btn-primary"
+              style={{ alignSelf: 'flex-end', flexShrink: 0 }}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="2" y1="7" x2="11" y2="7" />

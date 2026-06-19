@@ -122,6 +122,231 @@ html.senior-mode .markdown-body td {
 
 * { box-sizing: border-box; }
 
+/* Interactive button primitives */
+.btn-interactive {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-interactive:hover {
+  background: var(--bg-hover);
+}
+
+.btn-interactive:active {
+  transform: scale(0.97);
+}
+
+.btn-interactive:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-icon:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.btn-icon:active {
+  transform: scale(0.97);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-icon.active {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-text:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.btn-text:active {
+  transform: scale(0.97);
+}
+
+.btn-text:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-text.active {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-text:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--input-height, 40px);
+  padding: 0 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+}
+
+.btn-primary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: var(--input-height, 40px);
+  padding: 0 14px;
+  background: #dc2626;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.25);
+  transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-danger:active {
+  transform: scale(0.97);
+}
+
+.btn-danger:focus-visible {
+  outline: 2px solid #dc2626;
+  outline-offset: 2px;
+}
+
+.btn-ghost-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-ghost-icon:hover {
+  color: var(--text);
+}
+
+.btn-ghost-icon:active {
+  transform: scale(0.97);
+}
+
+.btn-ghost-icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.btn-ghost-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-sidebar-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 9px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-sidebar-footer:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.btn-sidebar-footer:active {
+  transform: scale(0.98);
+}
+
+.btn-sidebar-footer:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 html {
   /* Root font size controlled by JS via --font-size */
   font-size: var(--font-size, 14px);
