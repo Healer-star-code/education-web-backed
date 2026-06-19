@@ -32,6 +32,7 @@ export interface ArtifactInfo {
   size: number
   kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
   timeCreated: number
+  messageIndex?: number
 }
 
 export interface LocalAttachment {

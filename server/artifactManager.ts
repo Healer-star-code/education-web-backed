@@ -65,13 +65,15 @@ async function walk(dir: string, startedAt: number, out: ArtifactInfo[], session
   }
 }
 
-export async function scanArtifacts(sessionId: string, root: string, startedAt: number): Promise<ArtifactInfo[]> {
+export async function scanArtifacts(sessionId: string, root: string, startedAt: number, messageIndex?: number): Promise<ArtifactInfo[]> {
   const found: ArtifactInfo[] = []
   await walk(root, startedAt, found, sessionId, root)
   if (found.length === 0) return []
   const existing = artifactsBySession.get(sessionId) ?? []
   const existingPaths = new Set(existing.map((item) => item.path.toLowerCase()))
-  const next = found.filter((item) => !existingPaths.has(item.path.toLowerCase()))
+  const next = found
+    .filter((item) => !existingPaths.has(item.path.toLowerCase()))
+    .map((item) => ({ ...item, messageIndex }))
   if (next.length > 0) artifactsBySession.set(sessionId, [...existing, ...next])
   return next
 }

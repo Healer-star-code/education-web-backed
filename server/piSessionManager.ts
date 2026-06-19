@@ -21,7 +21,7 @@ import { listArtifacts, removeSessionArtifacts, restoreFromDisk, saveToDisk, sca
 import { allGlobalSkillPaths, ensureOfficeSkillsInstalled, globalSkillsDir } from './skillsManager.ts'
 import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
 import { assertUserProjectPath, userHomePath } from './pathGuards.ts'
 import { getSessionTitleMeta, markAiTitleGenerated, markUserTitle } from './sessionTitleManager.ts'
 import {
@@ -189,6 +189,23 @@ function toWebMessage(message: unknown, index: number): WebMessage | null {
     thinkingContent: extractThinkingContent(inner.content),
     toolCalls: extractToolCalls(inner.content),
   }
+}
+
+function getMessageRole(message: unknown): 'user' | 'assistant' | 'toolResult' | undefined {
+  if (!isRecord(message)) return undefined
+  const inner = isRecord(message.message) ? message.message : message
+  const role = inner.role
+  if (role === 'user' || role === 'assistant' || role === 'toolResult') return role
+  return undefined
+}
+
+function findLastAssistantIndexAfter(messages: unknown[], startIndex: number): number | undefined {
+  for (let i = messages.length - 1; i >= startIndex; i--) {
+    if (getMessageRole(messages[i]) === 'assistant') {
+      return i
+    }
+  }
+  return undefined
 }
 
 function toWebSessionInfo(info: PiSessionInfo): WebSessionInfo {
@@ -408,11 +425,13 @@ export async function sendPrompt(sessionId: string, message: string, images?: Ap
   if (!managed) throw new Error(`Session not found: ${sessionId}`)
   const shouldAutoName = managed.session.messages.length === 0
   const startedAt = Date.now()
+  const beforeMessageCount = managed.session.messages.length
   const savedUploads = await saveUploads(managed.cwd, sessionId, images)
   const sdkImages = toSdkImages(images)
   const promptMessage = `${message}${buildUploadContext(savedUploads)}`
   await managed.session.prompt(promptMessage, sdkImages ? { images: sdkImages } : undefined)
-  const artifacts = await scanArtifacts(sessionId, managed.cwd, startedAt)
+  const targetAssistantIndex = findLastAssistantIndexAfter(managed.session.messages, beforeMessageCount)
+  const artifacts = await scanArtifacts(sessionId, managed.cwd, startedAt, targetAssistantIndex)
   for (const artifact of artifacts) {
     broadcastAgentEvent(sessionId, { type: 'artifact_created', artifact })
   }
@@ -497,16 +516,85 @@ export function getMessages(sessionId: string): WebMessage[] {
     }
   }
 
-  // Attach artifacts to the last assistant message
-  const artifacts = listArtifacts(sessionId)
-  if (artifacts.length > 0) {
-    const lastAssistant = [...result].reverse().find((m) => m.role === 'assistant')
-    if (lastAssistant) {
-      lastAssistant.artifacts = artifacts
-    }
-  }
+  // Attach artifacts to their corresponding assistant messages
+  attachArtifactsToMessages(result, listArtifacts(sessionId))
 
   return result
+}
+
+function attachArtifactsToMessages(messages: WebMessage[], artifacts: ArtifactInfo[]) {
+  if (artifacts.length === 0) return
+
+  const assistantIndices: number[] = []
+  messages.forEach((msg, idx) => {
+    if (msg.role === 'assistant') assistantIndices.push(idx)
+  })
+
+  const unmatched: ArtifactInfo[] = []
+
+  for (const artifact of artifacts) {
+    // Priority 1: exact messageIndex match
+    if (typeof artifact.messageIndex === 'number' && messages[artifact.messageIndex]?.role === 'assistant') {
+      const msg = messages[artifact.messageIndex]
+      msg.artifacts = [...(msg.artifacts ?? []), artifact]
+      continue
+    }
+
+    // Priority 2: content/name matching for legacy artifacts
+    const matchedByContent = findArtifactMessageByContent(messages, artifact)
+    if (matchedByContent != null) {
+      const msg = messages[matchedByContent]
+      if (!(msg.artifacts ?? []).some((a) => a.id === artifact.id)) {
+        msg.artifacts = [...(msg.artifacts ?? []), artifact]
+      }
+      continue
+    }
+
+    unmatched.push(artifact)
+  }
+
+  // Priority 3: assign remaining artifacts to document-task assistants in order
+  const documentTaskIndices = assistantIndices.filter((idx) => {
+    const prevUser = messages[idx - 1]
+    if (prevUser?.role !== 'user') return false
+    const text = (prevUser.content ?? '').toLowerCase()
+    return text.includes('word') || text.includes('docx') || text.includes('文档') || text.includes('ppt') || text.includes('xlsx') || text.includes('pdf') || text.includes('生成') || text.includes('写')
+  })
+
+  let docTaskPtr = 0
+  for (const artifact of unmatched) {
+    if (docTaskPtr < documentTaskIndices.length) {
+      const idx = documentTaskIndices[docTaskPtr]
+      const msg = messages[idx]
+      if (!(msg.artifacts ?? []).some((a) => a.id === artifact.id)) {
+        msg.artifacts = [...(msg.artifacts ?? []), artifact]
+      }
+      docTaskPtr++
+    } else {
+      // Fallback: attach to the last assistant message
+      const lastAssistant = [...assistantIndices].reverse()[0]
+      if (lastAssistant != null) {
+        const msg = messages[lastAssistant]
+        if (!(msg.artifacts ?? []).some((a) => a.id === artifact.id)) {
+          msg.artifacts = [...(msg.artifacts ?? []), artifact]
+        }
+      }
+    }
+  }
+}
+
+function findArtifactMessageByContent(messages: WebMessage[], artifact: ArtifactInfo): number | undefined {
+  const fileName = basename(artifact.path).toLowerCase()
+  const lowerName = artifact.name.toLowerCase()
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant') continue
+    const text = (msg.content ?? '').toLowerCase()
+    if (text.includes(fileName) || text.includes(lowerName)) {
+      return i
+    }
+  }
+  return undefined
 }
 
 export function listTools(sessionId: string): Array<{ name: string; description: string; active: boolean }> {
