@@ -16,7 +16,7 @@ import {
 } from '@earendil-works/pi-coding-agent'
 import { broadcastAgentEvent } from './sse.ts'
 import { toSdkImages } from './image.ts'
-import type { ApiImagePayload, SkillInfo, WebSessionInfo } from './types.ts'
+import type { ApiImagePayload, ArtifactInfo, SkillInfo, WebSessionInfo } from './types.ts'
 import { listArtifacts, removeSessionArtifacts, restoreFromDisk, saveToDisk, scanArtifacts } from './artifactManager.ts'
 import { allGlobalSkillPaths, ensureOfficeSkillsInstalled, globalSkillsDir } from './skillsManager.ts'
 import { buildUploadContext, saveUploads } from './uploadManager.ts'

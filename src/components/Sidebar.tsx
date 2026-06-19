@@ -93,7 +93,7 @@ function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): Ses
 
 function PiAgentTitle() {
   return (
-    <span style={{ fontWeight: 700, fontSize: 'var(--font-md)', letterSpacing: '-0.01em', color: 'var(--text)' }}>
+    <span style={{ fontWeight: 750, fontSize: 'var(--font-md)', letterSpacing: '-0.02em', color: 'var(--text)' }}>
       教育智能体
     </span>
   )

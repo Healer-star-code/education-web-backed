@@ -1,6 +1,6 @@
 import { createReadStream } from 'node:fs'
 import { readdir, stat, writeFile, readFile, unlink } from 'node:fs/promises'
-import { basename, dirname, extname, join, resolve } from 'node:path'
+import { basename, extname, join, resolve } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import type { ArtifactInfo } from './types.ts'
 import { isPathAllowed } from './permissionManager.ts'
