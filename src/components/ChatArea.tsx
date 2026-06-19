@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
 import { ReasoningBlock } from './ReasoningBlock'
-import { fileToBase64 } from '../lib/image'
+
 import { connectSessionEvents, createSession, getMessages, sendPrompt, abortSession, type WebAgentEvent } from '../lib/piApi'
 
 interface Props {
@@ -337,8 +337,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       }
       sdkSessionInfoRef.current = updatedSession
       onSessionCreated?.(updatedSession)
-      const images = attachments ? await Promise.all(attachments.map((att) => fileToBase64(att.file))) : undefined
-      await sendPrompt(sdkSession.id, { message: text, images })
+      // super-king /prompt 文档只支持 { message }，附件暂由前端展示，不随消息发送
+      await sendPrompt(sdkSession.id, { message: text })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)
@@ -399,16 +399,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
     // 使用 queueMicrotask 延迟同步状态重置，避免 react-hooks/set-state-in-effect
     queueMicrotask(() => {
-      if (session?.sessionFile) {
+      if (session?.id) {
+        // 已有会话：直接使用 session.id（super-king 没有 open_existing/sessionFile）
         setMessages([])
         setHasMessages(true)
-        createSession(undefined, session.sessionFile)
-          .then(async (opened) => {
-            if (cancelled) return
-            sdkSessionIdRef.current = opened.id
-            sdkSessionInfoRef.current = opened
-            connectEvents(opened.id)
-            const loadedMessages = await getMessages(opened.id)
+        sdkSessionIdRef.current = session.id
+        sdkSessionInfoRef.current = session
+        connectEvents(session.id)
+        getMessages(session.id)
+          .then((loadedMessages) => {
             if (cancelled) return
             const convertedMessages: Message[] = loadedMessages.map((msg) => {
               const steps: AgentStep[] = []
@@ -448,7 +447,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           .catch((err) => {
             if (!cancelled) {
               const message = err instanceof Error ? err.message : String(err)
-              setError(`加载真实会话失败：${message}`)
+              setError(`加载会话失败：${message}`)
               setMessages([])
             }
           })

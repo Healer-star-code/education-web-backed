@@ -131,9 +131,22 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
       if (selectedPath) {
         onCwdChange(selectedPath)
         setDropdownOpen(false)
+        return
+      }
+      // super-king 没有 /api/dialog/select-directory，fallback 到手动输入
+      const manualPath = window.prompt('请输入项目目录路径：')
+      if (manualPath?.trim()) {
+        onCwdChange(manualPath.trim())
+        setDropdownOpen(false)
       }
     } catch (err) {
-      setDirectoryError(err instanceof Error ? err.message : String(err))
+      const message = err instanceof Error ? err.message : String(err)
+      setDirectoryError(message)
+      const manualPath = window.prompt('选择目录失败，请手动输入项目目录路径：')
+      if (manualPath?.trim()) {
+        onCwdChange(manualPath.trim())
+        setDropdownOpen(false)
+      }
     } finally {
       setSelectingDirectory(false)
     }

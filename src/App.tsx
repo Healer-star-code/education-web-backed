@@ -67,6 +67,12 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [serverUrl, setServerUrl] = useState(() => {
+    try { return localStorage.getItem('pi-server-url') || (import.meta.env.VITE_PI_API_BASE as string | undefined) || 'http://127.0.0.1:30142' } catch { return 'http://127.0.0.1:30142' }
+  })
+  const [password, setPassword] = useState(() => {
+    try { return localStorage.getItem('pi-server-password') || '' } catch { return '' }
+  })
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('pi-pinned-sessions')
@@ -95,6 +101,14 @@ export default function App() {
     document.documentElement.style.setProperty('--font-size', `${fontSize}px`)
     localStorage.setItem('pi-font-size', String(fontSize))
   }, [fontSize])
+
+  useEffect(() => {
+    localStorage.setItem('pi-server-url', serverUrl)
+  }, [serverUrl])
+
+  useEffect(() => {
+    localStorage.setItem('pi-server-password', password)
+  }, [password])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -188,9 +202,8 @@ export default function App() {
   }, [])
 
   const handleDeleteSession = useCallback(async (session: SessionInfo) => {
-    if (!session.sessionFile) return
     try {
-      await deleteSession(session.sessionFile)
+      await deleteSession(session.id)
       if (selectedSession?.id === session.id) {
         setSelectedSession(null)
         setNewSessionCwd(session.cwd ?? selectedCwd)
@@ -361,6 +374,10 @@ export default function App() {
           onFontSizeChange={setFontSize}
           mode={mode}
           onModeChange={setMode}
+          serverUrl={serverUrl}
+          onServerUrlChange={setServerUrl}
+          password={password}
+          onPasswordChange={setPassword}
           onClose={() => setSettingsOpen(false)}
         />
       )}

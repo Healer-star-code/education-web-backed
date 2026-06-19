@@ -11,11 +11,7 @@ export function ReasoningBlock({ steps }: Props) {
   const thinkingSteps = steps.filter((s) => s.type === 'thinking')
   const toolSteps = steps.filter((s) => s.type === 'tool')
 
-  const hasThinking = thinkingSteps.length > 0
-  const hasTools = toolSteps.length > 0
   const runningTools = toolSteps.filter((t) => t.status === 'running').length
-  const doneTools = toolSteps.filter((t) => t.status === 'done').length
-  const errorTools = toolSteps.filter((t) => t.status === 'error').length
   const thinkingActive = thinkingSteps.some((s) => s.isThinking)
   const isActive = thinkingActive || runningTools > 0
 

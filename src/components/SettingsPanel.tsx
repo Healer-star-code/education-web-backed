@@ -7,21 +7,30 @@ interface Props {
   onFontSizeChange: (size: number) => void
   mode: 'young' | 'senior'
   onModeChange: (mode: 'young' | 'senior') => void
+  serverUrl: string
+  onServerUrlChange: (url: string) => void
+  password: string
+  onPasswordChange: (password: string) => void
   onClose: () => void
 }
 
-export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChange, mode, onModeChange, onClose }: Props) {
+export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChange, mode, onModeChange, serverUrl, onServerUrlChange, password, onPasswordChange, onClose }: Props) {
   const [draftTheme, setDraftTheme] = useState(isDark)
   const [draftFontSize, setDraftFontSize] = useState(fontSize)
   const [draftMode, setDraftMode] = useState(mode)
+  const [draftServerUrl, setDraftServerUrl] = useState(serverUrl)
+  const [draftPassword, setDraftPassword] = useState(password)
+  const [showPassword, setShowPassword] = useState(false)
 
   useEffect(() => {
     queueMicrotask(() => {
       setDraftTheme(isDark)
       setDraftFontSize(fontSize)
       setDraftMode(mode)
+      setDraftServerUrl(serverUrl)
+      setDraftPassword(password)
     })
-  }, [isDark, fontSize, mode])
+  }, [isDark, fontSize, mode, serverUrl, password])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -33,6 +42,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     onThemeChange(draftTheme)
     onFontSizeChange(draftFontSize)
     onModeChange(draftMode)
+    onServerUrlChange(draftServerUrl.trim())
+    onPasswordChange(draftPassword)
     onClose()
   }
 
@@ -80,6 +91,58 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
           >×</button>
+        </div>
+
+        {/* Server Connection */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>服务器连接</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>服务器地址</div>
+              <input
+                type="text"
+                value={draftServerUrl}
+                onChange={(e) => setDraftServerUrl(e.target.value)}
+                placeholder="http://127.0.0.1:30142"
+                style={{
+                  width: '100%', boxSizing: 'border-box',
+                  padding: '10px 12px', borderRadius: 10,
+                  border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                  fontSize: 14, fontFamily: 'var(--font-mono)',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>访问密码</div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={draftPassword}
+                  onChange={(e) => setDraftPassword(e.target.value)}
+                  placeholder="SUPER_KING_SERVER_PASSWORD"
+                  style={{
+                    flex: 1, boxSizing: 'border-box',
+                    padding: '10px 12px', borderRadius: 10,
+                    border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                    fontSize: 14, fontFamily: 'var(--font-mono)',
+                    outline: 'none',
+                  }}
+                />
+                <button
+                  onClick={() => setShowPassword((v) => !v)}
+                  type="button"
+                  style={{
+                    padding: '0 12px', borderRadius: 10,
+                    border: '1px solid var(--border)', background: 'var(--bg-hover)',
+                    color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13,
+                  }}
+                >
+                  {showPassword ? '隐藏' : '显示'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Mode Selection */}

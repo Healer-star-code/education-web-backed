@@ -23,7 +23,7 @@ import { buildUploadContext, saveUploads } from './uploadManager.ts'
 import { unlink } from 'node:fs/promises'
 import { basename, resolve } from 'node:path'
 import { assertUserProjectPath, userHomePath } from './pathGuards.ts'
-import { getSessionTitleMeta, markAiTitleGenerated, markUserTitle } from './sessionTitleManager.ts'
+import { getSessionTitleMeta, markUserTitle } from './sessionTitleManager.ts'
 import {
   registerSessionPermissions,
   removeSessionPermissions,
@@ -380,15 +380,6 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
 
 export function getWebSession(sessionId: string): ManagedSession | undefined {
   return sessions.get(sessionId)
-}
-
-function cleanTitle(raw: string): string {
-  return raw
-    .replace(/^#+\s*/, '')
-    .replace(/["'“”‘’]/g, '')
-    .split(/\r?\n/)[0]
-    .trim()
-    .slice(0, 30)
 }
 
 // Disabled: using the same SDK session for auto-naming pollutes the chat history
