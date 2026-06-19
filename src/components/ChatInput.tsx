@@ -29,6 +29,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
 }, ref) {
   const [value, setValue] = useState('')
   const [recording, setRecording] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -335,15 +336,20 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     >
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <div
+          className={`chat-input-wrapper ${isFocused ? 'is-focused' : ''} ${isStreaming ? 'is-streaming' : ''}`}
           style={{
             display: 'flex',
             flexDirection: 'column',
-            background: 'var(--bg)',
-            border: '1px solid color-mix(in srgb, var(--border) 70%, transparent)',
+            boxShadow: 'var(--shadow-md)',
+          }}
+        >
+        <div
+          className="chat-input-inner"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
             borderRadius: 24,
             padding: '14px 16px 14px 20px',
-            boxShadow: 'var(--shadow-md)',
-            transition: 'border-color 0.15s, box-shadow 0.15s',
           }}
         >
           <input
@@ -388,6 +394,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
             placeholder={recording ? '正在听...' : (placeholder ?? (isStreaming ? '智能体运行中...' : '发消息...'))}
             rows={1}
             style={{
@@ -489,6 +497,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             </button>
           )}
           </div>
+        </div>
         </div>
       </div>
     </div>
