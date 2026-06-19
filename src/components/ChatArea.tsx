@@ -439,12 +439,24 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   if (!showChat && !selectedCwd) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-          <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 12 }}>
-            教育智能体
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 18,
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 18,
+            boxShadow: 'var(--shadow-md)',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+            </svg>
           </div>
-          <div style={{ fontSize: 'var(--font-base)', color: 'var(--text-muted)' }}>
-            请从侧边栏选择项目目录开始
+          <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 8 }}>
+            选择一个项目目录
+          </div>
+          <div style={{ fontSize: 'var(--font-base)', color: 'var(--text-muted)', textAlign: 'center', maxWidth: 320 }}>
+            从左侧边栏选择或添加一个项目，开始与智能体对话
           </div>
         </div>
       </div>
@@ -454,9 +466,24 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   if (!showChat && selectedCwd) {
     return (
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ fontSize: 'var(--font-md)', color: 'var(--text-muted)' }}>
-            请从侧边栏选择会话
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24 }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 18,
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 18,
+            boxShadow: 'var(--shadow-md)',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <div style={{ fontSize: 'var(--font-lg)', fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 8 }}>
+            开始新对话
+          </div>
+          <div style={{ fontSize: 'var(--font-base)', color: 'var(--text-muted)', textAlign: 'center' }}>
+            点击左侧「New」按钮创建一个会话
           </div>
         </div>
       </div>

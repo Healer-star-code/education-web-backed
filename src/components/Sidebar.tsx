@@ -15,6 +15,7 @@ interface Props {
   recentCwds: string[]
   onCwdChange: (cwd: string | null) => void
   sessionLoadError?: string | null
+  sessionsLoading?: boolean
   onOpenSkills?: () => void
 }
 
@@ -99,7 +100,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, sessionsLoading, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -293,12 +294,33 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
 
       {/* Session list */}
       <div style={{ flex: '1 1 0', overflowY: 'auto', padding: '0', minHeight: 80 }}>
-        {filteredSessions.length === 0 && (
-          <div style={{ padding: '16px 14px', color: sessionLoadError ? '#dc2626' : 'var(--text-muted)', fontSize: 'var(--font-sm)', lineHeight: 1.5 }}>
-            {sessionLoadError ? `后端连接失败：${sessionLoadError}` : '此目录下暂无历史会话'}
+        {sessionsLoading && (
+          <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite' }} />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ width: '60%', height: 10, borderRadius: 4, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
+                  <div style={{ width: '40%', height: 8, borderRadius: 4, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80 + 40}ms` }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
-        {sessionTree.map((node) => (
+        {!sessionsLoading && filteredSessions.length === 0 && (
+          <div style={{ padding: '28px 16px', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 10px', opacity: 0.5 }}>
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <div style={{ fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: 4, color: 'var(--text)' }}>
+              {sessionLoadError ? '连接失败' : '暂无会话'}
+            </div>
+            <div style={{ fontSize: 'var(--font-xs)', lineHeight: 1.5 }}>
+              {sessionLoadError ? `无法加载历史会话：${sessionLoadError}` : '点击上方「New」创建一个新会话开始对话'}
+            </div>
+          </div>
+        )}
+        {!sessionsLoading && sessionTree.map((node) => (
           <SessionTreeItem
             key={node.session.id}
             node={node}

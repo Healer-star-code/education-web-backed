@@ -34,6 +34,7 @@ const TYPEWRITER_PHRASES = [
 export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [sessionLoadError, setSessionLoadError] = useState<string | null>(null)
+  const [sessionsLoading, setSessionsLoading] = useState(false)
   const [selectedSession, setSelectedSession] = useState<SessionInfo | null>(null)
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null)
   const [recentCwds, setRecentCwds] = useState<string[]>([])
@@ -107,6 +108,7 @@ export default function App() {
 
   const loadSessionsForCwd = useCallback((cwd: string | null) => {
     let cancelled = false
+    setSessionsLoading(true)
     listSessions(cwd ?? undefined)
       .then((loaded) => {
         if (cancelled) return
@@ -122,6 +124,9 @@ export default function App() {
         if (cancelled) return
         setSessions([])
         setSessionLoadError(error instanceof Error ? error.message : '无法连接真实 Pi SDK 后端')
+      })
+      .finally(() => {
+        if (!cancelled) setSessionsLoading(false)
       })
     return () => { cancelled = true }
   }, [])
@@ -198,11 +203,12 @@ export default function App() {
 
   return (
     <>
+      <div className="noise-overlay" aria-hidden="true" />
       <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: 'var(--bg)' }}>
         {/* Left sidebar - always visible */}
         <div style={{
-          width: sidebarOpen ? 230 : 0,
-          minWidth: sidebarOpen ? 230 : 0,
+          width: sidebarOpen ? 260 : 0,
+          minWidth: sidebarOpen ? 260 : 0,
           background: 'var(--bg-panel)',
           borderRight: '1px solid var(--border)',
           display: 'flex', flexDirection: 'column',
@@ -210,7 +216,7 @@ export default function App() {
           overflow: 'hidden',
           transition: 'width 0.2s ease, min-width 0.2s ease',
         }}>
-          <div style={{ width: 230, minWidth: 230, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ width: 260, minWidth: 260, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <Sidebar
               sessions={sessions}
               selectedId={selectedSession?.id ?? null}
@@ -224,6 +230,7 @@ export default function App() {
               recentCwds={recentCwds}
               onCwdChange={handleCwdChange}
               sessionLoadError={sessionLoadError}
+              sessionsLoading={sessionsLoading}
               onOpenSkills={() => setSkillsOpen(true)}
             />
           </div>

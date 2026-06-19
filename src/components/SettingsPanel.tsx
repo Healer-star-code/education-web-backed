@@ -54,6 +54,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 299,
       background: 'var(--overlay-bg)',
+      backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       animation: 'fadeIn 0.15s ease',
     }}>
@@ -61,6 +62,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         width: 460, maxWidth: '90vw',
         background: 'var(--bg-panel)', border: '1px solid var(--border)',
         borderRadius: 16, boxShadow: 'var(--shadow-xl)',
+        position: 'relative',
+        overflow: 'hidden',
         padding: '24px 28px 20px',
         animation: 'fadeIn 0.2s ease',
         maxHeight: '90vh', overflowY: 'auto',
