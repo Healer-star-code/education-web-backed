@@ -7,6 +7,7 @@ import { ReasoningBlock } from './ReasoningBlock'
 
 import { PermissionDialog } from './PermissionDialog'
 import { QuestionDialog } from './QuestionDialog'
+import xiaojinGif from '../assets/xiaojin.gif'
 
 import {
   connectSessionEvents,
@@ -817,9 +818,9 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               fontFamily: 'var(--font-mono)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.2 }}>
-                {/* 超级小金动态吉祥物（XIAOJINGIF.gif -> public/xiaojin.gif） */}
+                {/* 超级小金动态吉祥物（vite import，打包后是带 hash 的相对路径，file:// 下能加载） */}
                 <img
-                  src="/xiaojin.gif"
+                  src={xiaojinGif}
                   alt="超级小金"
                   width={56}
                   height={56}

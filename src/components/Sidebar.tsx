@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { SessionInfo } from '../mockData'
 import { selectDirectory } from '../lib/piApi'
+import xiaojinGif from '../assets/xiaojin.gif'
 
 interface Props {
   sessions: SessionInfo[]
@@ -95,11 +96,12 @@ function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): Ses
 function PiAgentTitle() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      {/* 超级小金动态吉祥物 logo（XIAOJINGIF.gif -> public/xiaojin.gif）
-          注：app exe / 任务栏 / 桌面快捷方式仍用静态 PNG（Windows OS 不支持动图作图标），
-          这里是应用内 UI，浏览器原生支持 GIF 自动播放。 */}
+      {/* 超级小金动态吉祥物 logo（来自 src/assets/xiaojin.gif，通过 vite import
+          打包时会被复制到 out/renderer/assets/xiaojin-[hash].gif 并返回相对路径，
+          这样在打包后的 file:// 协议下也能正确加载。
+          不能用绝对路径 "/xiaojin.gif" —— 在 file:// 下会解析成盘符根 -> 404 -> 破图） */}
       <img
-        src="/xiaojin.gif"
+        src={xiaojinGif}
         alt="超级小金"
         width={28}
         height={28}
