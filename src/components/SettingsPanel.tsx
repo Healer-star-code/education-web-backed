@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { testConnection } from '../lib/piApi'
-import { isDesktop } from '../lib/desktopBridge'
+import { isDesktop, getDesktopBridge } from '../lib/desktopBridge'
 import { DesktopBackendSection } from './DesktopBackendSection'
 import { UpdaterCard } from './UpdaterCard'
 
@@ -58,6 +58,30 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       console.error('Failed to save server settings to localStorage:', err)
       setPasswordError('保存失败，请检查浏览器是否允许 localStorage')
       return
+    }
+    // Electron 模式下，同步把密码 / URL 写回 electron-store（权威数据源）。
+    // 失败不阻塞，因为 localStorage 已经写成功了。
+    if (isDesktop) {
+      const bridge = getDesktopBridge()
+      if (bridge) {
+        // 解析 trimmedUrl：远程地址 (非 127.0.0.1/localhost) 视为 remoteUrl + useRemote=true
+        const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(trimmedUrl)
+        const patch: Record<string, unknown> = {
+          superKingPassword: draftPassword,
+        }
+        if (isLocal) {
+          patch.useRemote = false
+          patch.remoteUrl = ''
+          const m = trimmedUrl.match(/:(\d+)/)
+          if (m) patch.superKingPort = parseInt(m[1], 10)
+        } else if (trimmedUrl) {
+          patch.useRemote = true
+          patch.remoteUrl = trimmedUrl
+        }
+        bridge.settings.set(patch).catch(err => {
+          console.warn('[settings] failed to persist to electron-store:', err)
+        })
+      }
     }
     setPasswordError(null)
     onThemeChange(draftTheme)

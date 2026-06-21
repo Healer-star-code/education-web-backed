@@ -96,10 +96,7 @@ export default function App() {
   const [mode, setMode] = useState<'young' | 'senior'>(() => {
     try { const v = localStorage.getItem('pi-mode'); return v === 'senior' ? 'senior' : 'young' } catch { return 'young' }
   })
-  const [settingsOpen, setSettingsOpen] = useState(() => {
-    // 未设置密码时自动打开设置面板
-    try { return !localStorage.getItem('pi-server-password') } catch { return true }
-  })
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
   const [serverUrl, setServerUrl] = useState(() => {
@@ -183,6 +180,29 @@ export default function App() {
     return () => { off() }
   }, [])
 
+  // Electron 模式：启动时从 electron-store 拉取持久化的密码 / URL，
+  // electron-store 是 Electron 模式下的权威数据源（localStorage 只是 renderer 缓存）。
+  // 新用户开箱即用：electron-store defaults 有 superKingPassword=123456 + port=30142，
+  // 与外部 super-king 默认配置一致，直接能连上。
+  useEffect(() => {
+    if (!isDesktop) return
+    const bridge = getDesktopBridge()
+    if (!bridge) return
+    bridge.settings.get().then(s => {
+      // 密码：electron-store 有值就用它覆盖（确保跨版本/重装持久化的密码立即生效）
+      if (s.superKingPassword) {
+        setPassword(prev => (prev === s.superKingPassword ? prev : s.superKingPassword))
+      }
+      // URL：远程模式用 remoteUrl，本地模式用 127.0.0.1:port
+      const target = s.useRemote && s.remoteUrl
+        ? s.remoteUrl
+        : `http://127.0.0.1:${s.superKingPort}`
+      setServerUrl(prev => (prev === target ? prev : target))
+    }).catch(err => {
+      console.warn('[settings hydration] failed to read electron-store:', err)
+    })
+  }, [])
+
   useEffect(() => {
     localStorage.setItem('pi-server-password', password)
   }, [password])
@@ -216,6 +236,14 @@ export default function App() {
 
   const loadSessionsForCwd = useCallback((cwd: string | null) => {
     let cancelled = false
+    // 密码还没就位时：不发请求，不显示「连接失败」红字，
+    // 等 hydration effect 把密码灌进来后会通过 useEffect 依赖自动重试。
+    if (!password) {
+      setSessions([])
+      setSessionLoadError(null)
+      setSessionsLoading(false)
+      return () => { cancelled = true }
+    }
     setSessionsLoading(true)
     listSessions(cwd ?? undefined)
       .then((loaded) => {
@@ -237,8 +265,10 @@ export default function App() {
         if (!cancelled) setSessionsLoading(false)
       })
     return () => { cancelled = true }
-  }, [])
+  }, [password, serverUrl])
 
+  // 依赖 password/serverUrl：用户在设置面板改了密码/地址，立即重试连接，
+  // 不需要切目录、不需要刷新整个 App。
   useEffect(() => loadSessionsForCwd(selectedCwd), [loadSessionsForCwd, selectedCwd])
 
   const handleSelectSession = useCallback((session: SessionInfo) => {
