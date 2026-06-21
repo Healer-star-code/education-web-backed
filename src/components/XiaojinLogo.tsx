@@ -15,12 +15,15 @@ import xiaojinDarkGif from '../assets/xiaojin-dark.gif'
  * 在 file:// 协议下也能正确加载。
  */
 export function XiaojinLogo({ size }: { size: number }) {
+  // 注意：不要在这里写 display!
+  // 内联 style 的 specificity 是 1000，会压过 .xiaojin-logo .xiaojin-dark { display: none }
+  // 这条 CSS 规则（specificity 0020），导致亮/暗主题下两张图同时显示。
+  // display 的显隐切换完全交给 src/index.css 里的 .xiaojin-logo / html.dark 规则控制。
   const imgStyle: React.CSSProperties = {
     width: size,
     height: size,
     flexShrink: 0,
     objectFit: 'contain',
-    display: 'block',
   }
   return (
     <span

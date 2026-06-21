@@ -652,9 +652,12 @@ html.senior-mode .chat-input-wrapper.is-streaming .chat-input-inner {
   animation-duration: 4.5s !important;
 }
 
-/* 0.1.34: XiaojinLogo dark-theme swap.
-   亮主题展示 xiaojin-light（白底原版），暗主题展示 xiaojin-dark（深色背景版）。
-   零 JS 监听，纯 CSS display 切换，主题切换瞬时无闪烁。 */
-.xiaojin-logo .xiaojin-dark { display: none; }
+/* 0.1.34/0.1.35: XiaojinLogo dark-theme swap.
+   亮主题展示 xiaojin-light（黄色小金原版），暗主题展示 xiaojin-dark（夜空版）。
+   纯 CSS display 切换，主题切换瞬时无闪烁、零 JS 监听。
+   注意：XiaojinLogo.tsx 中的 <img> 不能写内联 style.display，否则会以专一性 1000
+   覆盖下面这些规则，导致两张图同时显示（0.1.34 已踩坑）。 */
+.xiaojin-logo .xiaojin-light { display: block; }
+.xiaojin-logo .xiaojin-dark  { display: none; }
 html.dark .xiaojin-logo .xiaojin-light { display: none; }
-html.dark .xiaojin-logo .xiaojin-dark { display: block; }
+html.dark .xiaojin-logo .xiaojin-dark  { display: block; }
