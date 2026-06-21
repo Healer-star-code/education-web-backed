@@ -30,7 +30,7 @@ nsis:
   allowElevation: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: 教育智能体
+  shortcutName: 超级小金
   artifactName: ${productName}-${version}-setup.${ext}
 
 portable:

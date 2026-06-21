@@ -1,4 +1,4 @@
-# EducationalAgent 桌面客户端
+# 超级小金 桌面客户端
 
 > v4 = v3-web 的 Electron 桌面版本。  
 > 本仓库目录：`E:\EducationalAgent\v4`  
@@ -9,7 +9,7 @@
 
 ## 1. 一句话定位
 
-把现在跑在浏览器里的 v3-web 教育智能体前端，打包成一个 **Windows 双击即用的 .exe 客户端**：
+把现在跑在浏览器里的 v3-web 超级小金前端，打包成一个 **Windows 双击即用的 .exe 客户端**：
 
 - 内置本地增强服务（skills 扫描、打开文件夹），**不再依赖 30143 helper**
 - 状态栏托盘常驻 + 一键启动/停止 super-king 子进程

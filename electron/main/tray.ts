@@ -26,7 +26,7 @@ function makeIcon(running: boolean): Electron.NativeImage {
 
 export function setupTray(cbs: TrayCallbacks): Tray {
   tray = new Tray(makeIcon(false))
-  tray.setToolTip('教育智能体 - 未启动')
+  tray.setToolTip('超级小金 - 未启动')
   tray.on('click', () => cbs.showWindow())
   rebuildMenu(cbs)
   return tray
@@ -79,14 +79,14 @@ export function updateTrayStatus(status: SuperKingStatus, cbs: TrayCallbacks): v
     tray.setImage(makeIcon(running))
     tray.setToolTip(
       status.state === 'running'
-        ? `教育智能体 - super-king 运行中 :${status.port}`
+        ? `超级小金 - super-king 运行中 :${status.port}`
         : status.state === 'external'
-          ? `教育智能体 - 外部 super-king :${status.port}`
+          ? `超级小金 - 外部 super-king :${status.port}`
           : status.state === 'starting'
-            ? '教育智能体 - 启动中...'
+            ? '超级小金 - 启动中...'
             : status.state === 'error'
-              ? `教育智能体 - 错误: ${status.error ?? ''}`
-              : '教育智能体 - 未启动',
+              ? `超级小金 - 错误: ${status.error ?? ''}`
+              : '超级小金 - 未启动',
     )
   }
   rebuildMenu(cbs)

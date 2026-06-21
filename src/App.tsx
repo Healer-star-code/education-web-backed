@@ -401,14 +401,14 @@ export default function App() {
                       fontFamily: 'var(--font-mono)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.2 }}>
-                        <span style={{ fontSize: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)' }}>教育智能体</span>
+                        <span style={{ fontSize: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)' }}>超级小金</span>
                         <span style={{ fontSize: 'var(--font-base)', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                           <Typewriter phrases={TYPEWRITER_PHRASES} />
                         </span>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                         <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
-                          教育智能体
+                          超级小金
                         </span>
                         <span style={{ fontSize: 'var(--font-xs)', color: 'var(--text-muted)' }}>
                           {APP_INSTITUTION}

@@ -94,8 +94,30 @@ function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): Ses
 
 function PiAgentTitle() {
   return (
-    <span style={{ fontWeight: 750, fontSize: 'var(--font-md)', letterSpacing: '-0.02em', color: 'var(--text)' }}>
-      教育智能体
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {/* LOGO 占位：替换为 <img src="/logo.svg" ... /> 即可 */}
+      <span
+        aria-hidden
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 6,
+          background: 'linear-gradient(135deg, #facc15 0%, #f59e0b 100%)',
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 800,
+          letterSpacing: '-0.04em',
+          flexShrink: 0,
+        }}
+      >
+        金
+      </span>
+      <span style={{ fontWeight: 750, fontSize: 'var(--font-md)', letterSpacing: '-0.02em', color: 'var(--text)' }}>
+        超级小金
+      </span>
     </span>
   )
 }

@@ -1,6 +1,6 @@
-# 教育智能体（桌面客户端 v4）
+# 超级小金（桌面客户端 v4）
 
-基于 React + TypeScript + Vite + Electron 构建的教育智能助手桌面客户端。
+基于 React + TypeScript + Vite + Electron 构建的超级小金桌面客户端。
 
 > **本仓库是 v4 桌面客户端**。Web 版（v3-web）见 `E:\EducationalAgent\v3-web`。  
 > 完整设计、IPC 表、发版流程见 [`docs/DESKTOP.md`](./docs/DESKTOP.md)。

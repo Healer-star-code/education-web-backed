@@ -420,7 +420,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           }}>
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, fontWeight: 500 }}>预览效果</div>
             <div style={{ fontSize: draftFontSize, lineHeight: 1.6, color: 'var(--text)' }}>
-              教育智能体可以帮助您备课、批改作业、生成教案，让教学工作更加轻松高效。
+              超级小金可以帮助您备课、批改作业、生成教案，让教学工作更加轻松高效。
             </div>
           </div>
         </div>
