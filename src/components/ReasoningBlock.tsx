@@ -72,10 +72,45 @@ export function ReasoningBlock({ steps, onResolveToolPermission }: Props) {
         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
         onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.7 }}>
-          <path d="M12 2a8 8 0 0 1 8 8c0 3.4-2.1 6.3-5 7.5V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.5C6.1 16.3 4 13.4 4 10a8 8 0 0 1 8-8z" />
-          <line x1="9" y1="22" x2="15" y2="22" />
-        </svg>
+        {/* 「正在处理 / 已处理」图标：原子球轨道 SVG。
+            isActive 时电子在轨道上旋转，否则静止。视觉上与 Electron 默认 app
+            图标风格相似（原子/电子轨道），是"思考运转"的自然隐喻。 */}
+        <span
+          aria-hidden
+          style={{
+            width: 16, height: 16, flexShrink: 0,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ overflow: 'visible' }}>
+            {/* 原子核 */}
+            <circle cx="12" cy="12" r="2" fill="var(--accent)" />
+            {/* 三条轨道椭圆，依次旋转 60 度 */}
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="var(--accent)" strokeWidth="1.2" opacity="0.55" />
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="var(--accent)" strokeWidth="1.2" opacity="0.55" transform="rotate(60 12 12)" />
+            <ellipse cx="12" cy="12" rx="10" ry="4" stroke="var(--accent)" strokeWidth="1.2" opacity="0.55" transform="rotate(120 12 12)" />
+            {/* 三个电子（小圆点）：active 时各自沿轨道旋转 */}
+            {isActive ? (
+              <>
+                <g style={{ transformOrigin: '12px 12px', animation: 'spin 1.4s linear infinite' }}>
+                  <circle cx="22" cy="12" r="1.4" fill="var(--accent)" />
+                </g>
+                <g style={{ transformOrigin: '12px 12px', animation: 'spin 1.8s linear infinite reverse' }}>
+                  <circle cx="22" cy="12" r="1.4" fill="var(--accent)" transform="rotate(60 12 12)" />
+                </g>
+                <g style={{ transformOrigin: '12px 12px', animation: 'spin 2.2s linear infinite' }}>
+                  <circle cx="22" cy="12" r="1.4" fill="var(--accent)" transform="rotate(120 12 12)" />
+                </g>
+              </>
+            ) : (
+              <>
+                <circle cx="22" cy="12" r="1.4" fill="var(--accent)" opacity="0.7" />
+                <circle cx="22" cy="12" r="1.4" fill="var(--accent)" opacity="0.7" transform="rotate(60 12 12)" />
+                <circle cx="22" cy="12" r="1.4" fill="var(--accent)" opacity="0.7" transform="rotate(120 12 12)" />
+              </>
+            )}
+          </svg>
+        </span>
         <span style={{ flex: 1 }}>{summary}</span>
         {runningTools > 0 && (
           <span style={{
