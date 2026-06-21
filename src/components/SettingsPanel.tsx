@@ -100,10 +100,18 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   }, [draftPassword, draftServerUrl, draftLocalHelperUrl, draftTheme, draftFontSize, draftMode, draftAutoApproveAll, onThemeChange, onFontSizeChange, onModeChange, onServerUrlChange, onPasswordChange, onLocalHelperUrlChange, onAutoApproveAllToolsChange, onClose])
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') saveAndClose() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      // 风险确认对话框打开时，ESC 只关风险对话框，不关整个设置面板
+      if (showRiskConfirm) {
+        setShowRiskConfirm(false)
+        return
+      }
+      saveAndClose()
+    }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [saveAndClose])
+  }, [saveAndClose, showRiskConfirm])
 
   const ALL_FONT_SIZES = [14, 16, 18, 20, 22]
   const DEFAULT_SIZE = 16
@@ -120,7 +128,11 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
   const accentHover = draftMode === 'senior' ? '#c2410c' : 'var(--accent-hover)'
 
   return (
-    <div onClick={saveAndClose} style={{ 
+    <div onClick={() => {
+      // 二次确认对话框打开时，禁用外层 backdrop 的 saveAndClose
+      if (showRiskConfirm) return
+      saveAndClose()
+    }} style={{ 
       position: 'fixed', inset: 0, zIndex: 299,
       background: 'var(--overlay-bg)',
       backdropFilter: 'blur(4px)',
@@ -517,7 +529,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               <button
                 role="switch"
                 aria-checked={draftAutoApproveAll}
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   if (draftAutoApproveAll) {
                     // 关闭：直接生效，不二次确认
                     setDraftAutoApproveAll(false)
@@ -602,11 +615,17 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             background: 'rgba(0,0,0,0.55)',
             padding: 16,
           }}
+          // 关键：阻止任何点击冒泡到外层 SettingsPanel 的 saveAndClose
           onClick={(e) => {
+            e.stopPropagation()
             if (e.target === e.currentTarget) setShowRiskConfirm(false)
           }}
+          onMouseDown={(e) => e.stopPropagation()}
         >
           <div
+            // 内层卡片也阻止冒泡，防止任何子按钮 onClick 冒泡触发 backdrop 关闭
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
             style={{
               width: '100%',
               maxWidth: 480,
@@ -647,7 +666,10 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button
-                onClick={() => setShowRiskConfirm(false)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowRiskConfirm(false)
+                }}
                 style={{
                   padding: '9px 16px',
                   borderRadius: 8,
@@ -662,7 +684,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 取消
               </button>
               <button
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation()
                   setDraftAutoApproveAll(true)
                   setShowRiskConfirm(false)
                 }}
