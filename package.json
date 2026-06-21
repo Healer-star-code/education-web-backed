@@ -1,7 +1,7 @@
 {
   "name": "super-king-agent",
   "private": true,
-  "version": "0.1.27",
+  "version": "0.1.28",
   "description": "Super King Agent desktop client",
   "main": "out/main/index.js",
   "type": "module",

@@ -97,6 +97,8 @@ function convertWebMessagesToUi(loadedMessages: import('../lib/piApi').WebMessag
       timestamp: msg.timestamp,
       steps,
       artifacts: msg.artifacts,
+      // user 消息从 stripSystemPrompt 区块重建出来的附件（让刷新/切回会话后仍能显示文件卡片）
+      attachments: msg.attachments,
     }
   })
 }
@@ -276,7 +278,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     if (!sessionId) return
     normalizeSessionIdRef.current = sessionId
     try {
-      const loadedMessages = await getMessages(sessionId)
+      const cwd = sdkSessionInfoRef.current?.cwd ?? session?.cwd
+      const loadedMessages = await getMessages(sessionId, cwd)
       if (normalizeSessionIdRef.current !== sessionId) return
       setMessages((currentMessages) => {
         // 保留当前 UI 中正在等待授权的 tool step 状态，避免 normalize 把它覆盖回 running
@@ -1054,7 +1057,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         sdkSessionInfoRef.current = session
         normalizeSessionIdRef.current = session.id
         void connectEvents(session.id)
-        getMessages(session.id)
+        getMessages(session.id, session.cwd)
           .then((loadedMessages) => {
             if (cancelled) return
             setMessages(normalizeLoadedMessages(loadedMessages))

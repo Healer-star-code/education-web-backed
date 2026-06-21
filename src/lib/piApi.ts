@@ -48,6 +48,9 @@ export interface WebMessage {
   thinkingDurationMs?: number
   toolCalls?: WebToolCall[]
   artifacts?: ArtifactInfo[]
+  /** 用户消息上传的附件（从 user content 末尾的 [系统：...] 区块重建出来）。
+   *  字段对齐 mockData.MessageAttachment，但 id 用前端能识别的字符串形式后转 number 时再处理。 */
+  attachments?: import('../mockData').MessageAttachment[]
 }
 
 export interface SkillInfo {
@@ -487,9 +490,9 @@ function convertSession(s: SuperKingSessionListItem): WebSessionInfo {
   }
 }
 
-export async function getMessages(sessionId: string): Promise<WebMessage[]> {
+export async function getMessages(sessionId: string, cwd?: string): Promise<WebMessage[]> {
   const data = await requestJson<{ messages: SuperKingMessage[] }>(`/api/sessions/${encodeURIComponent(sessionId)}/messages`)
-  return convertSuperKingMessages(data.messages)
+  return convertSuperKingMessages(data.messages, cwd)
 }
 
 export async function sendPrompt(sessionId: string, payload: PromptPayload): Promise<void> {
@@ -997,7 +1000,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
 // Message conversion
 // ---------------------------------------------------------------------------
 
-function convertSuperKingMessages(messages: SuperKingMessage[]): WebMessage[] {
+function convertSuperKingMessages(messages: SuperKingMessage[], cwd?: string): WebMessage[] {
   const result: WebMessage[] = []
   let runningToolCalls = new Map<string, WebToolCall>()
 
@@ -1055,10 +1058,82 @@ function convertSuperKingMessages(messages: SuperKingMessage[]): WebMessage[] {
       }
     }
 
+    // user 消息：剥离前端发送时拼接的「[系统：...]」附件提示区块，
+    // 同时从中重建 attachments，让刷新/切回会话后仍能看到文件卡片。
+    if (webMsg.role === 'user' && webMsg.content) {
+      const { cleanContent, detectedUploads } = stripSystemPrompt(webMsg.content)
+      webMsg.content = cleanContent
+      if (detectedUploads.length > 0 && cwd) {
+        webMsg.attachments = detectedUploads.map((u, i) => buildAttachmentFromUpload(u, cwd, msg.timestamp, i))
+        console.info(`[stripSystemPrompt] user msg @${msg.timestamp}: removed system block, rebuilt ${webMsg.attachments.length} attachment(s)`)
+      } else if (detectedUploads.length > 0) {
+        console.warn(`[stripSystemPrompt] user msg @${msg.timestamp}: detected ${detectedUploads.length} upload(s) but no cwd, cannot rebuild`)
+      }
+    }
+
     result.push(webMsg)
   }
 
   return result
+}
+
+/** 从 user 消息正文末尾剥离前端拼接的「[系统：已为你上传以下附件...]」区块。
+ *  返回干净的内容 + 解析出的上传文件信息。
+ *  策略：找到第一次出现的 "\n[系统：" 位置，从那里截断；解析下面 "- 文件名 → 相对路径" 行。 */
+export function stripSystemPrompt(content: string): {
+  cleanContent: string
+  detectedUploads: { name: string; relPath: string }[]
+} {
+  if (!content) return { cleanContent: content, detectedUploads: [] }
+  const idx = content.indexOf('\n[系统：')
+  if (idx < 0) return { cleanContent: content, detectedUploads: [] }
+
+  // 截到 \n 之前；同时 trim 掉尾部的换行/空白（系统块前的换行也算系统块一部分）
+  const cleanContent = content.slice(0, idx).replace(/\s+$/, '')
+  const systemPart = content.slice(idx)
+  const detectedUploads: { name: string; relPath: string }[] = []
+  const lineRe = /^-\s+(.+?)\s+(?:→|->)\s+([.\w\-/\\][^\n\r]*)$/gm
+  let m: RegExpExecArray | null
+  while ((m = lineRe.exec(systemPart)) !== null) {
+    const name = m[1]?.trim()
+    const relPath = m[2]?.trim()
+    if (name && relPath) detectedUploads.push({ name, relPath })
+  }
+  return { cleanContent, detectedUploads }
+}
+
+/** 根据后端持久化的「[系统：...]」区块解析出的上传记录，重建一条 MessageAttachment。
+ *  - absPath 用 cwd + relPath 拼接（Windows 反斜杠路径）
+ *  - id 用时间戳 + index 保证稳定（同一条 user 消息多附件不重复） */
+function buildAttachmentFromUpload(
+  upload: { name: string; relPath: string },
+  cwd: string,
+  msgTimestamp: number,
+  idx: number,
+): import('../mockData').MessageAttachment {
+  // 把 relPath 内的正斜杠也统一成反斜杠（Windows）
+  const relWin = upload.relPath.replace(/\//g, '\\')
+  // 如果 relPath 已经是绝对路径就直接用，否则拼 cwd
+  const absPath = /^[A-Za-z]:\\/.test(relWin)
+    ? relWin
+    : (cwd.endsWith('\\') ? cwd + relWin : cwd + '\\' + relWin)
+  const lower = upload.name.toLowerCase()
+  const type: import('../mockData').MessageAttachment['type'] =
+    /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff|tif|avif)$/.test(lower) ? 'image'
+      : lower.endsWith('.pdf') ? 'pdf'
+        : /\.(doc|docx)$/.test(lower) ? 'document'
+          : /\.(ppt|pptx)$/.test(lower) ? 'presentation'
+            : /\.(xls|xlsx|csv)$/.test(lower) ? 'spreadsheet'
+              : /\.(txt|md|mdx|log|rtf)$/.test(lower) ? 'text'
+                : 'file'
+  return {
+    // id 是 number 类型；用时间戳 + idx 拼出稳定数字
+    id: msgTimestamp * 100 + idx,
+    name: upload.name,
+    url: '',  // 重建时 blob URL 已释放；ArtifactCard 走 localPath 不需要 url
+    type,
+    localPath: absPath,
+  }
 }
 
 function generateMessageId(timestamp?: number): string {
