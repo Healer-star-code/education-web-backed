@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { AgentStep } from '../mockData'
 import { ToolCallRow } from './ToolCallCard'
 import { ThinkingBlock } from './ThinkingBlock'
+import { SkillLoadRow } from './SkillLoadRow'
 
 interface Props {
   steps: AgentStep[]
@@ -11,10 +12,12 @@ interface Props {
 export function ReasoningBlock({ steps, onResolveToolPermission }: Props) {
   const thinkingSteps = steps.filter((s) => s.type === 'thinking')
   const toolSteps = steps.filter((s) => s.type === 'tool')
+  const skillSteps = steps.filter((s) => s.type === 'skill_load')
 
   const runningTools = toolSteps.filter((t) => t.status === 'running').length
   const thinkingActive = thinkingSteps.some((s) => s.isThinking)
-  const isActive = thinkingActive || runningTools > 0
+  const skillLoading = skillSteps.some((s) => s.isLoading)
+  const isActive = thinkingActive || runningTools > 0 || skillLoading
 
   const totalDurationMs = thinkingSteps.reduce((sum, step) => sum + (step.durationMs || 0), 0)
 
@@ -144,6 +147,18 @@ export function ReasoningBlock({ steps, onResolveToolPermission }: Props) {
                     content={step.content}
                     durationMs={step.durationMs}
                     isThinking={step.isThinking}
+                  />
+                </div>
+              )
+            }
+            if (step.type === 'skill_load') {
+              return (
+                <div key={step.id} style={{ marginTop: idx > 0 ? 4 : 0 }}>
+                  <SkillLoadRow
+                    name={step.name}
+                    baseDir={step.baseDir}
+                    content={step.content}
+                    isLoading={step.isLoading}
                   />
                 </div>
               )

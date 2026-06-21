@@ -28,6 +28,7 @@ import {
 } from '../lib/piApi'
 import { detectLocalArtifacts } from '../lib/artifactDetector'
 import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
+import { createSkillStreamParser, extractSkillBlocks, type SkillStreamParser } from '../lib/skillContentParser'
 
 interface Props {
   session: SessionInfo | null
@@ -212,6 +213,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const textDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingThinkingDeltaRef = useRef<string>('')
   const thinkingDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // skill_content 流式解析器：从 assistant_delta 中识别并抽出 <skill_content>...</skill_content>
+  // 块，避免它们被当作普通文本拼进 message.content。
+  const skillParserRef = useRef<SkillStreamParser | null>(null)
+  // 流式中临时缓存当前一段普通文本（解析器 onText 回调收集），下次 flush 时拼进
+  // pendingTextDeltaRef，由原有 60ms 节流接管渲染。
+  const pendingSkillFreeTextRef = useRef<string>('')
   const isUserNearBottomRef = useRef(true)
   const forceScrollRef = useRef(false)
   const normalizeSessionIdRef = useRef<string | null>(null)
@@ -409,16 +417,75 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'assistant_delta': {
         const assistantId = currentAssistantIdRef.current
         if (!assistantId) return
-        // 节流 60ms：把若干 delta 合并成一次 setState（白屏修复主力）
-        pendingTextDeltaRef.current += event.delta
+
+        // 懒初始化 skill 解析器
+        if (!skillParserRef.current) {
+          skillParserRef.current = createSkillStreamParser({
+            onText: (text) => {
+              pendingSkillFreeTextRef.current += text
+            },
+            onSkillStart: (id, name, baseDir) => {
+              const step: AgentStep = {
+                type: 'skill_load',
+                id,
+                name,
+                baseDir,
+                content: '',
+                isLoading: true,
+              }
+              setMessages((prev) => prev.map((msg) => (
+                msg.id === assistantId
+                  ? { ...msg, steps: [...(msg.steps ?? []), step] }
+                  : msg
+              )))
+            },
+            onSkillDelta: (id, content) => {
+              setMessages((prev) => prev.map((msg) => {
+                if (msg.id !== assistantId || !msg.steps) return msg
+                return {
+                  ...msg,
+                  steps: msg.steps.map((s) =>
+                    s.type === 'skill_load' && s.id === id
+                      ? { ...s, content: s.content + content }
+                      : s,
+                  ),
+                }
+              }))
+            },
+            onSkillEnd: (id) => {
+              setMessages((prev) => prev.map((msg) => {
+                if (msg.id !== assistantId || !msg.steps) return msg
+                return {
+                  ...msg,
+                  steps: msg.steps.map((s) =>
+                    s.type === 'skill_load' && s.id === id
+                      ? { ...s, isLoading: false }
+                      : s,
+                  ),
+                }
+              }))
+            },
+          })
+        }
+        // 把原始 delta 喂给解析器；纯文本部分会累积到 pendingSkillFreeTextRef
+        skillParserRef.current.push(event.delta)
+
+        // 60ms 节流：把累积的"非 skill 文本"刷新到 message.content（保留白屏修复）
+        const buffered = pendingSkillFreeTextRef.current
+        pendingSkillFreeTextRef.current = ''
+        if (buffered) pendingTextDeltaRef.current += buffered
         if (textDeltaTimerRef.current) break
         textDeltaTimerRef.current = setTimeout(() => {
           textDeltaTimerRef.current = null
-          const buffered = pendingTextDeltaRef.current
+          // 节流到期前可能又有新的 onText 回调进来，再合并一次
+          const moreBuf = pendingSkillFreeTextRef.current
+          pendingSkillFreeTextRef.current = ''
+          if (moreBuf) pendingTextDeltaRef.current += moreBuf
+          const toFlush = pendingTextDeltaRef.current
           pendingTextDeltaRef.current = ''
-          if (!buffered) return
+          if (!toFlush) return
           setMessages((prev) => prev.map((msg) => (
-            msg.id === assistantId ? { ...msg, content: msg.content + buffered } : msg
+            msg.id === assistantId ? { ...msg, content: msg.content + toFlush } : msg
           )))
         }, 60)
         break
@@ -501,6 +568,18 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         const sessionId = sdkSessionIdRef.current
         const finishedAssistantId = currentAssistantIdRef.current
         currentAssistantIdRef.current = null
+
+        // 流结束：把 skill 解析器剩余缓冲全部 flush。把任何剩余的「非 skill 纯文本」
+        // 也并入 pendingTextDeltaRef，下面的 tailText 会一起写到 message.content。
+        if (skillParserRef.current) {
+          skillParserRef.current.flush()
+          skillParserRef.current = null
+        }
+        if (pendingSkillFreeTextRef.current) {
+          pendingTextDeltaRef.current += pendingSkillFreeTextRef.current
+          pendingSkillFreeTextRef.current = ''
+        }
+
         // 立刻 flush 所有 pending delta，防止节流的 setTimeout 在 setStreaming(false) 之后才落地，
         // 造成"看上去结束了但末尾字符没写进消息"或与 normalize 抢覆盖。
         if (textDeltaTimerRef.current) {
@@ -786,6 +865,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       setError(message)
       setStreaming(false)
       currentAssistantIdRef.current = null
+      if (skillParserRef.current) {
+        skillParserRef.current = null
+      }
+      pendingSkillFreeTextRef.current = ''
       setMessages((prev) => prev.map((msg) => (
         msg.id === assistantId ? { ...msg, content: `调用 Pi SDK 失败：${message}` } : msg
       )))
@@ -828,6 +911,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     currentThinkingRef.current = ''
     currentThinkingStartRef.current = 0
     currentThinkingStepIdRef.current = null
+    if (skillParserRef.current) {
+      skillParserRef.current = null
+    }
+    pendingSkillFreeTextRef.current = ''
   }, [])
 
   const handleResolvePermission = useCallback(async (request: PermissionRequestInfo, decision: 'allow_once' | 'allow_session' | 'deny') => {
@@ -888,6 +975,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     currentThinkingRef.current = ''
     currentThinkingStartRef.current = 0
     currentThinkingStepIdRef.current = null
+    if (skillParserRef.current) {
+      skillParserRef.current = null
+    }
+    pendingSkillFreeTextRef.current = ''
     eventSourceRef.current?.close()
     eventSourceRef.current = null
     eventReadySessionIdRef.current = null
@@ -1134,23 +1225,47 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           {messages.map((m, index) => {
             const isLast = index === messages.length - 1
             const isActiveAssistant = isLast && m.role === 'assistant' && streaming
-            const hasText = !!m.content
-            const hasSteps = !!(m.steps && m.steps.length > 0)
+            // 历史消息可能在 content 中嵌有 <skill_content>...</skill_content>（流式拦截器是 0.1.22 之后才加的），
+            // 这里再做一次防御性 sanitize：把 XML 块抽出作为虚拟 skill_load steps，
+            // content 显示 sanitize 后的干净版本。流式期间不做（避免和实时解析器双重 emit）。
+            let displayContent = m.content
+            let displaySteps = m.steps
+            if (m.role === 'assistant' && !isActiveAssistant && m.content && m.content.includes('<skill_content')) {
+              const { cleanContent, skills } = extractSkillBlocks(m.content)
+              if (skills.length > 0) {
+                displayContent = cleanContent
+                const histSkillSteps: AgentStep[] = skills.map((s) => ({
+                  type: 'skill_load' as const,
+                  id: `hist-${m.id}-${s.id}`,
+                  name: s.name,
+                  baseDir: s.baseDir,
+                  content: s.content,
+                  isLoading: false,
+                }))
+                displaySteps = [...(m.steps ?? []), ...histSkillSteps]
+              }
+            }
+            const hasText = !!displayContent
+            const hasSteps = !!(displaySteps && displaySteps.length > 0)
+            // 用派生后的对象给 MessageView 渲染（保持原 m 不变以维持 memo 引用）
+            const messageForView = displayContent === m.content && displaySteps === m.steps
+              ? m
+              : { ...m, content: displayContent, steps: displaySteps }
             return (
               <div key={m.id} style={{ marginBottom: m.role === 'user' ? 16 : 0 }}>
                 {hasSteps && (
-                  <ReasoningBlock steps={m.steps!} onResolveToolPermission={handleResolveToolPermission} />
+                  <ReasoningBlock steps={displaySteps!} onResolveToolPermission={handleResolveToolPermission} />
                 )}
                 {!hasSteps && isActiveAssistant && !m.content && (
                   <PendingTaskCard task={m.pendingTask} />
                 )}
                 {hasText && (
                   <MessageErrorBoundary
-                    content={m.content}
+                    content={displayContent}
                     sessionId={sdkSessionIdRef.current ?? session?.id ?? null}
                     messageId={m.id}
                   >
-                    <MessageView message={m} isStreaming={isLast && streaming} />
+                    <MessageView message={messageForView} isStreaming={isLast && streaming} />
                   </MessageErrorBoundary>
                 )}
               </div>

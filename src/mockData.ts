@@ -77,6 +77,7 @@ export interface ToolCallInfo {
 export type AgentStep =
   | { type: 'thinking'; id: string; content: string; durationMs: number; isThinking: boolean }
   | { type: 'tool'; id: string; name: string; status: ToolStatus; args?: unknown; result?: unknown; partialResult?: unknown; permissionId?: string }
+  | { type: 'skill_load'; id: string; name: string; baseDir: string; content: string; isLoading: boolean }
 
 export interface Message {
   id: string
