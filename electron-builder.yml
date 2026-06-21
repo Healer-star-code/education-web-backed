@@ -43,6 +43,12 @@ linux:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 publish:
+  # 自动更新源：发布版本时，把以下文件上传到这个 URL：
+  #   - EducationalAgent-X.Y.Z-setup.exe
+  #   - EducationalAgent-X.Y.Z-setup.exe.blockmap
+  #   - latest.yml
+  # 客户端启动后会去 ${url}/latest.yml 检查版本号。
+  # 替换 example.com 为你自己的 HTTPS 静态服务器或对象存储 URL。
   - provider: generic
-    url: https://example.com/updates
+    url: https://example.com/educational-agent/updates
     channel: latest

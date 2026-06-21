@@ -28,6 +28,27 @@ export interface DesktopSettingsShape {
   useRemote: boolean
 }
 
+export type UpdaterPhase =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdaterState {
+  phase: UpdaterPhase
+  currentVersion: string
+  latestVersion: string | null
+  releaseNotes: string | null
+  percent: number
+  bytesPerSecond: number | null
+  transferred: number
+  total: number
+  error: string | null
+}
+
 const api = {
   app: {
     getVersion: (): string => process.versions.electron ?? 'unknown',
@@ -76,6 +97,17 @@ const api = {
       const handler = () => cb()
       ipcRenderer.on('app:openSettings', handler)
       return () => ipcRenderer.removeListener('app:openSettings', handler)
+    },
+  },
+  updater: {
+    state: (): Promise<UpdaterState> => ipcRenderer.invoke('updater:state'),
+    check: (): Promise<UpdaterState> => ipcRenderer.invoke('updater:check'),
+    download: (): Promise<UpdaterState> => ipcRenderer.invoke('updater:download'),
+    install: (): Promise<{ ok: boolean }> => ipcRenderer.invoke('updater:install'),
+    onChange: (cb: (state: UpdaterState) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, s: UpdaterState) => cb(s)
+      ipcRenderer.on('updater:state', handler)
+      return () => ipcRenderer.removeListener('updater:state', handler)
     },
   },
 }

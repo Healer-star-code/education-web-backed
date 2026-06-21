@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { testConnection } from '../lib/piApi'
 import { isDesktop } from '../lib/desktopBridge'
 import { DesktopBackendSection } from './DesktopBackendSection'
+import { UpdaterCard } from './UpdaterCard'
 
 interface Props {
   isDark: boolean
@@ -133,6 +134,9 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             onPasswordChange(pwd)
           }}
         />
+
+        {/* Desktop-only updater */}
+        <UpdaterCard />
 
         {/* Server Connection */}
         <div style={{ marginBottom: 24 }}>

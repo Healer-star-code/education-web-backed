@@ -15,6 +15,13 @@ import {
 } from './superking.js'
 import { destroyTray, setupTray, showWindow, updateTrayStatus } from './tray.js'
 import { getSettings, setSettings } from './store.js'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  getState as getUpdaterState,
+  initUpdater,
+  quitAndInstall,
+} from './updater.js'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
@@ -170,6 +177,15 @@ function registerIpc(): void {
   // ---- settings ----
   ipcMain.handle('settings:get', async () => getSettings())
   ipcMain.handle('settings:set', async (_e, patch: Record<string, unknown>) => setSettings(patch))
+
+  // ---- updater ----
+  ipcMain.handle('updater:state', async () => getUpdaterState())
+  ipcMain.handle('updater:check', async () => checkForUpdates())
+  ipcMain.handle('updater:download', async () => downloadUpdate())
+  ipcMain.handle('updater:install', async () => {
+    quitAndInstall()
+    return { ok: true }
+  })
 }
 
 function setupTrayCallbacks() {
@@ -215,6 +231,13 @@ app.whenReady().then(() => {
   registerIpc()
   createWindow()
   setupTrayCallbacks()
+  initUpdater()
+  // 启动 5 秒后自动检查一次（仅打包后）
+  setTimeout(() => {
+    if (app.isPackaged) {
+      void checkForUpdates()
+    }
+  }, 5000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

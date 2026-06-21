@@ -28,6 +28,27 @@ export interface DesktopSettingsShape {
   useRemote: boolean
 }
 
+export type UpdaterPhase =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdaterState {
+  phase: UpdaterPhase
+  currentVersion: string
+  latestVersion: string | null
+  releaseNotes: string | null
+  percent: number
+  bytesPerSecond: number | null
+  transferred: number
+  total: number
+  error: string | null
+}
+
 export interface PiDesktopBridge {
   app: { getVersion: () => string }
   dialog: {
@@ -63,6 +84,13 @@ export interface PiDesktopBridge {
   }
   events: {
     onOpenSettings: (cb: () => void) => () => void
+  }
+  updater: {
+    state: () => Promise<UpdaterState>
+    check: () => Promise<UpdaterState>
+    download: () => Promise<UpdaterState>
+    install: () => Promise<{ ok: boolean }>
+    onChange: (cb: (state: UpdaterState) => void) => () => void
   }
 }
 
