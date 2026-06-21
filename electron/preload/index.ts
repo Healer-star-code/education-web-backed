@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 export interface LocalSkillInfo {
   name: string
@@ -6,6 +6,26 @@ export interface LocalSkillInfo {
   source: string
   enabled: boolean
   path?: string
+}
+
+export type SuperKingState = 'stopped' | 'starting' | 'running' | 'external' | 'error'
+export interface SuperKingStatus {
+  state: SuperKingState
+  pid: number | null
+  port: number
+  error: string | null
+  exePath: string | null
+  startedAt: number | null
+}
+
+export interface DesktopSettingsShape {
+  superKingExePath: string
+  superKingPort: number
+  superKingPassword: string
+  superKingEnv: Record<string, string>
+  autoStartSuperKing: boolean
+  remoteUrl: string
+  useRemote: boolean
 }
 
 const api = {
@@ -31,6 +51,32 @@ const api = {
       ipcRenderer.invoke('local:listSkills', rootOverride ?? null),
     openFolder: (target?: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('local:openFolder', target ?? null),
+  },
+  superking: {
+    status: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:status'),
+    start: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:start'),
+    stop: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:stop'),
+    restart: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:restart'),
+    clearError: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:clearError'),
+    pickExe: (): Promise<string | null> => ipcRenderer.invoke('superking:pickExe'),
+    logs: (): Promise<{ stdout: string; stderr: string }> => ipcRenderer.invoke('superking:logs'),
+    onStatusChange: (cb: (status: SuperKingStatus) => void): (() => void) => {
+      const handler = (_e: IpcRendererEvent, status: SuperKingStatus) => cb(status)
+      ipcRenderer.on('superking:status', handler)
+      return () => ipcRenderer.removeListener('superking:status', handler)
+    },
+  },
+  settings: {
+    get: (): Promise<DesktopSettingsShape> => ipcRenderer.invoke('settings:get'),
+    set: (patch: Partial<DesktopSettingsShape>): Promise<DesktopSettingsShape> =>
+      ipcRenderer.invoke('settings:set', patch),
+  },
+  events: {
+    onOpenSettings: (cb: () => void): (() => void) => {
+      const handler = () => cb()
+      ipcRenderer.on('app:openSettings', handler)
+      return () => ipcRenderer.removeListener('app:openSettings', handler)
+    },
   },
 }
 

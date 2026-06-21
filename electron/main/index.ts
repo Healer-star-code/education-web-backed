@@ -1,10 +1,25 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
 import { getDefaultSkillsRoot, scanLocalSkills } from './helper.js'
+import {
+  clearError,
+  clearExternalStatus,
+  getStatus as getSuperKingStatus,
+  getLogTail as getSuperKingLogs,
+  killOnExit as killSuperKingOnExit,
+  probeExternalSuperKing,
+  restartSuperKing,
+  setExternalStatus,
+  startSuperKing,
+  stopSuperKing,
+} from './superking.js'
+import { destroyTray, setupTray, showWindow, updateTrayStatus } from './tray.js'
+import { getSettings, setSettings } from './store.js'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -27,6 +42,13 @@ function createWindow(): void {
     mainWindow?.show()
   })
 
+  mainWindow.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -37,6 +59,21 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+  }
+}
+
+function buildStartOptions() {
+  const settings = getSettings()
+  // 仅保留非空环境变量
+  const env: Record<string, string> = {}
+  for (const [k, v] of Object.entries(settings.superKingEnv ?? {})) {
+    if (v && v.trim()) env[k] = v
+  }
+  return {
+    exePath: settings.superKingExePath,
+    port: settings.superKingPort,
+    password: settings.superKingPassword,
+    env,
   }
 }
 
@@ -86,21 +123,14 @@ function registerIpc(): void {
     }
   })
 
-  // ---- local helper (P1: skills 扫描 / 打开文件夹) ----
-  ipcMain.handle('local:health', async () => {
-    return { ok: true }
-  })
-
-  ipcMain.handle('local:getSkillsRoot', async () => {
-    return { path: getDefaultSkillsRoot() }
-  })
-
+  // ---- local helper ----
+  ipcMain.handle('local:health', async () => ({ ok: true }))
+  ipcMain.handle('local:getSkillsRoot', async () => ({ path: getDefaultSkillsRoot() }))
   ipcMain.handle('local:listSkills', async (_e, rootOverride: string | null) => {
     const root = rootOverride && rootOverride.trim() ? rootOverride : getDefaultSkillsRoot()
     const skills = await scanLocalSkills(root)
     return { skills, root }
   })
-
   ipcMain.handle('local:openFolder', async (_e, target: string | null) => {
     const path = target && target.trim() ? target : getDefaultSkillsRoot()
     try {
@@ -111,17 +141,93 @@ function registerIpc(): void {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }
   })
+
+  // ---- super-king lifecycle ----
+  ipcMain.handle('superking:status', async () => getSuperKingStatus())
+  ipcMain.handle('superking:logs', async () => getSuperKingLogs())
+  ipcMain.handle('superking:start', async () => {
+    return startSuperKing(buildStartOptions())
+  })
+  ipcMain.handle('superking:stop', async () => stopSuperKing())
+  ipcMain.handle('superking:restart', async () => restartSuperKing(buildStartOptions()))
+  ipcMain.handle('superking:clearError', async () => {
+    clearError()
+    return getSuperKingStatus()
+  })
+  ipcMain.handle('superking:pickExe', async () => {
+    if (!mainWindow) return null
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 super-king 可执行文件',
+      properties: ['openFile'],
+      filters: [
+        { name: '可执行文件', extensions: process.platform === 'win32' ? ['exe'] : ['*'] },
+      ],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+
+  // ---- settings ----
+  ipcMain.handle('settings:get', async () => getSettings())
+  ipcMain.handle('settings:set', async (_e, patch: Record<string, unknown>) => setSettings(patch))
+}
+
+function setupTrayCallbacks() {
+  const cbs = {
+    showWindow: () => showWindow(mainWindow),
+    startSuperKing: async () => { await startSuperKing(buildStartOptions()) },
+    stopSuperKing: async () => { await stopSuperKing() },
+    openSettings: () => {
+      showWindow(mainWindow)
+      mainWindow?.webContents.send('app:openSettings')
+    },
+    quit: () => {
+      isQuitting = true
+      app.quit()
+    },
+  }
+  setupTray(cbs)
+
+  // 状态同步循环：每 2 秒探测外部 super-king，并把托盘和 renderer 状态对齐
+  const tick = async () => {
+    const settings = getSettings()
+    const current = getSuperKingStatus()
+
+    // 只在没有自启子进程时做外部探测
+    if (current.state !== 'running' && current.state !== 'starting') {
+      const ok = await probeExternalSuperKing(settings.superKingPort, settings.superKingPassword).catch(() => false)
+      if (ok) {
+        setExternalStatus(settings.superKingPort)
+      } else if (current.state === 'external') {
+        clearExternalStatus()
+      } else if (current.state === 'error') {
+        // 探测失败 + 之前的 error：保留 error 信息（用户可以读到原因）
+      }
+    }
+
+    updateTrayStatus(getSuperKingStatus(), cbs)
+  }
+  void tick()
+  setInterval(() => { void tick() }, 2000)
 }
 
 app.whenReady().then(() => {
   registerIpc()
   createWindow()
+  setupTrayCallbacks()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
+app.on('before-quit', () => {
+  isQuitting = true
+  killSuperKingOnExit()
+  destroyTray()
+})
+
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit()
+  // 桌面客户端常驻托盘，不退出；Mac 同理
+  // 用户从托盘菜单 -> 退出 才真正退
 })

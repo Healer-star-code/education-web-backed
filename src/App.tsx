@@ -5,6 +5,7 @@ import type { SessionInfo } from './mockData'
 import { ChatInput, type ChatInputHandle } from './components/ChatInput'
 import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
+import { SuperKingBadge } from './components/SuperKingBadge'
 import { Typewriter } from './components/Typewriter'
 import {
   listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession,
@@ -52,6 +53,14 @@ export default function App() {
   // 预加载本地 Skills 到缓存，打开 Skills 面板时可立即显示
   useEffect(() => {
     listLocalSkills().catch(() => {})
+  }, [])
+
+  // 托盘菜单 "设置..." -> 打开设置面板
+  useEffect(() => {
+    const bridge = typeof window !== 'undefined' ? window.piDesktop : undefined
+    if (!bridge) return
+    const unsub = bridge.events.onOpenSettings(() => setSettingsOpen(true))
+    return () => { unsub() }
   }, [])
 
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
@@ -347,6 +356,9 @@ export default function App() {
               )}
             </button>
             <div style={{ flex: 1 }} />
+            <div style={{ marginRight: 8 }}>
+              <SuperKingBadge onOpenSettings={() => setSettingsOpen(true)} />
+            </div>
             <button
               onClick={() => setSettingsOpen(!settingsOpen)}
               title="设置"

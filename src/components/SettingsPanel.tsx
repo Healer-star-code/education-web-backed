@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { testConnection } from '../lib/piApi'
+import { isDesktop } from '../lib/desktopBridge'
 
 interface Props {
   isDark: boolean
@@ -226,22 +227,40 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             </div>
             <div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 6 }}>本地增强服务地址</div>
-              <input
-                type="text"
-                value={draftLocalHelperUrl}
-                onChange={(e) => setDraftLocalHelperUrl(e.target.value)}
-                placeholder="http://127.0.0.1:30143"
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '10px 12px', borderRadius: 10,
-                  border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
-                  fontSize: 14, fontFamily: 'var(--font-mono)',
-                  outline: 'none',
-                }}
-              />
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
-                用于读取本地 Skills、Artifacts 等 super-king 文档未定义的增强能力
-              </div>
+              {isDesktop ? (
+                <div
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: 10,
+                    border: '1px dashed var(--border)',
+                    background: 'var(--bg-hover)',
+                    color: 'var(--text-dim)',
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  桌面客户端已内置本地增强服务（Skills 扫描、打开文件夹），无需单独运行 helper 进程。
+                </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    value={draftLocalHelperUrl}
+                    onChange={(e) => setDraftLocalHelperUrl(e.target.value)}
+                    placeholder="http://127.0.0.1:30143"
+                    style={{
+                      width: '100%', boxSizing: 'border-box',
+                      padding: '10px 12px', borderRadius: 10,
+                      border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
+                      fontSize: 14, fontFamily: 'var(--font-mono)',
+                      outline: 'none',
+                    }}
+                  />
+                  <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                    用于读取本地 Skills、Artifacts 等 super-king 文档未定义的增强能力
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

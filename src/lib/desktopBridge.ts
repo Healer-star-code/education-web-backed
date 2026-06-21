@@ -1,5 +1,4 @@
 // Bridge to Electron preload (window.piDesktop).
-// 在浏览器中运行时，window.piDesktop 不存在，所有函数会 fallback。
 
 export interface DesktopLocalSkillInfo {
   name: string
@@ -9,10 +8,28 @@ export interface DesktopLocalSkillInfo {
   path?: string
 }
 
+export type SuperKingState = 'stopped' | 'starting' | 'running' | 'external' | 'error'
+export interface SuperKingStatus {
+  state: SuperKingState
+  pid: number | null
+  port: number
+  error: string | null
+  exePath: string | null
+  startedAt: number | null
+}
+
+export interface DesktopSettingsShape {
+  superKingExePath: string
+  superKingPort: number
+  superKingPassword: string
+  superKingEnv: Record<string, string>
+  autoStartSuperKing: boolean
+  remoteUrl: string
+  useRemote: boolean
+}
+
 export interface PiDesktopBridge {
-  app: {
-    getVersion: () => string
-  }
+  app: { getVersion: () => string }
   dialog: {
     selectDirectory: (defaultPath?: string) => Promise<string | null>
     selectFile: (options?: {
@@ -29,6 +46,23 @@ export interface PiDesktopBridge {
     getSkillsRoot: () => Promise<{ path: string }>
     listSkills: (rootOverride?: string) => Promise<{ skills: DesktopLocalSkillInfo[]; root: string }>
     openFolder: (target?: string) => Promise<{ ok: boolean; error?: string }>
+  }
+  superking: {
+    status: () => Promise<SuperKingStatus>
+    start: () => Promise<SuperKingStatus>
+    stop: () => Promise<SuperKingStatus>
+    restart: () => Promise<SuperKingStatus>
+    clearError: () => Promise<SuperKingStatus>
+    pickExe: () => Promise<string | null>
+    logs: () => Promise<{ stdout: string; stderr: string }>
+    onStatusChange: (cb: (status: SuperKingStatus) => void) => () => void
+  }
+  settings: {
+    get: () => Promise<DesktopSettingsShape>
+    set: (patch: Partial<DesktopSettingsShape>) => Promise<DesktopSettingsShape>
+  }
+  events: {
+    onOpenSettings: (cb: () => void) => () => void
   }
 }
 
