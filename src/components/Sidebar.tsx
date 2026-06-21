@@ -507,8 +507,12 @@ function formatDateTime(dateStr: string): string {
   return date.toISOString().slice(0, 19).replace('T', ' ')
 }
 
+function getSessionTitle(session: SessionInfo): string {
+  return session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+}
+
 function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): string {
-  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const title = getSessionTitle(session)
   const lines: string[] = []
   lines.push(`# ${title}`)
   lines.push('')
@@ -541,7 +545,7 @@ function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): 
 }
 
 function formatSessionToTxt(session: SessionInfo, messages: WebMessage[]): string {
-  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const title = getSessionTitle(session)
   const lines: string[] = []
   lines.push(`会话：${title}`)
   lines.push(`项目：${session.cwd}`)
@@ -570,10 +574,12 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  }
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+}
 
 function formatSessionToHtml(session: SessionInfo, messages: WebMessage[]): string {
-  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const title = getSessionTitle(session)
   const meta: string[] = [
     `项目：${escapeHtml(session.cwd)}`,
     `时间：${formatDateTime(session.modified)}`,
@@ -649,7 +655,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
   const [shareMode, setShareMode] = useState(false)
-  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const title = getSessionTitle(session)
   const [draftTitle, setDraftTitle] = useState(title)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -972,81 +978,93 @@ function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToa
 
   async function handleCopy() {
     setLoading(true)
-    const messages = await loadMessages()
-    setLoading(false)
-    if (!messages) return
-
-    const markdown = formatSessionToMarkdown(session, messages)
-    if (markdown.length > MAX_SHARE_BYTES) {
-      const mb = (markdown.length / (1024 * 1024)).toFixed(1)
-      onToast?.(`对话内容太长（${mb} MB），无法复制到剪贴板，请先导出为文件`, 'error')
-      return
-    }
-
-    if (!navigator.clipboard) {
-      onToast?.('当前环境不支持剪贴板操作，请使用导出为文件功能', 'error')
-      return
-    }
-
     try {
-      await navigator.clipboard.writeText(markdown)
-      onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
-      onClose()
-    } catch (err) {
-      console.warn('[SharePanel] clipboard write failed', err)
-      onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      const messages = await loadMessages()
+      if (!messages) return
+
+      const markdown = formatSessionToMarkdown(session, messages)
+      if (markdown.length > MAX_SHARE_BYTES) {
+        const mb = (markdown.length / (1024 * 1024)).toFixed(1)
+        onToast?.(`对话内容太长（${mb} MB），无法复制到剪贴板，请先导出为文件`, 'error')
+        return
+      }
+
+      if (!navigator.clipboard) {
+        onToast?.('当前环境不支持剪贴板操作，请使用导出为文件功能', 'error')
+        return
+      }
+
+      try {
+        await navigator.clipboard.writeText(markdown)
+        onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
+        onClose()
+      } catch (err) {
+        console.warn('[SharePanel] clipboard write failed', err)
+        onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
   async function handleExport(format: ShareFormat) {
-    const bridge = typeof window !== 'undefined' ? window.piDesktop : undefined
-    if (!bridge?.file?.saveText) {
+    if (typeof window === 'undefined' || !window.piDesktop?.file?.saveText) {
       onToast?.('当前环境不支持导出文件', 'error')
       return
     }
+    const bridge = window.piDesktop
 
     setLoading(true)
-    const messages = await loadMessages()
-    setLoading(false)
-    if (!messages) return
-
-    const title = safeFileName(session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12))
-    let content = ''
-    let defaultFileName = ''
-    let filters: { name: string; extensions: string[] }[] = []
-
-    if (format === 'markdown') {
-      content = formatSessionToMarkdown(session, messages)
-      defaultFileName = `${title}.md`
-      filters = [{ name: 'Markdown', extensions: ['md'] }, { name: 'Text', extensions: ['txt'] }]
-    } else if (format === 'html') {
-      content = formatSessionToHtml(session, messages)
-      defaultFileName = `${title}.html`
-      filters = [{ name: 'HTML', extensions: ['html'] }]
-    } else {
-      content = formatSessionToTxt(session, messages)
-      defaultFileName = `${title}.txt`
-      filters = [{ name: 'Text', extensions: ['txt'] }]
-    }
-
-    if (content.length > MAX_SHARE_BYTES) {
-      const mb = (content.length / (1024 * 1024)).toFixed(1)
-      onToast?.(`对话内容太长（${mb} MB），无法导出`, 'error')
-      return
-    }
-
     try {
-      const result = await bridge.file.saveText({ content, defaultFileName, filters })
-      if (result.canceled) return
-      if (result.ok && result.savedTo) {
-        onToast?.(`已保存到 ${result.savedTo}`, 'success')
-        onClose()
-      } else {
-        onToast?.('保存失败：' + (result.error || '未知错误'), 'error')
+      const messages = await loadMessages()
+      if (!messages) return
+
+      const title = safeFileName(getSessionTitle(session))
+      const config = (() => {
+        switch (format) {
+          case 'markdown':
+            return {
+              content: formatSessionToMarkdown(session, messages),
+              defaultFileName: `${title}.md`,
+              filters: [{ name: 'Markdown', extensions: ['md'] }, { name: 'Text', extensions: ['txt'] }],
+            }
+          case 'html':
+            return {
+              content: formatSessionToHtml(session, messages),
+              defaultFileName: `${title}.html`,
+              filters: [{ name: 'HTML', extensions: ['html'] }],
+            }
+          case 'txt':
+          default:
+            return {
+              content: formatSessionToTxt(session, messages),
+              defaultFileName: `${title}.txt`,
+              filters: [{ name: 'Text', extensions: ['txt'] }],
+            }
+        }
+      })()
+
+      if (config.content.length > MAX_SHARE_BYTES) {
+        const mb = (config.content.length / (1024 * 1024)).toFixed(1)
+        onToast?.(`对话内容太长（${mb} MB），无法导出`, 'error')
+        return
       }
-    } catch (err) {
-      console.warn('[SharePanel] saveText failed', err)
-      onToast?.('保存失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+
+      try {
+        const result = await bridge.file.saveText(config)
+        if (result.canceled) return
+        if (result.ok && result.savedTo) {
+          onToast?.(`已保存到 ${result.savedTo}`, 'success')
+          onClose()
+        } else {
+          onToast?.('保存失败：' + (result.error || '未知错误'), 'error')
+        }
+      } catch (err) {
+        console.warn('[SharePanel] saveText failed', err)
+        onToast?.('保存失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
