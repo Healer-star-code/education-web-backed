@@ -8,7 +8,7 @@ import { ReasoningBlock } from './ReasoningBlock'
 
 import { PermissionDialog } from './PermissionDialog'
 import { QuestionDialog } from './QuestionDialog'
-import xiaojinGif from '../assets/xiaojin.gif'
+import { XiaojinLogo } from './XiaojinLogo'
 
 import {
   connectSessionEvents,
@@ -1296,14 +1296,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               fontFamily: 'var(--font-mono)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.2 }}>
-                {/* 超级小金动态吉祥物（vite import，打包后是带 hash 的相对路径，file:// 下能加载） */}
-                <img
-                  src={xiaojinGif}
-                  alt="超级小金"
-                  width={56}
-                  height={56}
-                  style={{ flexShrink: 0, objectFit: 'contain', display: 'block' }}
-                />
+                {/* 超级小金动态吉祥物（亮/暗主题双版本，详见 XiaojinLogo.tsx） */}
+                <XiaojinLogo size={56} />
                 <span style={{ fontSize: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)' }}>超级小金</span>
                 <span style={{ fontSize: 'var(--font-base)', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   <Typewriter phrases={TYPEWRITER_PHRASES} />
