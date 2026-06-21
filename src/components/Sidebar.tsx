@@ -501,34 +501,19 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
   )
 }
 
-function escapeMarkdown(text: string): string {
-  // 转义常见 Markdown 特殊字符，避免用户消息破坏生成的 Markdown 结构。
-  return text
-    .replace(/\\/g, '\\\\')
-    .replace(/`/g, '\\`')
-    .replace(/\*/g, '\\*')
-    .replace(/_/g, '\\_')
-    .replace(/\{/g, '\\{')
-    .replace(/\}/g, '\\}')
-    .replace(/\[/g, '\\[')
-    .replace(/\]/g, '\\]')
-    .replace(/</g, '\\<')
-    .replace(/>/g, '\\>')
-    .replace(/#/g, '\\#')
-    .replace(/\+/g, '\\+')
-    .replace(/-/g, '\\-')
-    .replace(/\./g, '\\.')
-    .replace(/!/g, '\\!')
-    .replace(/\|/g, '\\|')
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr)
+  if (Number.isNaN(date.getTime())) return dateStr
+  return date.toISOString().slice(0, 19).replace('T', ' ')
 }
 
 function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): string {
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
   const lines: string[] = []
-  lines.push(`# ${escapeMarkdown(title)}`)
+  lines.push(`# ${title}`)
   lines.push('')
   lines.push(`> 项目：\`${session.cwd}\``)
-  lines.push(`> 时间：${new Date(session.modified).toLocaleString('zh-CN')}`)
+  lines.push(`> 时间：${formatDateTime(session.modified)}`)
   if (session.model) {
     lines.push(`> 模型：${session.model.provider}/${session.model.modelId}`)
   }
@@ -542,7 +527,10 @@ function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): 
     lines.push(`## ${idx + 1}. ${speaker}`)
     lines.push('')
     if (message.content) {
-      lines.push(escapeMarkdown(message.content))
+      // 用围栏代码块包裹消息原文，避免内容中的 Markdown 特殊字符破坏整体结构，同时保留原文格式。
+      lines.push('```')
+      lines.push(message.content)
+      lines.push('```')
     } else {
       lines.push('（无内容）')
     }
