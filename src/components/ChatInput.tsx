@@ -76,6 +76,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       if (!rec) return
       recognitionRef.current = rec
       let finalTranscript = ''
+      // 限制连续失败重启次数，避免麦克风不可用时无限重启耗电
+      let restartFailCount = 0
+      const MAX_RESTART_FAILS = 5
 
       const scheduleRestart = (delay: number) => {
         if (restartTimerRef.current) {
@@ -83,14 +86,24 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           restartTimerRef.current = null
         }
         if (!shouldKeepRecordingRef.current) return
+        if (restartFailCount >= MAX_RESTART_FAILS) {
+          console.warn('[speech] giving up after', restartFailCount, 'restart failures')
+          shouldKeepRecordingRef.current = false
+          recordingRef.current = false
+          setRecording(false)
+          recognitionRef.current = null
+          return
+        }
         restartTimerRef.current = setTimeout(() => {
           restartTimerRef.current = null
           if (!shouldKeepRecordingRef.current) return
           if (recognitionRef.current !== rec) return
           try {
             rec.start()
+            restartFailCount = 0 // 成功了就清零
           } catch (_) {
-            scheduleRestart(400)
+            restartFailCount++
+            scheduleRestart(400 + restartFailCount * 200) // 退避
           }
         }, delay)
       }

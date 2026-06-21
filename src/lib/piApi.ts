@@ -727,6 +727,13 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
         console.warn(`[piApi] ignored message_start for role=${role}`)
         return
       }
+      // ⭐ 防御：如果上一轮 SSE 异常断开没走 flushFinal，state 里可能残留旧文本基准。
+      // 在新 message 开始前强制重置，保证 emitTextDelta 计算 delta 时不会出现负偏移。
+      if (state.thinkingOpen) {
+        // 旧的 thinking 没正常 end，主动 close 一下
+        onEvent({ type: 'thinking_end', content: state.assistantThinking })
+      }
+      reset()
       const content = data.message?.content ?? []
       let text = ''
       let thinking = ''
@@ -1079,24 +1086,31 @@ function convertSuperKingMessages(messages: SuperKingMessage[], cwd?: string): W
 
 /** 从 user 消息正文末尾剥离前端拼接的「[系统：已为你上传以下附件...]」区块。
  *  返回干净的内容 + 解析出的上传文件信息。
- *  策略：找到第一次出现的 "\n[系统：" 位置，从那里截断；解析下面 "- 文件名 → 相对路径" 行。 */
+ *  策略：
+ *    1. 只匹配前端拼接时使用的 3 种固定开头（已为你上传 / 用户附了 / 以下附件上传失败），
+ *       避免用户自己写 `[系统：...]` 被误剥离。
+ *    2. 必须出现在 `\n[系统：` 行首位置（前端拼接时一定带换行）。
+ *    3. 找到第一处匹配后，从那里截断到结尾。 */
 export function stripSystemPrompt(content: string): {
   cleanContent: string
   detectedUploads: { name: string; relPath: string }[]
 } {
   if (!content) return { cleanContent: content, detectedUploads: [] }
-  const idx = content.indexOf('\n[系统：')
-  if (idx < 0) return { cleanContent: content, detectedUploads: [] }
+  // 严格匹配前端拼接的 3 种系统块开头
+  const re = /\n\[系统：(?:已为你上传以下附件|用户附了|以下附件上传失败)/
+  const m = re.exec(content)
+  if (!m) return { cleanContent: content, detectedUploads: [] }
+  const idx = m.index
 
   // 截到 \n 之前；同时 trim 掉尾部的换行/空白（系统块前的换行也算系统块一部分）
   const cleanContent = content.slice(0, idx).replace(/\s+$/, '')
   const systemPart = content.slice(idx)
   const detectedUploads: { name: string; relPath: string }[] = []
   const lineRe = /^-\s+(.+?)\s+(?:→|->)\s+([.\w\-/\\][^\n\r]*)$/gm
-  let m: RegExpExecArray | null
-  while ((m = lineRe.exec(systemPart)) !== null) {
-    const name = m[1]?.trim()
-    const relPath = m[2]?.trim()
+  let lm: RegExpExecArray | null
+  while ((lm = lineRe.exec(systemPart)) !== null) {
+    const name = lm[1]?.trim()
+    const relPath = lm[2]?.trim()
     if (name && relPath) detectedUploads.push({ name, relPath })
   }
   return { cleanContent, detectedUploads }

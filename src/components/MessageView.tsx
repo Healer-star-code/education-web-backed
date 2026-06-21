@@ -101,6 +101,11 @@ function arePropsEqual(prev: Props, next: Props): boolean {
   // 附件 / artifact 的引用变化也视为变化（FileCard 的 localPath 回填会换引用）
   if (a.attachments !== b.attachments) return false
   if (a.artifacts !== b.artifacts) return false
+  // steps 也需要比较：流式 thinking_delta / tool_update / skill_load 都会换 steps 数组
+  if ((a.steps?.length ?? 0) !== (b.steps?.length ?? 0)) return false
+  if (a.steps !== b.steps) return false
+  // pendingTask 切换（生成 word 的提示卡片显示/隐藏）也要触发重渲染
+  if (a.pendingTask !== b.pendingTask) return false
   return true
 }
 

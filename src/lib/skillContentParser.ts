@@ -24,6 +24,8 @@
  */
 
 const SKILL_OPEN_TAG_RE = /<skill_content\s+name="([^"]*)"\s+base_dir="([^"]*)"\s*>/
+// 宽容版：属性顺序可颠倒（base_dir 在前，name 在后）。仅作为兜底，不影响主路径。
+const SKILL_OPEN_TAG_RE_REV = /<skill_content\s+base_dir="([^"]*)"\s+name="([^"]*)"\s*>/
 const SKILL_CLOSE_TAG = '</skill_content>'
 const MAX_TAIL_KEEP = 256 // 防止半截标签：buffer 末尾保留多少字节不 emit
 
@@ -60,15 +62,34 @@ export function extractSkillBlocks(content: string): ExtractResult {
   let cleaned = ''
   let rest = content
   while (rest.length > 0) {
-    const openMatch = rest.match(SKILL_OPEN_TAG_RE)
+    let openMatch = rest.match(SKILL_OPEN_TAG_RE)
+    let name = ''
+    let baseDir = ''
+    if (openMatch && openMatch.index !== undefined) {
+      name = openMatch[1] ?? ''
+      baseDir = openMatch[2] ?? ''
+    } else {
+      // 兜底：试一下反向顺序（base_dir 在前）
+      const rev = rest.match(SKILL_OPEN_TAG_RE_REV)
+      if (rev && rev.index !== undefined) {
+        openMatch = rev
+        baseDir = rev[1] ?? ''
+        name = rev[2] ?? ''
+      }
+    }
     if (!openMatch || openMatch.index === undefined) {
+      // 还有 <skill_content 字面量但属性格式都不匹配 → 推进一格避免死循环
+      const ltIdx = rest.indexOf('<skill_content')
+      if (ltIdx >= 0) {
+        cleaned += rest.slice(0, ltIdx + 1) // 保留 < 之前 + < 本身
+        rest = rest.slice(ltIdx + 1)
+        continue
+      }
       cleaned += rest
       break
     }
     // 起始标签前的部分是干净文本
     cleaned += rest.slice(0, openMatch.index)
-    const name = openMatch[1] ?? ''
-    const baseDir = openMatch[2] ?? ''
     const afterOpenIdx = openMatch.index + openMatch[0].length
     const closeIdx = rest.indexOf(SKILL_CLOSE_TAG, afterOpenIdx)
     if (closeIdx === -1) {

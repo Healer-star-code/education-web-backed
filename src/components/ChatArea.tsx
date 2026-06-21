@@ -1121,15 +1121,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     const sessionId = sdkSessionIdRef.current
     if (!sessionId) return
 
-    // 取消上一次未触发的 debounce
+    // 取消上一次未触发的 debounce（旧 effect 留下的）
     if (fallbackScanTimerRef.current) {
       clearTimeout(fallbackScanTimerRef.current)
       fallbackScanTimerRef.current = null
     }
 
     let cancelled = false
-    fallbackScanTimerRef.current = setTimeout(() => {
-      fallbackScanTimerRef.current = null
+    // 用局部 timerId 持有定时器引用：即使回调内已经把 ref 置 null，
+    // cleanup 仍能通过 timerId 准确取消（避免 ref 漂移导致的清理漏洞）。
+    const timerId = setTimeout(() => {
+      // 回调真正执行时清掉 ref（ref 仅用于"被新 effect 抢占时取消上一次"）
+      if (fallbackScanTimerRef.current === timerId) {
+        fallbackScanTimerRef.current = null
+      }
       if (cancelled) return
 
       const tasks: Array<{ id: string; content: string; existing: ArtifactInfo[] }> = []
@@ -1177,11 +1182,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         }))
       })()
     }, 200)
+    fallbackScanTimerRef.current = timerId
 
     return () => {
       cancelled = true
-      if (fallbackScanTimerRef.current) {
-        clearTimeout(fallbackScanTimerRef.current)
+      // ⭐ 直接清局部 timerId，不依赖 ref（ref 可能已被回调置 null）
+      clearTimeout(timerId)
+      if (fallbackScanTimerRef.current === timerId) {
         fallbackScanTimerRef.current = null
       }
     }
