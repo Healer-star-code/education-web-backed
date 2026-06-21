@@ -5,14 +5,18 @@ directories:
   output: release
   buildResources: build
 files:
+  # electron-builder 默认会自动包含 package.json 中 dependencies 声明的 node_modules，
+  # 这里只补充 out/** 编译产物，并显式排除无关文件。
+  # 切勿写 "!**/node_modules/**/*" —— 会把运行时依赖（tree-kill / electron-store /
+  # electron-updater）一起干掉，启动报 ERR_MODULE_NOT_FOUND。
   - out/**/*
   - package.json
-  - "!**/node_modules/**/*"
   - "!**/{.git,.gitignore,.vscode,.idea}"
   - "!**/{*.map,*.ts,*.tsx}"
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,test,__tests__,tests,powered-test,example,examples}"
+  - "!**/node_modules/*.d.ts"
+  - "!**/node_modules/.bin"
 asar: true
-asarUnpack:
-  - resources/**
 
 win:
   target:
