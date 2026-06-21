@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getFileIcon } from './FileIcons'
+import { AlertTriangleIcon, DownloadIcon, PlayIcon } from './Icon'
 import type { ArtifactInfo, MessageAttachment } from '../mockData'
 import { artifactDownloadUrl, type ArtifactInfo as ApiArtifactInfo } from '../lib/piApi'
 import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
@@ -167,7 +168,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
         </div>
         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 3 }}>
           {disabled ? (
-            <span style={{ color: 'var(--danger)' }}>⚠ 文件已不存在</span>
+            <span style={{ color: 'var(--danger)', display: 'inline-flex', alignItems: 'center', gap: 4 }}><AlertTriangleIcon width={12} height={12} /> 文件已不存在</span>
           ) : (
             <>
               {kindLabel(artifact.kind, artifact.name)}
@@ -186,7 +187,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
               title="保存到电脑"
               style={primaryBtn(disabled || !!busy)}
             >
-              📥 保存到电脑
+              <DownloadIcon width={13} height={13} /> 保存到电脑
             </button>
             {hasLocalPath && (
               <button
@@ -195,7 +196,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
                 title="用系统默认程序打开"
                 style={ghostBtn(disabled || !!busy)}
               >
-                ▶ 打开
+                <PlayIcon width={12} height={12} /> 打开
               </button>
             )}
           </>

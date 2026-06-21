@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getDesktopBridge, isDesktop, type DesktopSettingsShape, type SuperKingStatus } from '../lib/desktopBridge'
+import { HandIcon } from './Icon'
 
 interface Props {
   // 当本地/远程切换或密码变化时，通知 SettingsPanel 同步到 localStorage（serverUrl/password）
@@ -146,7 +147,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
             lineHeight: 1.6,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>👋 首次使用请配置以下两项：</div>
+          <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}><HandIcon width={16} height={16} /> 首次使用请配置以下两项：</div>
           <div style={{ color: 'var(--text-muted)' }}>
             1. <b>super-king 可执行文件路径</b>：选择你电脑上 super-king.exe 的位置<br />
             2. <b>Skills 资源目录</b>：选择你电脑上 skill 文件夹所在的位置（留空则用 super-king.exe 同目录下的 skills/）<br />

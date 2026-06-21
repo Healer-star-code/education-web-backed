@@ -3,6 +3,7 @@ import { testConnection } from '../lib/piApi'
 import { isDesktop, getDesktopBridge } from '../lib/desktopBridge'
 import { DesktopBackendSection } from './DesktopBackendSection'
 import { UpdaterCard } from './UpdaterCard'
+import { ZapIcon, AlertTriangleIcon } from './Icon'
 
 interface Props {
   isDark: boolean
@@ -124,8 +125,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     }
   }
 
-  const accentColor = draftMode === 'senior' ? 'var(--accent-senior)' : 'var(--accent)'
-  const accentHover = draftMode === 'senior' ? 'var(--accent-senior-hover)' : 'var(--accent-hover)'
+
 
   return (
     <div onClick={() => {
@@ -152,15 +152,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <span style={{ fontWeight: 700, fontSize: 18, color: 'var(--text)' }}>设置</span>
-          <button onClick={onClose} style={{
-            background: 'none', border: 'none', color: 'var(--text-muted)',
-            cursor: 'pointer', fontSize: 22, padding: 0, lineHeight: 1,
-            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: 'var(--radius-md)', transition: 'background 0.15s',
-          }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-          >×</button>
+          <button onClick={onClose} className="btn-close">×</button>
         </div>
 
         {/* Desktop-only backend control */}
@@ -191,13 +183,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 value={draftServerUrl}
                 onChange={(e) => setDraftServerUrl(e.target.value)}
                 placeholder="http://127.0.0.1:30142"
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '10px 12px', borderRadius: 'var(--radius-lg)',
-                  border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
-                  fontSize: 14, fontFamily: 'var(--font-mono)',
-                  outline: 'none',
-                }}
+                className="input-field"
               />
             </div>
             <div>
@@ -209,14 +195,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   onChange={(e) => { setDraftPassword(e.target.value); setPasswordError(null) }}
                   placeholder="SUPER_KING_SERVER_PASSWORD"
                   autoFocus={!draftPassword}
-                  style={{
-                    flex: 1, boxSizing: 'border-box',
-                    padding: '10px 12px', borderRadius: 'var(--radius-lg)',
-                    border: passwordError ? '1px solid var(--danger)' : '1px solid var(--border)',
-                    background: 'var(--bg)', color: 'var(--text)',
-                    fontSize: 14, fontFamily: 'var(--font-mono)',
-                    outline: 'none',
-                  }}
+                  className="input-field"
+                  style={{ flex: 1, borderColor: passwordError ? 'var(--danger)' : undefined }}
                 />
                 <button
                   onClick={() => setShowPassword((v) => !v)}
@@ -260,16 +240,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   }
                 }}
                 disabled={testStatus?.loading}
-                style={{
-                  marginTop: 10,
-                  padding: '8px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-hover)',
-                  color: 'var(--text)',
-                  fontSize: 13,
-                  cursor: testStatus?.loading ? 'wait' : 'pointer',
-                }}
+                className="btn-test"
               >
                 {testStatus?.loading ? '测试中...' : '测试连接'}
               </button>
@@ -280,9 +251,20 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     fontSize: 12,
                     lineHeight: 1.4,
                     color: testStatus.ok ? 'var(--success)' : 'var(--danger)',
+                    display: 'flex', alignItems: 'center', gap: 5,
                   }}
                 >
-                  {testStatus.ok ? '✓ ' : '✗ '}{testStatus.message}
+                  {testStatus.ok ? (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  )}
+                  {testStatus.message}
                 </div>
               )}
             </div>
@@ -309,13 +291,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     value={draftLocalHelperUrl}
                     onChange={(e) => setDraftLocalHelperUrl(e.target.value)}
                     placeholder="http://127.0.0.1:30143"
-                    style={{
-                      width: '100%', boxSizing: 'border-box',
-                      padding: '10px 12px', borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
-                      fontSize: 14, fontFamily: 'var(--font-mono)',
-                      outline: 'none',
-                    }}
+                    className="input-field"
                   />
                   <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.4 }}>
                     用于读取本地 Skills、Artifacts 等 super-king 文档未定义的增强能力
@@ -330,15 +306,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>使用模式</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <button onClick={() => handleModeChange('young')} style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '16px 18px', borderRadius: 'var(--radius-lg)',
-              textAlign: 'left', width: '100%',
-              background: draftMode === 'young' ? 'var(--accent-bg-subtle)' : 'var(--bg-hover)',
-              border: draftMode === 'young' ? '2px solid var(--accent)' : '2px solid transparent',
-              color: 'var(--text)', cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}>
+            <button onClick={() => handleModeChange('young')} className={`btn-mode ${draftMode === 'young' ? 'active' : ''}`}>
               <div style={{
                 width: 44, height: 44, borderRadius: 'var(--radius-lg)',
                 background: draftMode === 'young' ? 'var(--accent)' : 'var(--bg-selected)',
@@ -371,15 +339,11 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 </svg>
               )}
             </button>
-            <button onClick={() => handleModeChange('senior')} style={{
-              display: 'flex', alignItems: 'center', gap: 14,
-              padding: '16px 18px', borderRadius: 'var(--radius-lg)',
-              textAlign: 'left', width: '100%',
-              background: draftMode === 'senior' ? 'var(--accent-senior-bg)' : 'var(--bg-hover)',
-              border: draftMode === 'senior' ? '2px solid var(--accent-senior)' : '2px solid transparent',
-              color: 'var(--text)', cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}>
+            <button
+              onClick={() => handleModeChange('senior')}
+              className={`btn-mode ${draftMode === 'senior' ? 'active' : ''}`}
+              style={draftMode === 'senior' ? { background: 'var(--accent-senior-bg)', borderColor: 'var(--accent-senior)' } : undefined}
+            >
               <div style={{
                 width: 44, height: 44, borderRadius: 'var(--radius-lg)',
                 background: draftMode === 'senior' ? 'var(--accent-senior)' : 'var(--bg-selected)',
@@ -427,28 +391,11 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               const isSelected = draftFontSize === size
               const isStandard = size === DEFAULT_SIZE
               return (
-                <button key={size} onClick={() => setDraftFontSize(size)} style={{
-                  flex: 1, padding: '12px 0 8px', borderRadius: 'var(--radius-lg)',
-                  background: isSelected ? accentColor : 'var(--bg-hover)',
-                  color: isSelected ? '#fff' : 'var(--text-muted)',
-                  border: isSelected ? 'none' : '1px solid var(--border)',
-                  cursor: 'pointer', fontWeight: isSelected ? 700 : 500,
-                  transition: 'all 0.15s',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  position: 'relative',
-                }}>
+                <button key={size} onClick={() => setDraftFontSize(size)} className={`btn-font-size ${isSelected ? 'active' : ''} ${draftMode === 'senior' ? 'senior' : ''}`} style={{ position: 'relative' }}>
                   <div style={{ fontSize: size, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>Aa</div>
                   <div style={{ fontSize: 11, opacity: 0.8 }}>{size}px</div>
                   {isStandard && (
-                    <div style={{
-                      position: 'absolute', bottom: -10,
-                      fontSize: 10, fontWeight: 600,
-                      color: isSelected ? accentColor : 'var(--text-dim)',
-                      background: isSelected ? '#fff' : 'var(--bg)',
-                      padding: '1px 6px', borderRadius: 'var(--radius-md)',
-                      border: `1px solid ${isSelected ? accentColor : 'var(--border)'}`,
-                      whiteSpace: 'nowrap',
-                    }}>标准</div>
+                    <div className={`font-size-badge ${isSelected ? 'active' : ''} ${draftMode === 'senior' ? 'senior' : ''}`}>标准</div>
                   )}
                 </button>
               )
@@ -471,29 +418,13 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>主题外观</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setDraftTheme(true)} style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 0', borderRadius: 'var(--radius-lg)', fontSize: 14,
-              background: draftTheme ? '#1e293b' : 'var(--bg-hover)',
-              color: draftTheme ? '#fff' : 'var(--text-muted)',
-              border: draftTheme ? '2px solid var(--accent)' : '1px solid var(--border)',
-              cursor: 'pointer', fontWeight: draftTheme ? 700 : 500,
-              transition: 'all 0.15s',
-            }}>
+            <button onClick={() => setDraftTheme(true)} className={`btn-theme ${draftTheme ? 'active dark' : ''}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
               深色
             </button>
-            <button onClick={() => setDraftTheme(false)} style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 0', borderRadius: 'var(--radius-lg)', fontSize: 14,
-              background: !draftTheme ? 'var(--bg-panel)' : 'var(--bg-hover)',
-              color: !draftTheme ? '#1e293b' : 'var(--text-muted)',
-              border: !draftTheme ? '2px solid #cbd5e1' : '1px solid var(--border)',
-              cursor: 'pointer', fontWeight: !draftTheme ? 700 : 500,
-              transition: 'all 0.15s',
-            }}>
+            <button onClick={() => setDraftTheme(false)} className={`btn-theme ${!draftTheme ? 'active light' : ''}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="5" />
                 <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
@@ -520,7 +451,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 18 }}>⚡</span>
+                <ZapIcon width={18} height={18} style={{ color: 'var(--accent-senior)' }} />
                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
                   自动允许所有工具调用
                 </div>
@@ -582,22 +513,13 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 lineHeight: 1.5,
               }}
             >
-              ⚠️ 风险提示：AI 将能直接读写文件、运行命令。仅推荐在你完全信任 AI 输出时开启。
+              <AlertTriangleIcon width={13} height={13} /> 风险提示：AI 将能直接读写文件、运行命令。仅推荐在你完全信任 AI 输出时开启。
             </div>
           </div>
         </div>
 
         {/* Save button */}
-        <button onClick={saveAndClose} disabled={!draftPassword} style={{
-          width: '100%', padding: '14px 0', borderRadius: 'var(--radius-lg)',
-          background: draftPassword ? accentColor : 'var(--bg-hover)',
-          border: 'none', color: draftPassword ? '#fff' : 'var(--text-dim)', fontSize: 15, fontWeight: 700,
-          cursor: draftPassword ? 'pointer' : 'not-allowed',
-          transition: 'background 0.15s, color 0.15s',
-        }}
-          onMouseEnter={(e) => { if (draftPassword) e.currentTarget.style.background = accentHover }}
-          onMouseLeave={(e) => { if (draftPassword) e.currentTarget.style.background = accentColor }}
-        >
+        <button onClick={saveAndClose} disabled={!draftPassword} className={`btn-save ${!draftPassword ? 'disabled' : ''} ${draftMode === 'senior' ? 'senior' : ''}`}>
           {draftPassword ? '保存并连接' : '请先填写访问密码'}
         </button>
       </div>
@@ -637,7 +559,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <span style={{ fontSize: 24 }}>⚠️</span>
+              <AlertTriangleIcon width={28} height={28} style={{ color: 'var(--accent-senior)' }} />
               <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
                 确认开启「自动允许所有工具」？
               </div>
@@ -670,16 +592,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   e.stopPropagation()
                   setShowRiskConfirm(false)
                 }}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: 'var(--text)',
-                  fontSize: 14,
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                }}
+                className="btn-ghost"
               >
                 取消
               </button>
@@ -689,18 +602,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   setDraftAutoApproveAll(true)
                   setShowRiskConfirm(false)
                 }}
-                style={{
-                  padding: '9px 16px',
-                  borderRadius: 'var(--radius-md)',
-                  border: 'none',
-                  background: 'var(--accent-senior)',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-senior-hover)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent-senior)' }}
+                className="btn-accent-senior"
               >
                 我已了解风险，开启
               </button>

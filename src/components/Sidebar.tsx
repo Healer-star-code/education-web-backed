@@ -418,7 +418,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
       {/* Bottom Skills button */}
       <div style={{ padding: '8px', flexShrink: 0, borderTop: '1px solid var(--border)' }}>
         <button
-          title="Skills"
+          title="技能库"
           onClick={() => onOpenSkills?.()}
           className="btn-sidebar-footer"
         >
@@ -427,7 +427,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             <path d="M2 17l10 5 10-5" />
             <path d="M2 12l10 5 10-5" />
           </svg>
-          Skills
+          技能库
         </button>
       </div>
     </div>

@@ -408,6 +408,274 @@ html.senior-mode .markdown-body td {
   outline-offset: 2px;
 }
 
+/* SettingsPanel reusable pieces ------------------------------------------ */
+
+.btn-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.btn-close:active {
+  transform: scale(0.97);
+}
+
+.btn-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-mode {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  text-align: left;
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  background: var(--bg-hover);
+  color: var(--text);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-mode:hover {
+  background: var(--bg-selected);
+}
+
+.btn-mode.active {
+  background: var(--accent-bg-subtle);
+  border-color: var(--accent);
+}
+
+.btn-mode:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.btn-theme {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-theme:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.btn-theme.active {
+  background: var(--bg-panel);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-weight: 700;
+}
+
+.btn-theme.dark.active {
+  background: #1e293b;
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-theme.light.active {
+  background: var(--bg-panel);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-font-size {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 8px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-font-size:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.btn-font-size.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.btn-font-size.senior.active {
+  background: var(--accent-senior);
+  border-color: var(--accent-senior);
+}
+
+.font-size-badge {
+  position: absolute;
+  bottom: -10px;
+  padding: 1px 6px;
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.font-size-badge.active {
+  background: #fff;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.font-size-badge.senior.active {
+  border-color: var(--accent-senior);
+  color: var(--accent-senior);
+}
+
+.btn-test {
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.btn-test:hover {
+  background: var(--bg-selected);
+}
+
+.btn-test:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-save {
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+.btn-save:hover {
+  filter: brightness(0.92);
+}
+
+.btn-save:disabled,
+.btn-save.disabled {
+  background: var(--bg-hover);
+  color: var(--text-dim);
+  cursor: not-allowed;
+  filter: none;
+}
+
+.btn-save.senior {
+  background: var(--accent-senior);
+}
+
+.btn-save.senior:hover {
+  filter: brightness(0.92);
+}
+
+.btn-ghost {
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+}
+
+.btn-accent-senior {
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: var(--accent-senior);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.btn-accent-senior:hover {
+  filter: brightness(0.92);
+}
+
+.input-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.input-field::placeholder {
+  color: var(--text-dim);
+}
+
 html {
   /* Root font size controlled by JS via --font-size */
   font-size: var(--font-size, 14px);

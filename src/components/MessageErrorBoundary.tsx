@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { reportRendererError } from '../lib/errorReporter'
+import { RefreshCwIcon, CopyIcon } from './Icon'
 
 interface Props {
   children: ReactNode
@@ -118,7 +119,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
               cursor: 'pointer',
             }}
           >
-            🔄 重试渲染
+            <RefreshCwIcon width={12} height={12} /> 重试渲染
           </button>
           <button
             onClick={this.copyOriginal}
@@ -132,7 +133,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
               cursor: 'pointer',
             }}
           >
-            📋 复制原文
+            <CopyIcon width={12} height={12} /> 复制原文
           </button>
         </div>
         {head && (

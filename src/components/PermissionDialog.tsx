@@ -37,10 +37,10 @@ function formatDiff(diff: unknown): string {
     // 友好展示：edit 工具结构 { path, operation, before, content, totalLineCount, truncated }
     if ('content' in obj || 'before' in obj || 'path' in obj) {
       const parts: string[] = []
-      if (obj.path) parts.push(`📄 ${String(obj.path)}`)
-      if (obj.operation) parts.push(`🔧 ${String(obj.operation)}`)
-      if (typeof obj.totalLineCount === 'number') parts.push(`📏 ${obj.totalLineCount} 行`)
-      if (obj.truncated) parts.push('⚠️ 已截断')
+      if (obj.path) parts.push(`[文件] ${String(obj.path)}`)
+      if (obj.operation) parts.push(String(obj.operation))
+      if (typeof obj.totalLineCount === 'number') parts.push(`${obj.totalLineCount} 行`)
+      if (obj.truncated) parts.push('（已截断）')
       const header = parts.join('  ')
       const before = obj.before != null ? `--- 修改前 ---\n${String(obj.before)}` : ''
       const after = obj.content != null ? `--- 修改后 ---\n${String(obj.content)}` : ''

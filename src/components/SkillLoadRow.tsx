@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { FolderIcon } from './Icon'
 
 interface Props {
   name: string
@@ -120,7 +121,7 @@ export function SkillLoadRow({ name, baseDir, content, isLoading }: Props) {
                 wordBreak: 'break-all',
               }}
             >
-              📂 {baseDir}
+              <FolderIcon width={11} height={11} /> {baseDir}
             </div>
           )}
           {content ? (

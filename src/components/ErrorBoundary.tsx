@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { reportRendererError } from '../lib/errorReporter'
+import { FolderIcon } from './Icon'
 
 interface Props {
   children: ReactNode
@@ -114,7 +115,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const btn = document.getElementById('error-copy-btn')
       if (btn) {
         const old = btn.textContent
-        btn.textContent = '已复制 ✓'
+        btn.textContent = '已复制'
         if (this.copyTimer != null) window.clearTimeout(this.copyTimer)
         this.copyTimer = window.setTimeout(() => {
           if (btn) btn.textContent = old ?? '复制错误详情'
@@ -285,7 +286,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   cursor: 'pointer',
                 }}
               >
-                📂 打开日志文件夹
+                <FolderIcon width={14} height={14} /> 打开日志文件夹
               </button>
               {autoReload && (
                 <button
