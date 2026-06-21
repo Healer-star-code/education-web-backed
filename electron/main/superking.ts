@@ -19,6 +19,7 @@ export interface StartOptions {
   exePath: string
   port: number
   password: string
+  skillsRoot?: string
   env?: Record<string, string>
   workingDir?: string
 }
@@ -115,6 +116,11 @@ export async function startSuperKing(opts: StartOptions): Promise<SuperKingStatu
     return status
   }
 
+  if (!opts.exePath || !opts.exePath.trim()) {
+    setStatus({ state: 'error', error: '请先在「设置 → 桌面后端」选择 super-king 可执行文件', exePath: null })
+    return status
+  }
+
   const exePath = resolve(opts.exePath)
   if (!existsSync(exePath)) {
     setStatus({ state: 'error', error: `super-king 可执行文件不存在: ${exePath}`, exePath })
@@ -128,6 +134,13 @@ export async function startSuperKing(opts: StartOptions): Promise<SuperKingStatu
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     SUPER_KING_SERVER_PASSWORD: opts.password,
+    // 把 skills 目录通过环境变量传给 super-king（如果它支持就用，不支持也无副作用）
+    ...(opts.skillsRoot && opts.skillsRoot.trim()
+      ? {
+          SUPER_KING_SKILLS_ROOT: opts.skillsRoot.trim(),
+          LOCAL_SKILLS_ROOT: opts.skillsRoot.trim(),
+        }
+      : {}),
     ...(opts.env ?? {}),
   }
 

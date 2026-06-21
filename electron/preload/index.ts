@@ -22,6 +22,7 @@ export interface DesktopSettingsShape {
   superKingExePath: string
   superKingPort: number
   superKingPassword: string
+  skillsRoot: string
   superKingEnv: Record<string, string>
   autoStartSuperKing: boolean
   remoteUrl: string
@@ -80,6 +81,7 @@ const api = {
     restart: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:restart'),
     clearError: (): Promise<SuperKingStatus> => ipcRenderer.invoke('superking:clearError'),
     pickExe: (): Promise<string | null> => ipcRenderer.invoke('superking:pickExe'),
+    pickSkillsDir: (): Promise<string | null> => ipcRenderer.invoke('superking:pickSkillsDir'),
     logs: (): Promise<{ stdout: string; stderr: string }> => ipcRenderer.invoke('superking:logs'),
     onStatusChange: (cb: (status: SuperKingStatus) => void): (() => void) => {
       const handler = (_e: IpcRendererEvent, status: SuperKingStatus) => cb(status)

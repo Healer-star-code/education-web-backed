@@ -74,6 +74,11 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
     if (p) patchSettings({ superKingExePath: p })
   }
 
+  async function handlePickSkillsDir() {
+    const p = await bridge.superking.pickSkillsDir()
+    if (p) patchSettings({ skillsRoot: p })
+  }
+
   async function handleStart() {
     if (busy) return
     setBusy('start')
@@ -99,6 +104,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
   const external = state === 'external'
   const starting = state === 'starting' || busy === 'start' || busy === 'restart'
   const errored = state === 'error'
+  const exeMissing = !settings.useRemote && (!settings.superKingExePath || !settings.superKingExePath.trim())
 
   const statusDot = running
     ? '#10b981'
@@ -117,13 +123,37 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
         ? '启动中…'
         : errored
           ? `错误：${status?.error ?? '未知'}`
-          : '未启动'
+          : exeMissing
+            ? '未配置：请先选择 super-king.exe 路径'
+            : '未启动'
 
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         桌面后端
       </div>
+
+      {exeMissing && (
+        <div
+          style={{
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px solid #f59e0b',
+            background: 'rgba(245, 158, 11, 0.08)',
+            marginBottom: 12,
+            fontSize: 13,
+            color: 'var(--text)',
+            lineHeight: 1.6,
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>👋 首次使用请配置以下两项：</div>
+          <div style={{ color: 'var(--text-muted)' }}>
+            1. <b>super-king 可执行文件路径</b>：选择你电脑上 super-king.exe 的位置<br />
+            2. <b>Skills 资源目录</b>：选择你电脑上 skill 文件夹所在的位置（留空则用 super-king.exe 同目录下的 skills/）<br />
+            配置完成后点「保存后端设置」→「启动」。
+          </div>
+        </div>
+      )}
 
       {/* 状态条 */}
       <div
@@ -199,10 +229,29 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                 type="text"
                 value={settings.superKingExePath}
                 onChange={(e) => patchSettings({ superKingExePath: e.target.value })}
-                placeholder="E:\\super-king\\super-king.exe"
+                placeholder="例如 D:\\tools\\super-king\\super-king.exe"
                 style={{ ...inputStyle, flex: 1 }}
               />
               <button onClick={handlePickExe} className="btn-text" style={btnStyle}>浏览...</button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={lblStyle}>
+              Skills 资源目录
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+                （留空则默认为 super-king.exe 同目录下的 skills/）
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                value={settings.skillsRoot ?? ''}
+                onChange={(e) => patchSettings({ skillsRoot: e.target.value })}
+                placeholder="例如 D:\\my-skills"
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button onClick={handlePickSkillsDir} className="btn-text" style={btnStyle}>浏览...</button>
             </div>
           </div>
 

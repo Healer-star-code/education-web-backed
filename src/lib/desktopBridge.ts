@@ -22,6 +22,7 @@ export interface DesktopSettingsShape {
   superKingExePath: string
   superKingPort: number
   superKingPassword: string
+  skillsRoot: string
   superKingEnv: Record<string, string>
   autoStartSuperKing: boolean
   remoteUrl: string
@@ -75,6 +76,7 @@ export interface PiDesktopBridge {
     restart: () => Promise<SuperKingStatus>
     clearError: () => Promise<SuperKingStatus>
     pickExe: () => Promise<string | null>
+    pickSkillsDir: () => Promise<string | null>
     logs: () => Promise<{ stdout: string; stderr: string }>
     onStatusChange: (cb: (status: SuperKingStatus) => void) => () => void
   }

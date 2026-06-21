@@ -96,6 +96,7 @@ function buildStartOptions() {
     exePath: settings.superKingExePath,
     port: settings.superKingPort,
     password: settings.superKingPassword,
+    skillsRoot: settings.skillsRoot,
     env,
   }
 }
@@ -185,6 +186,15 @@ function registerIpc(): void {
       filters: [
         { name: '可执行文件', extensions: process.platform === 'win32' ? ['exe'] : ['*'] },
       ],
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0]
+  })
+  ipcMain.handle('superking:pickSkillsDir', async () => {
+    if (!mainWindow) return null
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择 Skills 资源目录',
+      properties: ['openDirectory', 'createDirectory'],
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
