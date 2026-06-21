@@ -36,7 +36,7 @@ interface Props {
   onSwitchModel: (sessionId: string, provider: string, modelId: string) => void
 }
 
-const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
+const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? `v${__APP_VERSION__}`
 
 function mergeConsecutiveAssistantMessages(messages: Message[]): Message[] {
   const merged: Message[] = []

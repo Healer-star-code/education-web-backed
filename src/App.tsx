@@ -28,7 +28,7 @@ function pickDefaultServerUrl(): string {
   return '/superking-api'
 }
 
-const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
+const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? `v${__APP_VERSION__}`
 
 const TYPEWRITER_PHRASES = [
   '准备好了吗？',
