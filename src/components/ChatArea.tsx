@@ -226,6 +226,23 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     autoApproveAllToolsRef.current = autoApproveAllTools
   }, [autoApproveAllTools])
 
+  // YOLO 开启时立刻 flush 所有 pending permissions：直接 resolve(true) 并清空队列
+  // 防止开启前已有 pending dialog 在屏幕上继续渲染（可能因 diff 对象等历史 bug 崩溃）
+  useEffect(() => {
+    if (!autoApproveAllTools) return
+    setPendingPermissions((prev) => {
+      if (prev.length === 0) return prev
+      for (const req of prev) {
+        const sid = req.sessionId || sdkSessionIdRef.current
+        if (!sid) continue
+        void resolvePermission(sid, req.permissionId, true).catch((err) => {
+          console.error('[YOLO] flush pending permission failed:', err)
+        })
+      }
+      return []
+    })
+  }, [autoApproveAllTools])
+
   function getPermissionKey(kind: string, options: unknown): string {
     return `${kind}:${JSON.stringify(options ?? {})}`
   }
