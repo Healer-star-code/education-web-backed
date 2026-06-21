@@ -816,7 +816,15 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               marginBottom: 16,
               fontFamily: 'var(--font-mono)',
             }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1, lineHeight: 1.2 }}>
+                {/* 超级小金动态吉祥物（XIAOJINGIF.gif -> public/xiaojin.gif） */}
+                <img
+                  src="/xiaojin.gif"
+                  alt="超级小金"
+                  width={56}
+                  height={56}
+                  style={{ flexShrink: 0, objectFit: 'contain', display: 'block' }}
+                />
                 <span style={{ fontSize: 'var(--font-display)', fontWeight: 800, letterSpacing: '-0.04em', color: 'var(--text)' }}>超级小金</span>
                 <span style={{ fontSize: 'var(--font-base)', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                   <Typewriter phrases={TYPEWRITER_PHRASES} />

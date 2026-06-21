@@ -95,12 +95,14 @@ function buildSessionTree(sessions: SessionInfo[], pinnedIds?: Set<string>): Ses
 function PiAgentTitle() {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      {/* 超级小金吉祥物 logo（XIAOJIN.png 来源：public/xiaojin.png） */}
+      {/* 超级小金动态吉祥物 logo（XIAOJINGIF.gif -> public/xiaojin.gif）
+          注：app exe / 任务栏 / 桌面快捷方式仍用静态 PNG（Windows OS 不支持动图作图标），
+          这里是应用内 UI，浏览器原生支持 GIF 自动播放。 */}
       <img
-        src="/xiaojin.png"
+        src="/xiaojin.gif"
         alt="超级小金"
-        width={26}
-        height={26}
+        width={28}
+        height={28}
         style={{ flexShrink: 0, objectFit: 'contain', display: 'block' }}
       />
       <span style={{ fontWeight: 750, fontSize: 'var(--font-md)', letterSpacing: '-0.02em', color: 'var(--text)' }}>
