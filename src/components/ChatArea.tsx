@@ -613,12 +613,18 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 setMessages((prev) => { snapshot = prev; return prev })
                 const target = snapshot.find((m) => m.id === finishedAssistantId)
                 if (!target) return
+                // ⚠️ React setState 是异步的：上面的 flush(setMessages prev.map content+tailText)
+                // 还没真正落地到 state，这里读 target.content 可能是不含 tailText 的旧内容。
+                // 路径文本（"位置: E:\xxx\file.docx"）通常出现在消息末尾，正好在 tailText 里。
+                // 因此必须手动拼接 tailText 再丢给 detector，否则正则匹配不到 → 卡片不出现。
+                const fullText = (target.content ?? '') + (tailText ?? '')
                 const detected = await detectLocalArtifacts(
-                  target.content ?? '',
+                  fullText,
                   sessionId,
                   target.artifacts ?? [],
                   (p) => bridge.file.stat(p),
                 )
+                console.info(`[artifactDetector] msg=${finishedAssistantId} scanned ${fullText.length} chars, found ${detected.length} local artifact(s)`)
                 if (detected.length === 0) return
                 setMessages((prev) => prev.map((msg) => (
                   msg.id === finishedAssistantId

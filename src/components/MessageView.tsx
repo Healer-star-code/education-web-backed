@@ -162,6 +162,7 @@ function UserMessageView({ message }: { message: Message }) {
                   return (
                     <ArtifactCard
                       key={att.id}
+                      hideActions
                       artifact={{
                         id: 'upload-' + att.id,
                         sessionId: '',

@@ -64,7 +64,7 @@ export function AttachmentCard({ attachment, compact = false }: { attachment: Me
   )
 }
 
-export function ArtifactCard({ artifact }: { artifact: ArtifactInfo }) {
+export function ArtifactCard({ artifact, hideActions = false }: { artifact: ArtifactInfo; hideActions?: boolean }) {
   // 区分两种 artifact：
   // - localPath 存在 = 启发式扫描出来的本地文件，走 Electron IPC（保存/打开/定位）
   // - 否则 = backend artifact，走 HTTP 下载（保留旧行为）
@@ -132,17 +132,6 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactInfo }) {
     }
   }
 
-  async function handleReveal() {
-    if (busy || !hasLocalPath || !bridge?.file?.reveal) return
-    setBusy('reveal')
-    try {
-      const r = await bridge.file.reveal(artifact.localPath!)
-      if (!r.ok) flashToast(`定位失败：${r.error ?? '未知错误'}`)
-    } finally {
-      setBusy(null)
-    }
-  }
-
   const disabled = hasLocalPath && !exists
   const opacity = disabled ? 0.55 : 1
 
@@ -189,32 +178,26 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactInfo }) {
       </div>
 
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-        <button
-          onClick={handleSaveAs}
-          disabled={disabled || !!busy}
-          title="保存到电脑"
-          style={primaryBtn(disabled || !!busy)}
-        >
-          📥 保存到电脑
-        </button>
-        {hasLocalPath && (
+        {!hideActions && (
           <>
             <button
-              onClick={handleOpen}
+              onClick={handleSaveAs}
               disabled={disabled || !!busy}
-              title="用系统默认程序打开"
-              style={ghostBtn(disabled || !!busy)}
+              title="保存到电脑"
+              style={primaryBtn(disabled || !!busy)}
             >
-              ▶ 打开
+              📥 保存到电脑
             </button>
-            <button
-              onClick={handleReveal}
-              disabled={!!busy}
-              title="在文件夹中显示"
-              style={ghostBtn(!!busy)}
-            >
-              📂 文件夹
-            </button>
+            {hasLocalPath && (
+              <button
+                onClick={handleOpen}
+                disabled={disabled || !!busy}
+                title="用系统默认程序打开"
+                style={ghostBtn(disabled || !!busy)}
+              >
+                ▶ 打开
+              </button>
+            )}
           </>
         )}
       </div>
