@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { getDesktopBridge, isDesktop, type DesktopSettingsShape, type SuperKingStatus } from '../lib/desktopBridge'
-import { HandIcon } from './Icon'
 
 interface Props {
   // 当本地/远程切换或密码变化时，通知 SettingsPanel 同步到 localStorage（serverUrl/password）
@@ -75,11 +74,6 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
     if (p) patchSettings({ superKingExePath: p })
   }
 
-  async function handlePickSkillsDir() {
-    const p = await bridge.superking.pickSkillsDir()
-    if (p) patchSettings({ skillsRoot: p })
-  }
-
   async function handleStart() {
     if (busy) return
     setBusy('start')
@@ -147,10 +141,9 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
             lineHeight: 1.6,
           }}
         >
-          <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}><HandIcon width={16} height={16} /> 首次使用请配置以下两项：</div>
+          <div style={{ fontWeight: 600, marginBottom: 4 }}>首次使用请配置：</div>
           <div style={{ color: 'var(--text-muted)' }}>
-            1. <b>super-king 可执行文件路径</b>：选择你电脑上 super-king.exe 的位置<br />
-            2. <b>Skills 资源目录</b>：选择你电脑上 skill 文件夹所在的位置（留空则用 super-king.exe 同目录下的 skills/）<br />
+            <b>super-king 可执行文件路径</b>：选择你电脑上 super-king.exe 的位置。<br />
             配置完成后点「保存后端设置」→「启动」。
           </div>
         </div>
@@ -234,25 +227,6 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                 style={{ ...inputStyle, flex: 1 }}
               />
               <button onClick={handlePickExe} className="btn-text" style={btnStyle}>浏览...</button>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 12 }}>
-            <div style={lblStyle}>
-              Skills 资源目录
-              <span style={{ color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
-                （留空则默认为 super-king.exe 同目录下的 skills/）
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                value={settings.skillsRoot ?? ''}
-                onChange={(e) => patchSettings({ skillsRoot: e.target.value })}
-                placeholder="例如 D:\\my-skills"
-                style={{ ...inputStyle, flex: 1 }}
-              />
-              <button onClick={handlePickSkillsDir} className="btn-text" style={btnStyle}>浏览...</button>
             </div>
           </div>
 

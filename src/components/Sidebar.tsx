@@ -501,13 +501,34 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
   )
 }
 
+function escapeMarkdown(text: string): string {
+  // 转义常见 Markdown 特殊字符，避免用户消息破坏生成的 Markdown 结构。
+  return text
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/</g, '\\<')
+    .replace(/>/g, '\\>')
+    .replace(/#/g, '\\#')
+    .replace(/\+/g, '\\+')
+    .replace(/-/g, '\\-')
+    .replace(/\./g, '\\.')
+    .replace(/!/g, '\\!')
+    .replace(/\|/g, '\\|')
+}
+
 function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): string {
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
   const lines: string[] = []
-  lines.push(`# ${title}`)
+  lines.push(`# ${escapeMarkdown(title)}`)
   lines.push('')
   lines.push(`> 项目：\`${session.cwd}\``)
-  lines.push(`> 时间：${session.modified}`)
+  lines.push(`> 时间：${new Date(session.modified).toLocaleString('zh-CN')}`)
   if (session.model) {
     lines.push(`> 模型：${session.model.provider}/${session.model.modelId}`)
   }
@@ -516,19 +537,17 @@ function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): 
   lines.push('---')
   lines.push('')
 
-  let index = 0
-  for (const msg of messages) {
-    index++
-    const speaker = msg.role === 'user' ? '用户' : '超级小金'
-    lines.push(`## ${index}. ${speaker}`)
+  messages.forEach((message, idx) => {
+    const speaker = message.role === 'user' ? '用户' : '超级小金'
+    lines.push(`## ${idx + 1}. ${speaker}`)
     lines.push('')
-    if (msg.content) {
-      lines.push(msg.content)
+    if (message.content) {
+      lines.push(escapeMarkdown(message.content))
     } else {
       lines.push('（无内容）')
     }
     lines.push('')
-  }
+  })
 
   return lines.join('\n')
 }
@@ -612,16 +631,38 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
     if (next && next !== title) onRename?.(next)
   }
 
+  const MAX_SHARE_BYTES = 2 * 1024 * 1024
+
   async function handleShare() {
     setMenuOpen(false)
     onToast?.('正在加载对话...', 'success')
+    let messages: WebMessage[] = []
     try {
-      const messages = await getMessages(session.id, session.cwd)
-      const markdown = formatSessionToMarkdown(session, messages)
-      await navigator.clipboard?.writeText(markdown)
+      messages = await getMessages(session.id, session.cwd)
+    } catch (err) {
+      console.warn('[handleShare] getMessages failed', err)
+      onToast?.('加载对话失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      return
+    }
+
+    const markdown = formatSessionToMarkdown(session, messages)
+    if (markdown.length > MAX_SHARE_BYTES) {
+      const mb = (markdown.length / (1024 * 1024)).toFixed(1)
+      onToast?.(`对话内容太长（${mb} MB），无法复制到剪贴板，请先导出为文件`, 'error')
+      return
+    }
+
+    if (!navigator.clipboard) {
+      onToast?.('当前环境不支持剪贴板操作，请使用导出为文件功能', 'error')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(markdown)
       onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
     } catch (err) {
-      onToast?.('复制失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      console.warn('[handleShare] clipboard write failed', err)
+      onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
     }
   }
 
