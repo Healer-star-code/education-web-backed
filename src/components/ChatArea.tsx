@@ -13,6 +13,7 @@ type ChatSessionState = {
   eventSource: EventSource | null
   eventReadySessionId: string | null
   eventReadyResolve: (() => void) | null
+  eventReadyTimeout: ReturnType<typeof setTimeout> | null
   currentAssistantId: string | null
   currentThinking: string
   currentThinkingStart: number
@@ -301,6 +302,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       eventSource: null,
       eventReadySessionId: null,
       eventReadyResolve: null,
+      eventReadyTimeout: null,
       currentAssistantId: null,
       currentThinking: '',
       currentThinkingStart: 0,
@@ -391,7 +393,11 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }
 
   function saveSessionState(sessionId: string) {
-    flushPendingDeltas()
+    // 只有当前正在显示的会话才 flush 全局 refs 中的 pending delta；
+    // 若 rapid switching 导致 cleanup 延迟，避免把当前活跃会话的缓冲刷进其他会话快照。
+    if (activeSessionIdRef.current === sessionId) {
+      flushPendingDeltas()
+    }
     if (fallbackScanTimerRef.current) {
       clearTimeout(fallbackScanTimerRef.current)
       fallbackScanTimerRef.current = null
@@ -408,6 +414,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       eventSource: eventSourceRef.current,
       eventReadySessionId: eventReadySessionIdRef.current,
       eventReadyResolve: eventReadyResolveRef.current,
+      eventReadyTimeout: null,
       currentAssistantId: currentAssistantIdRef.current,
       currentThinking: currentThinkingRef.current,
       currentThinkingStart: currentThinkingStartRef.current,
@@ -467,6 +474,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       eventSourceRef.current = saved.eventSource
       eventReadySessionIdRef.current = saved.eventReadySessionId
       eventReadyResolveRef.current = saved.eventReadyResolve
+      // 不恢复旧的 eventReadyTimeout：它的 closure 引用旧的 state，恢复后无法正确清理；
+      // 若连接仍未就绪，让后续 connectEvents 重新创建新的 timeout。
       currentAssistantIdRef.current = saved.currentAssistantId
       currentThinkingRef.current = saved.currentThinking
       currentThinkingStartRef.current = saved.currentThinkingStart
@@ -532,7 +541,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     toolPermissionMapRef.current = new Map()
     allowedSessionPermissionsRef.current = new Map()
     scannedForArtifactsRef.current = new Map()
-    fallbackScanTimerRef.current = null
+    if (fallbackScanTimerRef.current) {
+      clearTimeout(fallbackScanTimerRef.current)
+      fallbackScanTimerRef.current = null
+    }
 
     try {
       await connectEvents(sessionId)
@@ -574,6 +586,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     }
     staleEventSourcesRef.current = []
     for (const state of sessionStatesRef.current.values()) {
+      if (state.eventReadyTimeout) {
+        clearTimeout(state.eventReadyTimeout)
+        state.eventReadyTimeout = null
+      }
       state.eventSource = null
       state.eventReadySessionId = null
       state.eventReadyResolve = null
@@ -1386,6 +1402,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         if (state.eventReadyResolve === readyResolve) {
           state.eventReadyResolve = null
         }
+        state.eventReadyTimeout = null
         if (sessionId === activeSessionIdRef.current) {
           eventReadyResolveRef.current = null
         }
@@ -1397,6 +1414,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         if (state.eventReadyResolve === readyResolve) {
           state.eventReadyResolve = null
         }
+        state.eventReadyTimeout = null
         if (sessionId === activeSessionIdRef.current) {
           eventReadyResolveRef.current = null
         }
@@ -1404,6 +1422,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       }
 
       state.eventReadyResolve = readyResolve
+      state.eventReadyTimeout = timeout
       if (sessionId === activeSessionIdRef.current) {
         eventReadyResolveRef.current = readyResolve
       }
@@ -1418,6 +1437,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       } catch (err) {
         clearTimeout(timeout)
         state.eventReadyResolve = null
+        state.eventReadyTimeout = null
         if (sessionId === activeSessionIdRef.current) {
           eventReadyResolveRef.current = null
         }
@@ -1692,7 +1712,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }, [])
 
   useEffect(() => {
+    const previousActiveId = activeSessionIdRef.current
     activeSessionIdRef.current = session?.id ?? null
+
+    // 切走前先把上一个活跃会话的状态保存下来，避免 cleanup 延迟导致快照丢失或错乱
+    if (previousActiveId && previousActiveId !== session?.id) {
+      saveSessionState(previousActiveId)
+    }
 
     if (!session?.id) {
       // 新会话占位状态：清空 active refs + UI
