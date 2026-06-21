@@ -538,6 +538,15 @@ function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): 
     } else {
       lines.push('（无内容）')
     }
+    if (message.role === 'assistant' && message.thinkingContent) {
+      lines.push('')
+      const duration = message.thinkingDurationMs ? `（${message.thinkingDurationMs.toLocaleString()}ms）` : ''
+      lines.push(`**思考过程**${duration}`)
+      lines.push('')
+      lines.push('```thinking')
+      lines.push(message.thinkingContent)
+      lines.push('```')
+    }
     lines.push('')
   })
 
@@ -563,6 +572,13 @@ function formatSessionToTxt(session: SessionInfo, messages: WebMessage[]): strin
     lines.push(`--- ${idx + 1}. ${speaker} ---`)
     lines.push('')
     lines.push(message.content || '（无内容）')
+    if (message.role === 'assistant' && message.thinkingContent) {
+      lines.push('')
+      const duration = message.thinkingDurationMs ? `（${message.thinkingDurationMs.toLocaleString()}ms）` : ''
+      lines.push(`--- 思考过程${duration} ---`)
+      lines.push('')
+      lines.push(message.thinkingContent)
+    }
     lines.push('')
   })
 
@@ -593,10 +609,19 @@ function formatSessionToHtml(session: SessionInfo, messages: WebMessage[]): stri
     const isUser = message.role === 'user'
     const speaker = isUser ? '用户' : '超级小金'
     const content = escapeHtml(message.content || '（无内容）')
+    const thinking = !isUser && message.thinkingContent
+      ? `
+        <div class="thinking">
+          <div class="thinking-header">思考过程${message.thinkingDurationMs ? `（${message.thinkingDurationMs.toLocaleString()}ms）` : ''}</div>
+          <div class="thinking-body"><pre>${escapeHtml(message.thinkingContent)}</pre></div>
+        </div>
+      `
+      : ''
     return `
       <div class="message ${isUser ? 'user' : 'assistant'}">
         <div class="message-header">${idx + 1}. ${speaker}</div>
         <div class="message-body"><pre>${content}</pre></div>
+        ${thinking}
       </div>
     `
   }).join('\n')
@@ -617,6 +642,10 @@ function formatSessionToHtml(session: SessionInfo, messages: WebMessage[]): stri
   .message-header { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; text-transform: uppercase; }
   .message-body { background: #f8f9fa; border-radius: 8px; padding: 14px; }
   .message.user .message-body { background: #eef4ff; }
+  .thinking { margin-top: 10px; border-left: 3px solid #f59e0b; padding-left: 12px; }
+  .thinking-header { font-size: 11px; font-weight: 600; color: #b45309; margin-bottom: 4px; }
+  .thinking-body { background: #fffbeb; border-radius: 6px; padding: 10px; }
+  .thinking-body pre { color: #78350f; }
   .message.assistant .message-body { background: #f6f6f6; }
   pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; }
 </style>
