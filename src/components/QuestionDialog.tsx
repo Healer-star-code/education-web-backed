@@ -47,7 +47,7 @@ export function QuestionDialog({ question, onSubmit, onReject }: Props) {
           overflow: 'auto',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
-          borderRadius: 14,
+          borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-xl, 0 20px 60px rgba(0,0,0,0.35))',
           padding: '20px 22px',
         }}
@@ -78,7 +78,7 @@ export function QuestionDialog({ question, onSubmit, onReject }: Props) {
                     style={{
                       width: '100%',
                       padding: '10px 12px',
-                      borderRadius: 8,
+                      borderRadius: 'var(--radius-md)',
                       border: '1px solid var(--border)',
                       background: 'var(--bg)',
                       color: 'var(--text)',
@@ -99,7 +99,7 @@ export function QuestionDialog({ question, onSubmit, onReject }: Props) {
             onClick={onReject}
             style={{
               padding: '8px 14px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
               background: 'transparent',
               color: 'var(--text)',
@@ -113,7 +113,7 @@ export function QuestionDialog({ question, onSubmit, onReject }: Props) {
             onClick={() => onSubmit(answers)}
             style={{
               padding: '8px 14px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               border: 'none',
               background: 'var(--accent)',
               color: '#fff',

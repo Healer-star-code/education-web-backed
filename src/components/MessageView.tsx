@@ -211,7 +211,7 @@ function UserMessageView({ message }: { message: Message }) {
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '3px 8px', height: 'var(--toolbar-btn-height, 22px)',
               background: 'none', border: 'none',
-              borderRadius: 5,
+              borderRadius: 'var(--radius-xs)',
               color: copied ? 'var(--accent)' : 'var(--text-dim)',
               cursor: 'pointer',
               fontSize: 'var(--toolbar-font-size, var(--font-xs))', fontWeight: 400,
@@ -281,7 +281,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
               style={{
                 background: 'var(--bg-selected)',
                 padding: '1px 4px',
-                borderRadius: 3,
+                borderRadius: 'var(--radius-xs)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.9em',
               }}
@@ -316,7 +316,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
             style={{
               alignSelf: 'flex-start',
               padding: '6px 12px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
               background: 'var(--bg-panel)',
               color: 'var(--text)',
@@ -350,7 +350,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '3px 8px', height: 22,
             background: 'none', border: 'none',
-            borderRadius: 5,
+            borderRadius: 'var(--radius-xs)',
             color: copied ? 'var(--accent)' : 'var(--text-dim)',
             cursor: 'pointer',
               fontSize: 'var(--font-xs)', fontWeight: 400,
@@ -412,7 +412,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
         position: 'relative',
         marginTop: 8,
         marginBottom: 8,
-        borderRadius: 10,
+        borderRadius: 'var(--radius-lg)',
         overflow: 'hidden',
         background: 'var(--code-bg)',
       }}
@@ -440,7 +440,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
             color: copied ? 'var(--success)' : 'var(--text-dim)',
             cursor: 'pointer',
             padding: '2px 4px',
-            borderRadius: 4,
+            borderRadius: 'var(--radius-xs)',
             display: 'flex',
             alignItems: 'center',
             gap: 4,

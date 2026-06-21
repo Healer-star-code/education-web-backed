@@ -57,7 +57,7 @@ export function ReasoningBlock({ steps, onResolveToolPermission }: Props) {
     <div style={{
       marginBottom: 8,
       border: '1px solid var(--border)',
-      borderRadius: 10,
+      borderRadius: 'var(--radius-lg)',
       background: 'var(--bg-panel)',
       overflow: 'hidden',
     }}>

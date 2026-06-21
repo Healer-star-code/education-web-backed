@@ -41,7 +41,7 @@ function TreeNode({ node, depth, onOpenFile, expandedPaths, onToggle }: {
           height: 24,
           cursor: 'pointer',
           background: hovered ? 'var(--bg-hover)' : 'transparent',
-          borderRadius: 4,
+          borderRadius: 'var(--radius-xs)',
           userSelect: 'none',
         }}
       >

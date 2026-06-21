@@ -29,7 +29,7 @@ export function UpdaterCard() {
       <div
         style={{
           padding: '14px 14px',
-          borderRadius: 10,
+          borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border)',
           background: 'var(--bg)',
         }}
@@ -113,6 +113,6 @@ export function UpdaterCard() {
 
 const btnStyle: React.CSSProperties = {
   padding: '6px 12px',
-  borderRadius: 8,
+  borderRadius: 'var(--radius-md)',
   fontSize: 12,
 }

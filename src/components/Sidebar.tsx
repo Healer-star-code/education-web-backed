@@ -218,7 +218,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               padding: '6px 10px 6px 28px',
               background: 'var(--bg)',
               border: '1px solid var(--border)',
-              borderRadius: 7,
+              borderRadius: 'var(--radius-sm)',
               color: 'var(--text)',
               fontSize: 'var(--font-sm)',
               outline: 'none',
@@ -261,7 +261,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               padding: '6px 10px',
               background: selectedCwd ? 'var(--bg-hover)' : 'var(--user-bg)',
               border: selectedCwd ? '1px solid var(--border)' : '1px dashed var(--accent)',
-              borderRadius: 7,
+              borderRadius: 'var(--radius-sm)',
               cursor: 'pointer',
               fontSize: 'var(--font-sm)',
               color: 'var(--text)',
@@ -295,7 +295,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
                 zIndex: 100,
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',
-                borderRadius: 8,
+                borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-md)',
                 overflow: 'hidden',
               }}
@@ -377,10 +377,10 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
           <div style={{ padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {[...Array(5)].map((_, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
-                <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite' }} />
+                <div style={{ width: 22, height: 22, borderRadius: 'var(--radius-sm)', background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite' }} />
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ width: '60%', height: 10, borderRadius: 4, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
-                  <div style={{ width: '40%', height: 8, borderRadius: 4, background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80 + 40}ms` }} />
+                  <div style={{ width: '60%', height: 10, borderRadius: 'var(--radius-xs)', background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80}ms` }} />
+                  <div style={{ width: '40%', height: 8, borderRadius: 'var(--radius-xs)', background: 'var(--bg-hover)', animation: 'shimmer 1.5s ease-in-out infinite', animationDelay: `${i * 80 + 40}ms` }} />
                 </div>
               </div>
             ))}
@@ -654,7 +654,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               style={{
                 flex: 1, minWidth: 0, boxSizing: 'border-box',
                 fontSize: 'var(--font-sm)', lineHeight: 1.4,
-                border: '1px solid var(--accent)', borderRadius: 4,
+                border: '1px solid var(--accent)', borderRadius: 'var(--radius-xs)',
                 padding: '2px 5px', background: 'var(--bg-panel)', color: 'var(--text)',
                 outline: 'none',
               }}
@@ -668,7 +668,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
             <span style={{
               padding: '1px 5px',
               background: 'var(--danger-bg)',
-              borderRadius: 3, fontSize: 'var(--font-xs)',
+              borderRadius: 'var(--radius-xs)', fontSize: 'var(--font-xs)',
               color: 'var(--danger)', fontWeight: 500,
               flexShrink: 0,
             }}>
@@ -712,7 +712,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 22, height: 22, padding: 0,
               background: menuOpen ? 'var(--bg-selected)' : 'none',
-              border: 'none', borderRadius: 4,
+              border: 'none', borderRadius: 'var(--radius-xs)',
               color: menuOpen ? 'var(--text)' : 'var(--text-dim)',
               cursor: 'pointer',
               transition: 'background 0.1s',
@@ -735,7 +735,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               minWidth: 140,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               boxShadow: 'var(--shadow-lg)',
               overflow: 'hidden',
               padding: 4,
@@ -775,10 +775,10 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               </MenuButton>
             ) : (
               <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
                   确认
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
                   取消
                 </button>
               </div>
@@ -830,7 +830,7 @@ function MenuButton({ onClick, style, children }: { onClick: (e: React.MouseEven
 const menuItemStyle: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 7,
   width: '100%', padding: '6px 8px',
-  background: 'none', border: 'none', borderRadius: 5,
+  background: 'none', border: 'none', borderRadius: 'var(--radius-xs)',
   color: 'var(--text)', cursor: 'pointer',
   fontSize: 'var(--font-sm)', textAlign: 'left' as const,
   fontFamily: 'inherit', fontWeight: 400,

@@ -135,7 +135,7 @@ function PendingTaskCard({ task }: { task?: 'word' | 'default' }) {
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 8,
-      padding: '8px 12px', borderRadius: 10,
+      padding: '8px 12px', borderRadius: 'var(--radius-lg)',
       background: 'var(--bg-panel)', border: '1px solid var(--border)',
       color: 'var(--text-muted)', fontSize: 'var(--font-sm)',
       marginBottom: 8,
@@ -1231,7 +1231,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: 18,
+            width: 64, height: 64, borderRadius: 'var(--radius-xl)',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1258,7 +1258,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)' }}>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', padding: 24 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: 18,
+            width: 64, height: 64, borderRadius: 'var(--radius-xl)',
             background: 'var(--bg-panel)',
             border: '1px solid var(--border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1347,7 +1347,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             }}
             style={{
               padding: '4px 8px',
-              borderRadius: 6,
+              borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
               background: 'var(--bg)',
               color: 'var(--text-dim)',

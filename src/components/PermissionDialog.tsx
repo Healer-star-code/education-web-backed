@@ -92,7 +92,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
           overflow: 'auto',
           background: 'var(--bg-panel)',
           border: '1px solid var(--border)',
-          borderRadius: 14,
+          borderRadius: 'var(--radius-xl)',
           boxShadow: 'var(--shadow-xl, 0 20px 60px rgba(0,0,0,0.35))',
           padding: '20px 22px',
         }}
@@ -117,7 +117,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
             style={{
               background: 'var(--bg)',
               border: '1px solid var(--border)',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-lg)',
               padding: 12,
               marginBottom: 16,
             }}
@@ -143,7 +143,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
             style={{
               background: 'var(--bg)',
               border: '1px solid var(--border)',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-lg)',
               padding: 12,
               marginBottom: 16,
             }}
@@ -171,7 +171,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
               alignItems: 'center',
               gap: 10,
               padding: '10px 12px',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-lg)',
               border: '1px solid var(--border)',
               background: decision === 'allow_once' ? 'rgba(59,130,246,0.08)' : 'transparent',
               cursor: 'pointer',
@@ -192,7 +192,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
               alignItems: 'center',
               gap: 10,
               padding: '10px 12px',
-              borderRadius: 10,
+              borderRadius: 'var(--radius-lg)',
               border: '1px solid var(--border)',
               background: decision === 'allow_session' ? 'rgba(59,130,246,0.08)' : 'transparent',
               cursor: 'pointer',
@@ -213,7 +213,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
             onClick={() => onResolve('deny')}
             style={{
               padding: '8px 14px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
               background: 'transparent',
               color: 'var(--text)',
@@ -227,7 +227,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
             onClick={() => onResolve(decision)}
             style={{
               padding: '8px 14px',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               border: 'none',
               background: 'var(--accent)',
               color: '#fff',

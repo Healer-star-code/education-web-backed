@@ -228,7 +228,7 @@ export function ToolCallRow({ tool, onResolvePermission }: { tool: ToolCallInfo;
           <button
             onClick={() => onResolvePermission?.(tool.id, 'allow_once')}
             style={{
-              padding: '5px 12px', borderRadius: 6, border: 'none',
+              padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: 'none',
               background: 'var(--accent)', color: '#fff', fontSize: 'var(--font-sm)', cursor: 'pointer',
             }}
           >
@@ -237,7 +237,7 @@ export function ToolCallRow({ tool, onResolvePermission }: { tool: ToolCallInfo;
           <button
             onClick={() => onResolvePermission?.(tool.id, 'allow_session')}
             style={{
-              padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
+              padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
               background: 'var(--bg)', color: 'var(--text)', fontSize: 'var(--font-sm)', cursor: 'pointer',
             }}
           >
@@ -246,7 +246,7 @@ export function ToolCallRow({ tool, onResolvePermission }: { tool: ToolCallInfo;
           <button
             onClick={() => onResolvePermission?.(tool.id, 'deny')}
             style={{
-              padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)',
+              padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)',
               background: 'transparent', color: 'var(--text)', fontSize: 'var(--font-sm)', cursor: 'pointer',
             }}
           >

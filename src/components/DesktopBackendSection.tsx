@@ -137,7 +137,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
         <div
           style={{
             padding: '12px 14px',
-            borderRadius: 10,
+            borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--warning)',
             background: 'var(--warning-bg)',
             marginBottom: 12,
@@ -162,7 +162,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
           alignItems: 'center',
           gap: 10,
           padding: '10px 12px',
-          borderRadius: 10,
+          borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border)',
           background: 'var(--bg)',
           marginBottom: 12,
@@ -334,7 +334,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', boxSizing: 'border-box',
-  padding: '8px 10px', borderRadius: 8,
+  padding: '8px 10px', borderRadius: 'var(--radius-md)',
   border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
   fontSize: 13, fontFamily: 'var(--font-mono)',
   outline: 'none',
@@ -346,7 +346,7 @@ const lblStyle: React.CSSProperties = {
 
 const btnStyle: React.CSSProperties = {
   padding: '6px 12px',
-  borderRadius: 8,
+  borderRadius: 'var(--radius-md)',
   fontSize: 12,
 }
 
@@ -358,7 +358,7 @@ function ModeButton({ active, onClick, label, desc }: { active: boolean; onClick
         flex: 1,
         textAlign: 'left',
         padding: '10px 12px',
-        borderRadius: 10,
+        borderRadius: 'var(--radius-lg)',
         border: `1px solid ${active ? 'var(--accent, #3b82f6)' : 'var(--border)'}`,
         background: active ? 'var(--bg-hover)' : 'var(--bg)',
         color: 'var(--text)',

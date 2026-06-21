@@ -56,7 +56,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
           color: 'var(--text-dim)', fontSize: 'var(--font-sm)',
           cursor: 'pointer', fontWeight: 500,
           textAlign: 'left',
-          borderRadius: 6,
+          borderRadius: 'var(--radius-sm)',
           transition: 'background 0.12s, opacity 0.3s',
         }}
         onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
@@ -98,7 +98,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
           whiteSpace: 'pre-line', wordBreak: 'break-word',
           maxHeight: 300, overflowY: 'auto',
           background: 'var(--bg-subtle)',
-          borderRadius: 6,
+          borderRadius: 'var(--radius-sm)',
           marginTop: 2,
         }}>
           {content}

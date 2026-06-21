@@ -48,13 +48,13 @@ function kindLabel(kind: ArtifactInfo['kind'], name: string): string {
 export function AttachmentCard({ attachment, compact = false }: { attachment: MessageAttachment; compact?: boolean }) {
   if (attachment.type === 'image') {
     return (
-      <a href={attachment.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: compact ? 54 : 160, height: compact ? 54 : 160, borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(0,0,0,0.04)' }}>
+      <a href={attachment.url} target="_blank" rel="noreferrer" style={{ display: 'block', width: compact ? 54 : 160, height: compact ? 54 : 160, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid rgba(59,130,246,0.2)', background: 'rgba(0,0,0,0.04)' }}>
         <img src={attachment.url} alt={attachment.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
       </a>
     )
   }
   return (
-    <a href={attachment.url} download={attachment.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: compact ? 130 : 220, maxWidth: compact ? 180 : 320, padding: compact ? '6px 8px' : '9px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', textDecoration: 'none' }}>
+    <a href={attachment.url} download={attachment.name} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: compact ? 130 : 220, maxWidth: compact ? 180 : 320, padding: compact ? '6px 8px' : '9px 10px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', textDecoration: 'none' }}>
       <span style={{ flexShrink: 0 }}>{getFileIcon(attachment.name, compact ? 22 : 28)}</span>
       <span style={{ minWidth: 0, flex: 1 }}>
         <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: compact ? 'var(--font-xs)' : 'calc(var(--font-base) * 0.929)', fontWeight: 650 }}>{attachment.name}</span>
@@ -143,7 +143,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
         gap: 12,
         padding: '12px 14px',
         border: '1px solid var(--border)',
-        borderRadius: 12,
+        borderRadius: 'var(--radius-lg)',
         background: 'var(--bg-panel)',
         maxWidth: 560,
         opacity,
@@ -209,7 +209,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
             top: -32,
             right: 8,
             padding: '6px 10px',
-            borderRadius: 6,
+            borderRadius: 'var(--radius-sm)',
             background: 'var(--text)',
             color: 'var(--bg)',
             fontSize: 12,
@@ -230,7 +230,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
 function primaryBtn(disabled: boolean): React.CSSProperties {
   return {
     padding: '7px 12px',
-    borderRadius: 8,
+    borderRadius: 'var(--radius-md)',
     border: 'none',
     background: disabled ? 'var(--border)' : 'var(--accent)',
     color: disabled ? 'var(--text-dim)' : '#fff',
@@ -244,7 +244,7 @@ function primaryBtn(disabled: boolean): React.CSSProperties {
 function ghostBtn(disabled: boolean): React.CSSProperties {
   return {
     padding: '7px 10px',
-    borderRadius: 8,
+    borderRadius: 'var(--radius-md)',
     border: '1px solid var(--border)',
     background: 'transparent',
     color: 'var(--text)',

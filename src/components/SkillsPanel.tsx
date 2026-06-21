@@ -8,7 +8,7 @@ interface Props {
 
 function SkillCard({ skill }: { skill: SkillInfo }) {
   return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', background: 'var(--bg)' }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '10px 12px', background: 'var(--bg)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 700, color: 'var(--text)' }}>{skill.name}</span>
         <span style={{ fontSize: 'var(--font-xs)', color: skill.enabled ? 'var(--accent)' : 'var(--text-dim)', border: '1px solid var(--border)', borderRadius: 999, padding: '1px 6px' }}>
@@ -71,7 +71,7 @@ export function SkillsPanel({ cwd: _cwd, onClose }: Props) {
 
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 298, background: 'var(--overlay-bg)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxHeight: '86vh', overflow: 'hidden', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 16, boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column' }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: 760, maxHeight: '86vh', overflow: 'hidden', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-xl)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 18px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 'var(--font-md)', fontWeight: 700, color: 'var(--text)' }}>全局 Skills</div>
@@ -82,8 +82,8 @@ export function SkillsPanel({ cwd: _cwd, onClose }: Props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
             {!unsupported && (
               <>
-                <button onClick={() => { void loadSkills() }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
-                <button onClick={async () => { try { await openLocalFolder(skillsRoot) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
+                <button onClick={() => { void loadSkills() }} style={{ height: 30, padding: '0 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>刷新</button>
+                <button onClick={async () => { try { await openLocalFolder(skillsRoot) } catch (e) { console.error('Failed to open folder', e) } }} style={{ height: 30, padding: '0 10px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg-hover)', color: 'var(--text)', cursor: 'pointer', fontSize: 'var(--font-sm)', fontWeight: 600 }}>打开文件夹</button>
               </>
             )}
             <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 'var(--font-lg)' }}>×</button>
@@ -99,7 +99,7 @@ export function SkillsPanel({ cwd: _cwd, onClose }: Props) {
               padding: '24px 20px',
               background: 'var(--bg)',
               border: '1px solid var(--border)',
-              borderRadius: 12,
+              borderRadius: 'var(--radius-lg)',
               textAlign: 'center',
               color: 'var(--text-muted)',
               fontSize: 'calc(var(--font-base) * 0.929)',

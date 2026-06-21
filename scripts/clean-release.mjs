@@ -2,7 +2,7 @@
 // 清理 release/ 目录里所有「不属于当前 package.json version」的产物。
 // 保留：
 //   - 当前版本的 setup / portable / blockmap / AppImage / latest.yml 等
-//   - 上一个版本（按 semver 排序）的产物，方便用户回退
+//   - 最近两个旧版本（按 semver 排序）的产物，方便用户回退
 //   - 非版本相关文件（builder-debug.yml）
 //   - win-unpacked 目录（每次都会被 electron-builder 覆盖）
 //
@@ -27,7 +27,7 @@ const entries = readdirSync(releaseDir)
 let deletedCount = 0
 let deletedBytes = 0
 
-// 收集 release/ 下所有带版本号的文件，按 semver 降序找出上一个版本
+// 收集 release/ 下所有带版本号的文件，按 semver 降序找出最近两个旧版本
 const SEMVER_RE = /(\d+)\.(\d+)\.(\d+)/
 function extractVersion(name) {
   const m = name.match(SEMVER_RE)
@@ -40,11 +40,12 @@ function compareVersion(a, b) {
   return a.patch - b.patch
 }
 const currentV = extractVersion(currentVersion)
-const previousVersion = entries
-  .map(extractVersion)
-  .filter((v) => v && currentV && compareVersion(v, currentV) < 0)
-  .sort(compareVersion)
-  .pop()?.raw
+const previousVersions = Array.from(new Set(
+  entries
+    .map(extractVersion)
+    .filter((v) => v && currentV && compareVersion(v, currentV) < 0)
+    .map((v) => v.raw)
+)).sort(compareVersion).slice(-2)
 
 for (const name of entries) {
   const full = join(releaseDir, name)
@@ -57,14 +58,14 @@ for (const name of entries) {
   // 当前版本的文件保留
   if (name.includes(currentVersion)) continue
 
-  // 上一个版本的文件保留（回退用）
-  if (previousVersion && name.includes(previousVersion)) continue
+  // 最近两个旧版本的文件保留（回退用）
+  if (previousVersions.some((pv) => name.includes(pv))) continue
 
   // 不带版本号的元数据保留（latest.yml / builder-debug.yml）
   const looksVersioned = SEMVER_RE.test(name)
   if (!looksVersioned) continue
 
-  // 其他带版本号且不是当前/上一个版本的，删除
+  // 其他带版本号且不是当前/最近两个旧版本的，删除
   try {
     rmSync(full, { force: true })
     deletedCount++

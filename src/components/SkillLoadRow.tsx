@@ -32,7 +32,7 @@ export function SkillLoadRow({ name, baseDir, content, isLoading }: Props) {
           color: 'var(--text-dim)', fontSize: 'var(--font-sm)',
           cursor: 'pointer', fontWeight: 500,
           textAlign: 'left',
-          borderRadius: 6,
+          borderRadius: 'var(--radius-sm)',
           width: '100%',
           transition: 'background 0.12s, opacity 0.3s',
         }}
@@ -106,7 +106,7 @@ export function SkillLoadRow({ name, baseDir, content, isLoading }: Props) {
             wordBreak: 'break-word',
             maxHeight: 360, overflowY: 'auto',
             background: 'var(--bg-subtle)',
-            borderRadius: 6,
+            borderRadius: 'var(--radius-sm)',
             marginTop: 2,
           }}
         >

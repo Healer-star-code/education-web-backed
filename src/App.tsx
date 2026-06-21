@@ -589,7 +589,7 @@ export default function App() {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          padding: '10px 20px', borderRadius: 10, background: 'var(--danger)', color: '#fff',
+          padding: '10px 20px', borderRadius: 'var(--radius-lg)', background: 'var(--danger)', color: '#fff',
           fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 600, boxShadow: 'var(--shadow-lg)',
           zIndex: 999, transition: 'opacity 0.3s',
         }}>

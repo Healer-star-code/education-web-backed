@@ -161,7 +161,7 @@ export class ErrorBoundary extends Component<Props, State> {
             width: '100%',
             background: 'var(--bg-panel, #1c1f29)',
             border: '1px solid var(--border, #2a2f3d)',
-            borderRadius: 14,
+            borderRadius: 'var(--radius-xl)',
             padding: '28px 32px',
             boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
           }}
@@ -171,7 +171,7 @@ export class ErrorBoundary extends Component<Props, State> {
               style={{
                 width: 44,
                 height: 44,
-                borderRadius: 12,
+                borderRadius: 'var(--radius-lg)',
                 background: 'var(--danger-bg)',
                 display: 'flex',
                 alignItems: 'center',
@@ -196,7 +196,7 @@ export class ErrorBoundary extends Component<Props, State> {
             style={{
               background: 'var(--danger-bg)',
               border: '1px solid var(--danger)',
-              borderRadius: 8,
+              borderRadius: 'var(--radius-md)',
               padding: '10px 14px',
               fontSize: 13,
               color: 'var(--danger-hover)',
@@ -228,7 +228,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   padding: 10,
                   background: 'rgba(0,0,0,0.25)',
                   border: '1px solid var(--border, #2a2f3d)',
-                  borderRadius: 6,
+                  borderRadius: 'var(--radius-sm)',
                   fontSize: 11,
                   lineHeight: 1.5,
                   maxHeight: 200,
@@ -262,7 +262,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={this.copyError}
                 style={{
                   padding: '7px 14px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border, #2a2f3d)',
                   background: 'transparent',
                   color: 'var(--text, #e6e8ef)',
@@ -277,7 +277,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 title="打开 %APPDATA%/super-king-agent/logs/ 文件夹，把 renderer-errors.log 发给开发者"
                 style={{
                   padding: '7px 14px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border, #2a2f3d)',
                   background: 'transparent',
                   color: 'var(--text, #e6e8ef)',
@@ -292,7 +292,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   onClick={this.cancelAutoReload}
                   style={{
                     padding: '7px 14px',
-                    borderRadius: 8,
+                    borderRadius: 'var(--radius-md)',
                     border: '1px solid var(--border, #2a2f3d)',
                     background: 'transparent',
                     color: 'var(--text, #e6e8ef)',
@@ -307,7 +307,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={this.reloadNow}
                 style={{
                   padding: '7px 16px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: 'none',
                   background: 'var(--accent, #6366f1)',
                   color: '#fff',

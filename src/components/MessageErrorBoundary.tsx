@@ -86,7 +86,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
         style={{
           marginBottom: 16,
           padding: 12,
-          borderRadius: 10,
+          borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--danger)',
           background: 'var(--danger-bg)',
           color: 'var(--text)',
@@ -110,7 +110,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
             onClick={this.retry}
             style={{
               padding: '4px 10px',
-              borderRadius: 6,
+              borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
               background: 'var(--bg-panel)',
               color: 'var(--text)',
@@ -124,7 +124,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
             onClick={this.copyOriginal}
             style={{
               padding: '4px 10px',
-              borderRadius: 6,
+              borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
               background: 'var(--bg-panel)',
               color: 'var(--text)',
@@ -150,7 +150,7 @@ export class MessageErrorBoundary extends Component<Props, State> {
               padding: 8,
               background: 'var(--bg-panel)',
               border: '1px solid var(--border)',
-              borderRadius: 6,
+              borderRadius: 'var(--radius-sm)',
               fontSize: 11,
               lineHeight: 1.5,
               whiteSpace: 'pre-wrap',

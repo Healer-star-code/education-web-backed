@@ -142,7 +142,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       <div onClick={(e) => e.stopPropagation()} style={{
         width: 460, maxWidth: '90vw',
         background: 'var(--bg-panel)', border: '1px solid var(--border)',
-        borderRadius: 16, boxShadow: 'var(--shadow-xl)',
+        borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-xl)',
         position: 'relative',
         overflow: 'hidden',
         padding: '24px 28px 20px',
@@ -156,7 +156,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             background: 'none', border: 'none', color: 'var(--text-muted)',
             cursor: 'pointer', fontSize: 22, padding: 0, lineHeight: 1,
             width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            borderRadius: 8, transition: 'background 0.15s',
+            borderRadius: 'var(--radius-md)', transition: 'background 0.15s',
           }}
             onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)' }}
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
@@ -193,7 +193,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 placeholder="http://127.0.0.1:30142"
                 style={{
                   width: '100%', boxSizing: 'border-box',
-                  padding: '10px 12px', borderRadius: 10,
+                  padding: '10px 12px', borderRadius: 'var(--radius-lg)',
                   border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
                   fontSize: 14, fontFamily: 'var(--font-mono)',
                   outline: 'none',
@@ -211,7 +211,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   autoFocus={!draftPassword}
                   style={{
                     flex: 1, boxSizing: 'border-box',
-                    padding: '10px 12px', borderRadius: 10,
+                    padding: '10px 12px', borderRadius: 'var(--radius-lg)',
                     border: passwordError ? '1px solid var(--danger)' : '1px solid var(--border)',
                     background: 'var(--bg)', color: 'var(--text)',
                     fontSize: 14, fontFamily: 'var(--font-mono)',
@@ -222,7 +222,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   onClick={() => setShowPassword((v) => !v)}
                   type="button"
                   style={{
-                    padding: '0 12px', borderRadius: 10,
+                    padding: '0 12px', borderRadius: 'var(--radius-lg)',
                     border: '1px solid var(--border)', background: 'var(--bg-hover)',
                     color: 'var(--text-muted)', cursor: 'pointer', fontSize: 13,
                   }}
@@ -263,7 +263,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 style={{
                   marginTop: 10,
                   padding: '8px 14px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border)',
                   background: 'var(--bg-hover)',
                   color: 'var(--text)',
@@ -292,7 +292,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 <div
                   style={{
                     padding: '10px 12px',
-                    borderRadius: 10,
+                    borderRadius: 'var(--radius-lg)',
                     border: '1px dashed var(--border)',
                     background: 'var(--bg-hover)',
                     color: 'var(--text-dim)',
@@ -311,7 +311,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     placeholder="http://127.0.0.1:30143"
                     style={{
                       width: '100%', boxSizing: 'border-box',
-                      padding: '10px 12px', borderRadius: 10,
+                      padding: '10px 12px', borderRadius: 'var(--radius-lg)',
                       border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
                       fontSize: 14, fontFamily: 'var(--font-mono)',
                       outline: 'none',
@@ -332,7 +332,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <button onClick={() => handleModeChange('young')} style={{
               display: 'flex', alignItems: 'center', gap: 14,
-              padding: '16px 18px', borderRadius: 12,
+              padding: '16px 18px', borderRadius: 'var(--radius-lg)',
               textAlign: 'left', width: '100%',
               background: draftMode === 'young' ? 'var(--accent-bg-subtle)' : 'var(--bg-hover)',
               border: draftMode === 'young' ? '2px solid var(--accent)' : '2px solid transparent',
@@ -340,7 +340,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               transition: 'all 0.15s',
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: 12,
+                width: 44, height: 44, borderRadius: 'var(--radius-lg)',
                 background: draftMode === 'young' ? 'var(--accent)' : 'var(--bg-selected)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
@@ -357,7 +357,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     <span style={{
                       fontSize: 11, fontWeight: 600, color: 'var(--accent)',
                       background: 'var(--accent-bg)', padding: '2px 8px',
-                      borderRadius: 10,
+                      borderRadius: 'var(--radius-lg)',
                     }}>当前</span>
                   )}
                 </div>
@@ -373,7 +373,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             </button>
             <button onClick={() => handleModeChange('senior')} style={{
               display: 'flex', alignItems: 'center', gap: 14,
-              padding: '16px 18px', borderRadius: 12,
+              padding: '16px 18px', borderRadius: 'var(--radius-lg)',
               textAlign: 'left', width: '100%',
               background: draftMode === 'senior' ? 'var(--accent-senior-bg)' : 'var(--bg-hover)',
               border: draftMode === 'senior' ? '2px solid var(--accent-senior)' : '2px solid transparent',
@@ -381,7 +381,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               transition: 'all 0.15s',
             }}>
               <div style={{
-                width: 44, height: 44, borderRadius: 12,
+                width: 44, height: 44, borderRadius: 'var(--radius-lg)',
                 background: draftMode === 'senior' ? 'var(--accent-senior)' : 'var(--bg-selected)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
@@ -400,7 +400,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     <span style={{
                       fontSize: 11, fontWeight: 600, color: 'var(--accent-senior)',
                       background: 'var(--warning-bg)', padding: '2px 8px',
-                      borderRadius: 10,
+                      borderRadius: 'var(--radius-lg)',
                     }}>当前</span>
                   )}
                 </div>
@@ -428,7 +428,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               const isStandard = size === DEFAULT_SIZE
               return (
                 <button key={size} onClick={() => setDraftFontSize(size)} style={{
-                  flex: 1, padding: '12px 0 8px', borderRadius: 10,
+                  flex: 1, padding: '12px 0 8px', borderRadius: 'var(--radius-lg)',
                   background: isSelected ? accentColor : 'var(--bg-hover)',
                   color: isSelected ? '#fff' : 'var(--text-muted)',
                   border: isSelected ? 'none' : '1px solid var(--border)',
@@ -445,7 +445,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                       fontSize: 10, fontWeight: 600,
                       color: isSelected ? accentColor : 'var(--text-dim)',
                       background: isSelected ? '#fff' : 'var(--bg)',
-                      padding: '1px 6px', borderRadius: 8,
+                      padding: '1px 6px', borderRadius: 'var(--radius-md)',
                       border: `1px solid ${isSelected ? accentColor : 'var(--border)'}`,
                       whiteSpace: 'nowrap',
                     }}>标准</div>
@@ -457,7 +457,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           {/* Preview */}
           <div style={{
             marginTop: 18, padding: '12px 14px',
-            background: 'var(--bg)', borderRadius: 10,
+            background: 'var(--bg)', borderRadius: 'var(--radius-lg)',
             border: '1px solid var(--border)',
           }}>
             <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, fontWeight: 500 }}>预览效果</div>
@@ -473,7 +473,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={() => setDraftTheme(true)} style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 0', borderRadius: 10, fontSize: 14,
+              padding: '12px 0', borderRadius: 'var(--radius-lg)', fontSize: 14,
               background: draftTheme ? '#1e293b' : 'var(--bg-hover)',
               color: draftTheme ? '#fff' : 'var(--text-muted)',
               border: draftTheme ? '2px solid var(--accent)' : '1px solid var(--border)',
@@ -487,7 +487,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             </button>
             <button onClick={() => setDraftTheme(false)} style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              padding: '12px 0', borderRadius: 10, fontSize: 14,
+              padding: '12px 0', borderRadius: 'var(--radius-lg)', fontSize: 14,
               background: !draftTheme ? 'var(--bg-panel)' : 'var(--bg-hover)',
               color: !draftTheme ? '#1e293b' : 'var(--text-muted)',
               border: !draftTheme ? '2px solid #cbd5e1' : '1px solid var(--border)',
@@ -512,7 +512,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
           <div
             style={{
               padding: '14px 16px',
-              borderRadius: 12,
+              borderRadius: 'var(--radius-lg)',
               border: draftAutoApproveAll ? '2px solid var(--accent-senior)' : '1px solid var(--border)',
               background: draftAutoApproveAll ? 'var(--accent-senior-bg)' : 'var(--bg-hover)',
               transition: 'all 0.15s',
@@ -574,7 +574,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               style={{
                 marginTop: 10,
                 padding: '8px 10px',
-                borderRadius: 8,
+                borderRadius: 'var(--radius-md)',
                 background: 'var(--warning-bg)',
                 border: '1px solid var(--accent-senior)',
                 fontSize: 12,
@@ -589,7 +589,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
 
         {/* Save button */}
         <button onClick={saveAndClose} disabled={!draftPassword} style={{
-          width: '100%', padding: '14px 0', borderRadius: 10,
+          width: '100%', padding: '14px 0', borderRadius: 'var(--radius-lg)',
           background: draftPassword ? accentColor : 'var(--bg-hover)',
           border: 'none', color: draftPassword ? '#fff' : 'var(--text-dim)', fontSize: 15, fontWeight: 700,
           cursor: draftPassword ? 'pointer' : 'not-allowed',
@@ -631,7 +631,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               maxWidth: 480,
               background: 'var(--bg-panel)',
               border: '2px solid var(--accent-senior)',
-              borderRadius: 14,
+              borderRadius: 'var(--radius-xl)',
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
               padding: '22px 24px',
             }}
@@ -653,7 +653,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             <div
               style={{
                 padding: '10px 12px',
-                borderRadius: 8,
+                borderRadius: 'var(--radius-md)',
                 background: 'var(--accent-senior-bg)',
                 border: '1px solid var(--accent-senior)',
                 fontSize: 13,
@@ -672,7 +672,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 }}
                 style={{
                   padding: '9px 16px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: '1px solid var(--border)',
                   background: 'transparent',
                   color: 'var(--text)',
@@ -691,7 +691,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 }}
                 style={{
                   padding: '9px 16px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   border: 'none',
                   background: 'var(--accent-senior)',
                   color: '#fff',

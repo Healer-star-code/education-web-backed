@@ -555,7 +555,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           style={{
             display: 'flex',
             flexDirection: 'column',
-            borderRadius: 24,
+            borderRadius: 'var(--radius-xl)',
             padding: '14px 16px 14px 20px',
           }}
         >
@@ -579,7 +579,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                       position: 'relative',
                       opacity: isUploading ? 0.65 : 1,
                       outline: isError ? '1.5px solid var(--danger)' : 'none',
-                      borderRadius: 10,
+                      borderRadius: 'var(--radius-lg)',
                     }}
                     title={isError ? att.error : undefined}
                   >
@@ -595,7 +595,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     {isError && (
                       <div style={{
                         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--danger)', opacity: 0.85, borderRadius: 10,
+                        background: 'var(--danger)', opacity: 0.85, borderRadius: 'var(--radius-lg)',
                       }}>
                         <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700, padding: '0 6px', textAlign: 'center', lineHeight: 1.2 }}>
                           {att.error ?? '失败'}
@@ -689,7 +689,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   padding: 0,
                   background: 'none',
                   border: '1px solid var(--border)',
-                  borderRadius: 8,
+                  borderRadius: 'var(--radius-md)',
                   color: 'var(--text-muted)',
                   cursor: isStreaming ? 'not-allowed' : 'pointer',
                   transition: 'background 0.15s, color 0.15s',
