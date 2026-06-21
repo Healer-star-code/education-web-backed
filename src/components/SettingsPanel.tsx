@@ -341,8 +341,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             </button>
             <button
               onClick={() => handleModeChange('senior')}
-              className={`btn-mode ${draftMode === 'senior' ? 'active' : ''}`}
-              style={draftMode === 'senior' ? { background: 'var(--accent-senior-bg)', borderColor: 'var(--accent-senior)' } : undefined}
+              className={`btn-mode ${draftMode === 'senior' ? 'active senior' : ''}`}
             >
               <div style={{
                 width: 44, height: 44, borderRadius: 'var(--radius-lg)',
@@ -391,7 +390,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               const isSelected = draftFontSize === size
               const isStandard = size === DEFAULT_SIZE
               return (
-                <button key={size} onClick={() => setDraftFontSize(size)} className={`btn-font-size ${isSelected ? 'active' : ''} ${draftMode === 'senior' ? 'senior' : ''}`} style={{ position: 'relative' }}>
+                <button key={size} onClick={() => setDraftFontSize(size)} className={`btn-font-size ${isSelected ? 'active' : ''} ${draftMode === 'senior' ? 'senior' : ''}`}>
                   <div style={{ fontSize: size, fontWeight: 700, marginBottom: 2, lineHeight: 1.2 }}>Aa</div>
                   <div style={{ fontSize: 11, opacity: 0.8 }}>{size}px</div>
                   {isStandard && (
@@ -418,13 +417,13 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>主题外观</div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setDraftTheme(true)} className={`btn-theme ${draftTheme ? 'active dark' : ''}`}>
+            <button onClick={() => setDraftTheme(true)} className={`btn-theme ${draftTheme ? 'active' : ''}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
               深色
             </button>
-            <button onClick={() => setDraftTheme(false)} className={`btn-theme ${!draftTheme ? 'active light' : ''}`}>
+            <button onClick={() => setDraftTheme(false)} className={`btn-theme ${!draftTheme ? 'active' : ''}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="5" />
                 <line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
@@ -519,7 +518,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         </div>
 
         {/* Save button */}
-        <button onClick={saveAndClose} disabled={!draftPassword} className={`btn-save ${!draftPassword ? 'disabled' : ''} ${draftMode === 'senior' ? 'senior' : ''}`}>
+        <button onClick={saveAndClose} disabled={!draftPassword} className={`btn-save ${draftMode === 'senior' ? 'senior' : ''}`}>
           {draftPassword ? '保存并连接' : '请先填写访问密码'}
         </button>
       </div>
