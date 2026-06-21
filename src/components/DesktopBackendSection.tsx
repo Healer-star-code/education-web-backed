@@ -63,7 +63,8 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
       if (saved.useRemote && saved.remoteUrl) {
         onApplyBackendUrl(saved.remoteUrl, saved.superKingPassword)
       } else {
-        onApplyBackendUrl('/superking-api', saved.superKingPassword)
+        // Electron 打包后没有 vite 代理，必须用绝对 http URL 直连本机 super-king
+        onApplyBackendUrl(`http://127.0.0.1:${saved.superKingPort}`, saved.superKingPassword)
       }
     }
   }

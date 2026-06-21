@@ -118,6 +118,10 @@ function isDevFrontend(): boolean {
   return typeof window !== 'undefined' && window.location.host === 'localhost:5173'
 }
 
+function isElectronRuntime(): boolean {
+  return typeof window !== 'undefined' && !!(window as unknown as { piDesktop?: unknown }).piDesktop
+}
+
 function shouldUseProxy(savedUrl: string): boolean {
   return isDevFrontend() && /^https?:\/\/(127\.0\.0\.1|localhost):30142\/?$/.test(savedUrl.trim())
 }
@@ -127,10 +131,18 @@ export function getApiBase(): string {
     const fromLs = localStorage.getItem(LS_SERVER_URL)
     if (fromLs) {
       if (shouldUseProxy(fromLs)) return DEFAULT_API_BASE
+      // Electron 打包后用 file:// 加载页面，"/superking-api" 这种相对路径会拼成
+      // file:///superking-api 而失败。强制改为直连 127.0.0.1:30142。
+      if (isElectronRuntime() && fromLs === '/superking-api') {
+        return 'http://127.0.0.1:30142'
+      }
       return fromLs
     }
   } catch { /* ignore */ }
-  return (import.meta.env.VITE_PI_API_BASE as string | undefined) ?? DEFAULT_API_BASE
+  const envBase = import.meta.env.VITE_PI_API_BASE as string | undefined
+  if (envBase) return envBase
+  if (isElectronRuntime()) return 'http://127.0.0.1:30142'
+  return DEFAULT_API_BASE
 }
 
 export function getPassword(): string {

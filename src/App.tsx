@@ -14,6 +14,19 @@ import {
   type ConfigInfo,
 } from './lib/piApi'
 import { upsertSession } from './lib/sessionState'
+import { isDesktop, getDesktopBridge } from './lib/desktopBridge'
+
+// Electron 打包后没有 vite 代理，/superking-api 这种相对路径会解析成 file:///superking-api 而失败。
+// 必须用绝对地址 http://127.0.0.1:<port> 直连本机的 super-king 进程。
+function pickDefaultServerUrl(): string {
+  if (isDesktop) {
+    // 打包模式：默认走 30142（与 electron-store 默认 port 保持一致）。
+    // 真正的 port 会在挂载后通过 superking.status() 异步纠正。
+    return 'http://127.0.0.1:30142'
+  }
+  // 浏览器/dev：走 vite 代理
+  return '/superking-api'
+}
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? '武汉船院'
 
@@ -92,12 +105,21 @@ export default function App() {
   const [serverUrl, setServerUrl] = useState(() => {
     try {
       const saved = localStorage.getItem('pi-server-url')
+      const fallback = pickDefaultServerUrl()
+      // dev 模式残留旧地址清理：如果当前在 vite dev server 上但 localStorage 里存的是 127.0.0.1:30142，
+      // 修正回 /superking-api 走代理。
       if (saved && typeof window !== 'undefined' && window.location.host === 'localhost:5173' && /^https?:\/\/(127\.0\.0\.1|localhost):30142\/?$/.test(saved.trim())) {
         localStorage.setItem('pi-server-url', '/superking-api')
         return '/superking-api'
       }
-      return saved || (import.meta.env.VITE_PI_API_BASE as string | undefined) || '/superking-api'
-    } catch { return '/superking-api' }
+      // Electron 打包模式：如果之前残留 '/superking-api'（相对路径在 file:// 下用不了），
+      // 强制改为绝对地址。
+      if (isDesktop && saved === '/superking-api') {
+        localStorage.setItem('pi-server-url', fallback)
+        return fallback
+      }
+      return saved || (import.meta.env.VITE_PI_API_BASE as string | undefined) || fallback
+    } catch { return pickDefaultServerUrl() }
   })
   const [password, setPassword] = useState(() => {
     try { return localStorage.getItem('pi-server-password') || '' } catch { return '' }
@@ -139,6 +161,27 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('pi-server-url', serverUrl)
   }, [serverUrl])
+
+  // Electron 模式：监听 super-king 状态变化，端口变了就纠正 serverUrl，
+  // 同时第一次启动时也用 status().port 对齐一次。
+  useEffect(() => {
+    if (!isDesktop) return
+    const bridge = getDesktopBridge()
+    if (!bridge) return
+    const align = (port: number) => {
+      const target = `http://127.0.0.1:${port}`
+      setServerUrl(prev => {
+        // 用户自己配的远程地址（不是 127.0.0.1/localhost）就不要覆盖
+        if (prev && !/^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(prev.trim()) && prev !== '/superking-api') {
+          return prev
+        }
+        return prev === target ? prev : target
+      })
+    }
+    bridge.superking.status().then(s => align(s.port)).catch(() => {})
+    const off = bridge.superking.onStatusChange(s => align(s.port))
+    return () => { off() }
+  }, [])
 
   useEffect(() => {
     localStorage.setItem('pi-server-password', password)
