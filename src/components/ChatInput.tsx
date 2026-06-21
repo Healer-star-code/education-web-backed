@@ -57,19 +57,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const mediaStreamRef = useRef<MediaStream | null>(null)
   // 录音开始后探测窗口：1.5 秒内没收到任何 onstart/onaudiostart/onresult 视为静默失败
   const aliveProbeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // micToast 自动消失的 timer：多次 flashMicToast 时清旧 timer，避免新 toast 被旧 timer 提前清掉
+  // micToast 自动消失的 timer：保留 ref 以兼容历史代码（当前 flashMicToast 已 no-op）
   const micToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
 
-  function flashMicToast(msg: string, ms = 3500) {
-    setMicToast(msg)
+  // ⭐ 用户决定：麦克风按钮保留，但点击后不再弹任何错误提示（包括 Google 语音服务
+  // 不可达、权限被拒、Electron 不支持等）。底层 SpeechRecognition / getUserMedia
+  // 逻辑保留以备将来接入离线 STT，但用户视角完全静默。
+  // 这里保留 flashMicToast 签名是为了避免大改所有调用方；改为 no-op 即可。
+  function flashMicToast(_msg: string, _ms = 3500) {
+    // intentionally no-op
+    void _msg; void _ms
+    // 顺便确保 micToast state 永远 null（即使曾经被设置过也清理）
     if (micToastTimerRef.current) {
       clearTimeout(micToastTimerRef.current)
-    }
-    micToastTimerRef.current = setTimeout(() => {
       micToastTimerRef.current = null
-      setMicToast(null)
-    }, ms)
+    }
+    if (micToast !== null) setMicToast(null)
   }
 
   // ⭐ 统一的语音识别清理函数：避免散在 4 处的清理逻辑发散
@@ -538,23 +542,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }}
     >
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
-        {micToast && (
-          <div
-            style={{
-              marginBottom: 8,
-              padding: '8px 12px',
-              borderRadius: 8,
-              background: 'rgba(239, 68, 68, 0.10)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: '#dc2626',
-              fontSize: 'var(--font-sm)',
-              lineHeight: 1.5,
-              textAlign: 'center',
-            }}
-          >
-            🎤 {micToast}
-          </div>
-        )}
         <div
           className={`chat-input-wrapper ${isFocused ? 'is-focused' : ''} ${isStreaming ? 'is-streaming' : ''}`}
           style={{
