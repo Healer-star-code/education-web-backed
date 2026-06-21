@@ -18,6 +18,14 @@ files:
   - "!**/node_modules/.bin"
 asar: true
 
+# 把 resources/ 目录下的文件（如 tray 图标）复制到 app 包外的 resources/ 目录，
+# 运行时可通过 process.resourcesPath 访问。dev 模式则用 app.getAppPath()/resources。
+extraResources:
+  - from: resources
+    to: .
+    filter:
+      - "**/*"
+
 win:
   # 应用图标：build/icon.ico（6 分辨率：16/32/48/64/128/256）
   # 同时控制：.exe 内嵌图标、桌面快捷方式、开始菜单、任务栏、Alt+Tab、窗口标题栏

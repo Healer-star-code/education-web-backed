@@ -1,4 +1,6 @@
 ﻿import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { SuperKingStatus } from './superking.js'
 
 let tray: Tray | null = null
@@ -12,20 +14,62 @@ interface TrayCallbacks {
   quit: () => void
 }
 
-function makeIcon(running: boolean): Electron.NativeImage {
-  // 16x16 PNG (simple colored dot). Base64 encoded.
-  const greenDot =
-    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAS0lEQVQ4y2NgGAWjYBSMglEwCgYZ+I8Vfwz9D/8/' +
-    'Z2RkYGD4z8AwAvD/v///DAwMDP////8zMjIyMDD8B/MZGUbBKBgFo2DwAQB6MAr6FaQpzwAAAABJRU5ErkJggg=='
-  const grayDot =
-    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAR0lEQVQ4y2NgGAWjYBSMglEwCgYV+I8VfwzM/v//' +
-    'DwwMDAz/GRgYGBgY/jMyMjIwMPxn+M/I8B/MZ2QYBaNgFIyCwQcAYTAGAQpzqwgAAAAASUVORK5CYII='
-  const buf = Buffer.from(running ? greenDot : grayDot, 'base64')
-  return nativeImage.createFromBuffer(buf)
+/**
+ * 加载托盘图标。
+ *
+ * Windows 任务栏托盘对图标要求：
+ *   - 必须是真正的 PNG/ICO，base64 micro-PNG 经常显示空白
+ *   - Windows 推荐用多分辨率 ICO（16/32/48），让系统按 DPI 自动选择
+ *
+ * 路径解析：
+ *   - dev:  process.cwd() = 项目根目录，图标在 resources/tray-icon.ico
+ *   - prod: 通过 electron-builder extraResources 复制到 process.resourcesPath，
+ *           即 <安装目录>/resources/tray-icon.ico
+ *
+ * @param running 是否运行中（绿色 vs 灰色，目前两个状态用同一个图标，靠 tooltip 区分）
+ */
+function loadTrayIcon(_running: boolean): Electron.NativeImage {
+  const candidates: string[] = []
+  const resPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath
+  // 打包后路径
+  if (resPath) {
+    candidates.push(join(resPath, 'tray-icon.ico'))
+    candidates.push(join(resPath, 'tray-icon.png'))
+  }
+  // dev 路径（pnpm dev / electron-vite dev 启动时）
+  candidates.push(join(app.getAppPath(), 'resources', 'tray-icon.ico'))
+  candidates.push(join(app.getAppPath(), 'resources', 'tray-icon.png'))
+  candidates.push(join(process.cwd(), 'resources', 'tray-icon.ico'))
+  candidates.push(join(process.cwd(), 'resources', 'tray-icon.png'))
+  // build/ 目录兜底（开发环境下 resources/ 可能还没复制时）
+  candidates.push(join(app.getAppPath(), 'build', 'icon.ico'))
+  candidates.push(join(app.getAppPath(), 'build', 'icon.png'))
+  candidates.push(join(process.cwd(), 'build', 'icon.ico'))
+  candidates.push(join(process.cwd(), 'build', 'icon.png'))
+
+  for (const p of candidates) {
+    try {
+      if (existsSync(p)) {
+        const img = nativeImage.createFromPath(p)
+        if (!img.isEmpty()) {
+          console.log('[tray] icon loaded from:', p)
+          return img
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  console.warn('[tray] no icon file found, falling back to base64 placeholder. Tried:', candidates)
+  // 兜底：1x1 透明像素（至少不空白文本）
+  const fallback =
+    'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAEElEQVR42mNk+M9QzwAEjAwACdoBVS6mvtcAAAAASUVORK5CYII='
+  return nativeImage.createFromBuffer(Buffer.from(fallback, 'base64'))
 }
 
 export function setupTray(cbs: TrayCallbacks): Tray {
-  tray = new Tray(makeIcon(false))
+  tray = new Tray(loadTrayIcon(false))
   tray.setToolTip('超级小金 - 未启动')
   tray.on('click', () => cbs.showWindow())
   rebuildMenu(cbs)
@@ -76,7 +120,7 @@ export function updateTrayStatus(status: SuperKingStatus, cbs: TrayCallbacks): v
   currentStatus = status
   if (tray) {
     const running = status.state === 'running' || status.state === 'external'
-    tray.setImage(makeIcon(running))
+    tray.setImage(loadTrayIcon(running))
     tray.setToolTip(
       status.state === 'running'
         ? `超级小金 - super-king 运行中 :${status.port}`
