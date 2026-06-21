@@ -287,6 +287,18 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           }
         }
 
+        // 保留前端 detector 算出来的 local-scan artifacts（后端不知道这些卡片，
+        // 如果不保留，agent_end 内刚写入的文件卡片会被 normalize 覆盖丢失）。
+        // 按 (role + content 前 200 字 + content 长度) 作为消息指纹匹配。
+        const localArtifactsByFingerprint = new Map<string, ArtifactInfo[]>()
+        for (const msg of currentMessages) {
+          if (msg.role !== 'assistant' || !msg.artifacts || msg.artifacts.length === 0) continue
+          const localOnes = msg.artifacts.filter((a) => a.source === 'local-scan')
+          if (localOnes.length === 0) continue
+          const fp = `${msg.role}|${(msg.content ?? '').length}|${(msg.content ?? '').slice(0, 200)}`
+          localArtifactsByFingerprint.set(fp, localOnes)
+        }
+
         let normalized = normalizeLoadedMessages(loadedMessages)
         if (waitingMap.size > 0) {
           normalized = normalized.map((msg) => {
@@ -300,6 +312,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 return s
               }),
             }
+          })
+        }
+        if (localArtifactsByFingerprint.size > 0) {
+          normalized = normalized.map((msg) => {
+            if (msg.role !== 'assistant') return msg
+            const fp = `${msg.role}|${(msg.content ?? '').length}|${(msg.content ?? '').slice(0, 200)}`
+            const carry = localArtifactsByFingerprint.get(fp)
+            if (!carry) return msg
+            // 已有的 backend artifact 优先；按 path 去重避免双卡片
+            const existingPaths = new Set((msg.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
+            const keep = carry.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
+            if (keep.length === 0) return msg
+            console.info(`[artifactDetector] normalize: carrying ${keep.length} local artifact(s) to msg=${msg.id}`)
+            return { ...msg, artifacts: [...(msg.artifacts ?? []), ...keep] }
           })
         }
         return normalized
@@ -603,8 +629,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         }
         // 启发式扫描：从 assistant 消息文本里抓本地路径，验证存在后追加 artifact 卡片
         // 仅桌面端（需要 file:stat IPC）；后端已发 backend artifact 的会自动去重
+        console.info(`[artifactDetector] agent_end entry: isDesktop=${isDesktop} sessionId=${sessionId ? 'ok' : 'null'} assistantId=${finishedAssistantId ?? 'null'}`)
         if (isDesktop && sessionId && finishedAssistantId) {
           const bridge = getDesktopBridge()
+          console.info(`[artifactDetector] bridge.file.stat available=${!!bridge?.file?.stat}`)
           if (bridge?.file?.stat) {
             void (async () => {
               try {
@@ -612,19 +640,24 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                 let snapshot: Message[] = []
                 setMessages((prev) => { snapshot = prev; return prev })
                 const target = snapshot.find((m) => m.id === finishedAssistantId)
-                if (!target) return
+                if (!target) {
+                  console.warn(`[artifactDetector] msg=${finishedAssistantId} not found in snapshot (len=${snapshot.length})`)
+                  return
+                }
                 // ⚠️ React setState 是异步的：上面的 flush(setMessages prev.map content+tailText)
                 // 还没真正落地到 state，这里读 target.content 可能是不含 tailText 的旧内容。
                 // 路径文本（"位置: E:\xxx\file.docx"）通常出现在消息末尾，正好在 tailText 里。
                 // 因此必须手动拼接 tailText 再丢给 detector，否则正则匹配不到 → 卡片不出现。
                 const fullText = (target.content ?? '') + (tailText ?? '')
+                console.info(`[artifactDetector] msg=${finishedAssistantId} content.len=${(target.content ?? '').length} tailText.len=${(tailText ?? '').length} fullText.len=${fullText.length}`)
+                console.info(`[artifactDetector] fullText preview: ${fullText.slice(0, 200).replace(/\n/g, '\\n')}${fullText.length > 200 ? '…' : ''}`)
                 const detected = await detectLocalArtifacts(
                   fullText,
                   sessionId,
                   target.artifacts ?? [],
                   (p) => bridge.file.stat(p),
                 )
-                console.info(`[artifactDetector] msg=${finishedAssistantId} scanned ${fullText.length} chars, found ${detected.length} local artifact(s)`)
+                console.info(`[artifactDetector] msg=${finishedAssistantId} found ${detected.length} local artifact(s)`)
                 if (detected.length === 0) return
                 setMessages((prev) => prev.map((msg) => (
                   msg.id === finishedAssistantId

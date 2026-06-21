@@ -147,6 +147,7 @@ export async function detectLocalArtifacts(
   stat: (target: string) => Promise<{ exists: boolean; size?: number; mtime?: number; isFile?: boolean }>,
 ): Promise<ArtifactInfo[]> {
   const candidates = extractCandidatePaths(text)
+  console.info(`[artifactDetector] extractCandidatePaths got ${candidates.length} candidate(s):`, candidates)
   if (candidates.length === 0) return []
 
   // 已经被后端 artifact 占用的路径就跳过（避免重复卡片）
@@ -158,9 +159,13 @@ export async function detectLocalArtifacts(
 
   const results: ArtifactInfo[] = []
   for (const path of candidates) {
-    if (existingPaths.has(path.toLowerCase())) continue
+    if (existingPaths.has(path.toLowerCase())) {
+      console.info(`[artifactDetector] skip (duplicate of existing artifact): ${path}`)
+      continue
+    }
     try {
       const info = await stat(path)
+      console.info(`[artifactDetector] stat(${path}) =>`, info)
       if (!info.exists || info.isFile === false) continue
       const name = basename(path)
       results.push({
@@ -176,8 +181,8 @@ export async function detectLocalArtifacts(
         exists: true,
         source: 'local-scan',
       })
-    } catch {
-      // ignore single-file failures
+    } catch (err) {
+      console.warn(`[artifactDetector] stat(${path}) failed:`, err)
     }
   }
   return results
