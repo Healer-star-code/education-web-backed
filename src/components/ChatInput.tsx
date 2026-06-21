@@ -42,6 +42,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const [value, setValue] = useState('')
   const [recording, setRecording] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [micToast, setMicToast] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recognitionRef = useRef<ReturnType<typeof createRecognition> | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -52,7 +53,53 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const recordingRef = useRef(false)
   const uploadTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  // 持有当前麦克风 stream，stop 时释放，避免长时间占用系统麦克风指示器
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  // 录音开始后探测窗口：1.5 秒内没收到任何 onstart/onaudiostart/onresult 视为静默失败
+  const aliveProbeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // micToast 自动消失的 timer：多次 flashMicToast 时清旧 timer，避免新 toast 被旧 timer 提前清掉
+  const micToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
+
+  function flashMicToast(msg: string, ms = 3500) {
+    setMicToast(msg)
+    if (micToastTimerRef.current) {
+      clearTimeout(micToastTimerRef.current)
+    }
+    micToastTimerRef.current = setTimeout(() => {
+      micToastTimerRef.current = null
+      setMicToast(null)
+    }, ms)
+  }
+
+  // ⭐ 统一的语音识别清理函数：避免散在 4 处的清理逻辑发散
+  // 不动 shouldKeepRecordingRef（由调用方决定是否要保留意图）
+  function cleanupRecognitionAndStream() {
+    if (aliveProbeRef.current) {
+      clearTimeout(aliveProbeRef.current)
+      aliveProbeRef.current = null
+    }
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current)
+      restartTimerRef.current = null
+    }
+    const rec = recognitionRef.current
+    recognitionRef.current = null
+    if (rec) {
+      rec.onstart = null
+      rec.onaudiostart = null
+      rec.onspeechstart = null
+      rec.onresult = null
+      rec.onend = null
+      rec.onerror = null
+      try { rec.stop() } catch (_) { /* ignore */ }
+      try { rec.abort() } catch (_) { /* ignore */ }
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((t) => t.stop())
+      mediaStreamRef.current = null
+    }
+  }
 
   function createRecognition() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -65,20 +112,84 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }
 
   const hasSpeechAPI = !!(typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition))
+  // Electron 桌面端：Web Speech API 在 Electron 33 内的 Chromium 中已被禁用
+  // （Google 不再公开 cloud speech API key）。能创建对象但 start() 后无 audio。
+  // 用 isDesktop 提示用户。
+  const isInsideElectron = typeof window !== 'undefined' && !!(window as any).piDesktop
 
-  const startRecording = useCallback(() => {
+  // 主动获取麦克风权限并保留 stream 句柄：
+  // - 这是触发 Electron / Windows 系统级麦克风权限弹窗的标准方式
+  // - 拿到 stream 之后再启动 SpeechRecognition，可避免 SpeechRecognition 静默失败
+  // - stream 在 stopRecording 时手动 stop，释放麦克风
+  async function requestMicrophone(): Promise<MediaStream | null> {
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      flashMicToast('当前环境不支持麦克风访问')
+      return null
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.info('[speech] getUserMedia ok, tracks=', stream.getAudioTracks().length)
+      return stream
+    } catch (err) {
+      const name = (err as { name?: string })?.name ?? ''
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn('[speech] getUserMedia failed:', name, msg)
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        flashMicToast('麦克风权限被拒绝，请在 Windows 设置 → 隐私 → 麦克风 中允许')
+      } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+        flashMicToast('未检测到麦克风设备')
+      } else if (name === 'NotReadableError' || name === 'TrackStartError') {
+        flashMicToast('麦克风被其他程序占用')
+      } else {
+        flashMicToast(`无法访问麦克风：${msg}`)
+      }
+      return null
+    }
+  }
+
+  const startRecording = useCallback(async () => {
     if (recording) return
 
     shouldKeepRecordingRef.current = true
 
     if (hasSpeechAPI) {
+      // ⭐ 关键修复：先主动 getUserMedia 触发系统级麦克风权限授权，
+      // 否则 Electron 里 SpeechRecognition 会静默失败（用户以为按钮没反应）。
+      const stream = await requestMicrophone()
+      if (!stream) {
+        // 权限失败或无设备，requestMicrophone 内部已 toast 提示
+        shouldKeepRecordingRef.current = false
+        return
+      }
+      if (!shouldKeepRecordingRef.current) {
+        // 用户在等待权限时已经又点了一次按钮取消
+        stream.getTracks().forEach((t) => t.stop())
+        return
+      }
+      mediaStreamRef.current = stream
+
       const rec = createRecognition()
-      if (!rec) return
+      if (!rec) {
+        stream.getTracks().forEach((t) => t.stop())
+        mediaStreamRef.current = null
+        flashMicToast('当前环境不支持语音识别（缺少 SpeechRecognition API）')
+        shouldKeepRecordingRef.current = false
+        return
+      }
       recognitionRef.current = rec
       let finalTranscript = ''
       // 限制连续失败重启次数，避免麦克风不可用时无限重启耗电
       let restartFailCount = 0
       const MAX_RESTART_FAILS = 5
+      // 是否收到过任何"语音引擎活着"的信号（onstart / onaudiostart / onresult）
+      let aliveSignalSeen = false
+
+      const clearAliveProbe = () => {
+        if (aliveProbeRef.current) {
+          clearTimeout(aliveProbeRef.current)
+          aliveProbeRef.current = null
+        }
+      }
 
       const scheduleRestart = (delay: number) => {
         if (restartTimerRef.current) {
@@ -89,9 +200,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         if (restartFailCount >= MAX_RESTART_FAILS) {
           console.warn('[speech] giving up after', restartFailCount, 'restart failures')
           shouldKeepRecordingRef.current = false
+          cleanupRecognitionAndStream()
           recordingRef.current = false
           setRecording(false)
-          recognitionRef.current = null
+          flashMicToast('语音识别多次启动失败，请检查麦克风或网络')
           return
         }
         restartTimerRef.current = setTimeout(() => {
@@ -108,7 +220,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }, delay)
       }
 
+      // ⭐ 诊断回调：让我们能确认 SpeechRecognition 真的在工作
+      rec.onstart = () => {
+        console.info('[speech] onstart')
+        aliveSignalSeen = true
+      }
+      rec.onaudiostart = () => {
+        console.info('[speech] onaudiostart (mic stream attached)')
+        aliveSignalSeen = true
+      }
+      rec.onspeechstart = () => {
+        console.info('[speech] onspeechstart (voice detected)')
+        aliveSignalSeen = true
+      }
       rec.onresult = (e: SpeechRecognitionEvent) => {
+        aliveSignalSeen = true
+        clearAliveProbe()
         if (!shouldKeepRecordingRef.current) return
         let interim = ''
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -119,54 +246,62 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         setValue(finalTranscript + interim)
       }
       rec.onend = () => {
+        console.info('[speech] onend, alive=', aliveSignalSeen)
         if (recognitionRef.current !== rec) return
         if (!shouldKeepRecordingRef.current) return
         scheduleRestart(250)
       }
       rec.onerror = (e: SpeechRecognitionErrorEvent) => {
+        console.warn('[speech] onerror:', e.error)
         const recoverable = e.error === 'no-speech' || e.error === 'aborted' || e.error === 'audio-capture' || e.error === 'network'
+        // network 在 Electron 里通常意味着 Google Speech API 不可达
+        if (e.error === 'network' && isInsideElectron) {
+          flashMicToast('桌面端可能无法访问 Google 语音服务，建议使用浏览器版本或检查网络')
+        } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          flashMicToast('麦克风权限被拒绝，请在系统设置中允许')
+        }
         if (recoverable && shouldKeepRecordingRef.current) {
           return
         }
         shouldKeepRecordingRef.current = false
+        cleanupRecognitionAndStream()
         recordingRef.current = false
         setRecording(false)
-        recognitionRef.current = null
       }
       try {
         rec.start()
         recordingRef.current = true
         setRecording(true)
-      } catch (_) {
+        // ⭐ 启动后 1.8 秒内如果没有任何 onstart/onaudiostart/onresult 回调，
+        // 视为 Electron 里 SpeechRecognition 静默失败，提示用户
+        clearAliveProbe()
+        aliveProbeRef.current = setTimeout(() => {
+          aliveProbeRef.current = null
+          if (!aliveSignalSeen && shouldKeepRecordingRef.current) {
+            console.warn('[speech] no alive signal in 1.8s, likely SpeechRecognition is disabled in this runtime')
+            if (isInsideElectron) {
+              flashMicToast('桌面端不支持语音识别（Electron 限制），请在浏览器中使用 / 在设置中查看')
+            } else {
+              flashMicToast('语音识别似乎没启动，请检查麦克风权限')
+            }
+          }
+        }, 1800)
+      } catch (err) {
+        console.warn('[speech] rec.start() threw:', err)
+        flashMicToast('语音识别启动失败')
         shouldKeepRecordingRef.current = false
-        recognitionRef.current = null
+        cleanupRecognitionAndStream()
       }
     } else {
-      recordingRef.current = true
-      setRecording(true)
-      mockTimerRef.current = setInterval(() => {
-        if (!shouldKeepRecordingRef.current) return
-        const chars = '用中文学编程吧'
-        setValue((v) => v + chars[Math.floor(Math.random() * chars.length)])
-      }, 300)
+      // 真·无 SpeechRecognition API：不再用假打字 mock 误导用户
+      flashMicToast('当前环境不支持语音识别')
+      shouldKeepRecordingRef.current = false
     }
-  }, [recording, hasSpeechAPI])
+  }, [recording, hasSpeechAPI, isInsideElectron])
 
   const stopRecording = useCallback(() => {
     shouldKeepRecordingRef.current = false
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current)
-      restartTimerRef.current = null
-    }
-    const rec = recognitionRef.current
-    recognitionRef.current = null
-    if (rec) {
-      rec.onresult = null
-      rec.onend = null
-      rec.onerror = null
-      try { rec.stop() } catch (_) { /* ignore */ }
-      try { rec.abort() } catch (_) { /* ignore */ }
-    }
+    cleanupRecognitionAndStream()
     if (mockTimerRef.current) {
       clearInterval(mockTimerRef.current)
       mockTimerRef.current = null
@@ -193,7 +328,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       // Auto-focus textarea after voice send
       setTimeout(() => textareaRef.current?.focus(), 0)
     } else {
-      startRecording()
+      void startRecording()
     }
   }, [isStreaming, value, attachments, onSend, startRecording, stopRecording])
 
@@ -403,6 +538,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       }}
     >
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
+        {micToast && (
+          <div
+            style={{
+              marginBottom: 8,
+              padding: '8px 12px',
+              borderRadius: 8,
+              background: 'rgba(239, 68, 68, 0.10)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#dc2626',
+              fontSize: 'var(--font-sm)',
+              lineHeight: 1.5,
+              textAlign: 'center',
+            }}
+          >
+            🎤 {micToast}
+          </div>
+        )}
         <div
           className={`chat-input-wrapper ${isFocused ? 'is-focused' : ''} ${isStreaming ? 'is-streaming' : ''}`}
           style={{

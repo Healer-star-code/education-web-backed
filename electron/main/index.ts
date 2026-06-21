@@ -1,4 +1,4 @@
-﻿import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+﻿import { app, BrowserWindow, dialog, ipcMain, shell, session } from 'electron'
 import { join, basename, dirname, extname } from 'node:path'
 import { existsSync, statSync, copyFileSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -466,6 +466,28 @@ function setupTrayCallbacks() {
 }
 
 app.whenReady().then(() => {
+  // ⭐ 媒体权限放行：getUserMedia / MediaRecorder / SpeechRecognition 都需要
+  // media 权限。默认 Electron 会拦截，导致渲染进程拿不到麦克风 → 语音按钮无反应。
+  // 这里全部放行（桌面客户端没有跨站攻击风险）。
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    // permission 可能是: media, mediaKeySystem, geolocation, notifications, ...
+    // 全部放行（桌面客户端只加载本地 file:// 或本地 super-king 后端，无 XSS 风险）
+    if (
+      permission === 'media' ||
+      permission === 'mediaKeySystem' ||
+      permission === 'clipboard-read' ||
+      permission === 'clipboard-sanitized-write'
+    ) {
+      callback(true)
+      return
+    }
+    callback(false)
+  })
+  // 同步给一些较新的 permission check（避免每次都走 request）
+  session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
+    return permission === 'media' || permission === 'mediaKeySystem'
+  })
+
   registerIpc()
   createWindow()
   setupTrayCallbacks()
