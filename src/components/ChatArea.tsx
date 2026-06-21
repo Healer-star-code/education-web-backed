@@ -1,5 +1,38 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep, ArtifactInfo } from '../mockData'
+
+type ChatSessionState = {
+  messages: Message[]
+  hasMessages: boolean
+  streaming: boolean
+  error: string | null
+  pendingPermissions: import('../lib/piApi').PermissionRequestInfo[]
+  pendingQuestions: import('../lib/piApi').QuestionInfo[]
+  sdkSessionId: string | null
+  sdkSessionInfo: SessionInfo | null
+  eventSource: EventSource | null
+  eventReadySessionId: string | null
+  eventReadyResolve: (() => void) | null
+  currentAssistantId: string | null
+  currentThinking: string
+  currentThinkingStart: number
+  currentThinkingStepId: string | null
+  pendingToolUpdate: { toolCallId: string; partialResult: unknown } | null
+  toolUpdateTimer: ReturnType<typeof setTimeout> | null
+  pendingTextDelta: string
+  textDeltaTimer: ReturnType<typeof setTimeout> | null
+  pendingThinkingDelta: string
+  thinkingDeltaTimer: ReturnType<typeof setTimeout> | null
+  skillParser: SkillStreamParser | null
+  pendingSkillFreeText: string
+  normalizeSessionId: string | null
+  toolPermissionMap: Map<string, import('../lib/piApi').PermissionRequestInfo>
+  allowedSessionPermissions: Map<string, Set<string>>
+  scannedForArtifacts: Map<string, number>
+  fallbackScanTimer: ReturnType<typeof setTimeout> | null
+  /** 该会话是否已完成首次历史消息加载 */
+  loaded?: boolean
+}
 import { MessageView } from './MessageView'
 import { MessageErrorBoundary } from './MessageErrorBoundary'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
@@ -191,7 +224,7 @@ function toMessageAttachments(attachments: LocalAttachment[] | undefined): Messa
 }
 
 export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, onSessionCreated, modelProviders, config, onSwitchModel, autoApproveAllTools = false }: Props) {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, _setMessages] = useState<Message[]>([])
   const [hasMessages, setHasMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -204,6 +237,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const eventSourceRef = useRef<EventSource | null>(null)
   const eventReadySessionIdRef = useRef<string | null>(null)
   const eventReadyResolveRef = useRef<(() => void) | null>(null)
+  // 当前 UI 正在显示的会话 id；SSE 事件按来源会话过滤，保证切会话时后台任务不污染当前显示
+  const activeSessionIdRef = useRef<string | null>(null)
+  const eventSourceSessionMapRef = useRef<Map<EventSource, string>>(new Map())
+  const staleEventSourcesRef = useRef<Array<{ es: EventSource; sessionId: string; closeTimer: ReturnType<typeof setTimeout> }>>([])
   const currentAssistantIdRef = useRef<string | null>(null)
   const currentThinkingRef = useRef<string>('')
   const currentThinkingStartRef = useRef<number>(0)
@@ -236,6 +273,313 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const scannedForArtifactsRef = useRef<Map<string, number>>(new Map())
   // 兜底扫描 200ms debounce timer：高频 setMessages 时合并成一次扫描
   const fallbackScanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 多会话运行时状态：切会话时保存/恢复，后台 SSE 保持连接继续运行
+  const sessionStatesRef = useRef<Map<string, ChatSessionState>>(new Map())
+  // messages 的 ref 镜像，saveSessionState 时直接读取，避免闭包 stale
+  const messagesRef = useRef<Message[]>([])
+
+  // 所有 setMessages 调用都同步更新 messagesRef，确保 saveSessionState 读取到最新值
+  function setMessages(updater: React.SetStateAction<Message[]>) {
+    _setMessages((prev) => {
+      const next = typeof updater === 'function' ? (updater as (prev: Message[]) => Message[])(prev) : updater
+      messagesRef.current = next
+      return next
+    })
+  }
+
+  function createDefaultSessionState(sessionId: string): ChatSessionState {
+    return {
+      messages: [],
+      hasMessages: false,
+      streaming: false,
+      error: null,
+      pendingPermissions: [],
+      pendingQuestions: [],
+      sdkSessionId: sessionId,
+      sdkSessionInfo: session ?? null,
+      eventSource: null,
+      eventReadySessionId: null,
+      eventReadyResolve: null,
+      currentAssistantId: null,
+      currentThinking: '',
+      currentThinkingStart: 0,
+      currentThinkingStepId: null,
+      pendingToolUpdate: null,
+      toolUpdateTimer: null,
+      pendingTextDelta: '',
+      textDeltaTimer: null,
+      pendingThinkingDelta: '',
+      thinkingDeltaTimer: null,
+      skillParser: null,
+      pendingSkillFreeText: '',
+      normalizeSessionId: sessionId,
+      toolPermissionMap: new Map(),
+      allowedSessionPermissions: new Map(),
+      scannedForArtifacts: new Map(),
+      fallbackScanTimer: null,
+      loaded: false,
+    }
+  }
+
+  function getOrCreateSessionState(sessionId: string): ChatSessionState {
+    let state = sessionStatesRef.current.get(sessionId)
+    if (!state) {
+      state = createDefaultSessionState(sessionId)
+      sessionStatesRef.current.set(sessionId, state)
+    }
+    return state
+  }
+
+  function flushPendingDeltas() {
+    const assistantId = currentAssistantIdRef.current
+    if (textDeltaTimerRef.current) {
+      clearTimeout(textDeltaTimerRef.current)
+      textDeltaTimerRef.current = null
+      const toFlush = pendingTextDeltaRef.current
+      pendingTextDeltaRef.current = ''
+      if (toFlush && assistantId) {
+        messagesRef.current = messagesRef.current.map((msg) => (
+          msg.id === assistantId ? { ...msg, content: msg.content + toFlush } : msg
+        ))
+      }
+    }
+    if (thinkingDeltaTimerRef.current) {
+      clearTimeout(thinkingDeltaTimerRef.current)
+      thinkingDeltaTimerRef.current = null
+      const content = pendingThinkingDeltaRef.current
+      pendingThinkingDeltaRef.current = ''
+      const stepId = currentThinkingStepIdRef.current
+      if (assistantId && stepId) {
+        messagesRef.current = messagesRef.current.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'thinking' && s.id === stepId ? { ...s, content } : s
+          )) }
+        })
+      }
+    }
+    if (toolUpdateTimerRef.current) {
+      clearTimeout(toolUpdateTimerRef.current)
+      toolUpdateTimerRef.current = null
+      const pending = pendingToolUpdateRef.current
+      pendingToolUpdateRef.current = null
+      if (pending && assistantId) {
+        messagesRef.current = messagesRef.current.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'tool' && s.id === pending.toolCallId ? { ...s, partialResult: pending.partialResult } : s
+          )) }
+        })
+      }
+    }
+    if (skillParserRef.current) {
+      skillParserRef.current.flush()
+      skillParserRef.current = null
+      if (pendingSkillFreeTextRef.current) {
+        pendingTextDeltaRef.current += pendingSkillFreeTextRef.current
+        pendingSkillFreeTextRef.current = ''
+      }
+      const toFlush = pendingTextDeltaRef.current
+      pendingTextDeltaRef.current = ''
+      if (toFlush && assistantId) {
+        messagesRef.current = messagesRef.current.map((msg) => (
+          msg.id === assistantId ? { ...msg, content: msg.content + toFlush } : msg
+        ))
+      }
+    }
+  }
+
+  function saveSessionState(sessionId: string) {
+    flushPendingDeltas()
+    if (fallbackScanTimerRef.current) {
+      clearTimeout(fallbackScanTimerRef.current)
+      fallbackScanTimerRef.current = null
+    }
+    const state: ChatSessionState = {
+      messages: messagesRef.current,
+      hasMessages,
+      streaming,
+      error,
+      pendingPermissions,
+      pendingQuestions,
+      sdkSessionId: sdkSessionIdRef.current,
+      sdkSessionInfo: sdkSessionInfoRef.current,
+      eventSource: eventSourceRef.current,
+      eventReadySessionId: eventReadySessionIdRef.current,
+      eventReadyResolve: eventReadyResolveRef.current,
+      currentAssistantId: currentAssistantIdRef.current,
+      currentThinking: currentThinkingRef.current,
+      currentThinkingStart: currentThinkingStartRef.current,
+      currentThinkingStepId: currentThinkingStepIdRef.current,
+      pendingToolUpdate: pendingToolUpdateRef.current,
+      toolUpdateTimer: null,
+      pendingTextDelta: pendingTextDeltaRef.current,
+      textDeltaTimer: null,
+      pendingThinkingDelta: pendingThinkingDeltaRef.current,
+      thinkingDeltaTimer: null,
+      skillParser: skillParserRef.current,
+      pendingSkillFreeText: pendingSkillFreeTextRef.current,
+      normalizeSessionId: normalizeSessionIdRef.current,
+      toolPermissionMap: new Map(toolPermissionMapRef.current),
+      allowedSessionPermissions: new Map(allowedSessionPermissionsRef.current),
+      scannedForArtifacts: new Map(scannedForArtifactsRef.current),
+      fallbackScanTimer: null,
+      loaded: true,
+    }
+    sessionStatesRef.current.set(sessionId, state)
+  }
+
+  async function loadSessionState(sessionId: string) {
+    const saved = sessionStatesRef.current.get(sessionId)
+    if (saved?.loaded) {
+      if (saved.eventSource && !eventSourceSessionMapRef.current.has(saved.eventSource)) {
+        saved.eventSource = null
+        saved.eventReadySessionId = null
+        saved.eventReadyResolve = null
+      }
+      // 恢复前先把后台累积的 skill/parser 缓冲 flush 进 messages，并丢弃旧的解析器
+      // （它的回调闭包指向旧的 state 对象，恢复为 active 后无法正确更新 UI）
+      if (saved.skillParser) {
+        saved.skillParser.flush()
+        saved.skillParser = null
+        if (saved.pendingSkillFreeText) {
+          saved.pendingTextDelta += saved.pendingSkillFreeText
+          saved.pendingSkillFreeText = ''
+        }
+        const toFlush = saved.pendingTextDelta
+        saved.pendingTextDelta = ''
+        if (toFlush && saved.currentAssistantId) {
+          saved.messages = saved.messages.map((msg) => (
+            msg.id === saved.currentAssistantId ? { ...msg, content: msg.content + toFlush } : msg
+          ))
+        }
+      }
+      messagesRef.current = saved.messages
+      _setMessages(saved.messages)
+      setHasMessages(saved.hasMessages)
+      setStreaming(saved.streaming)
+      setError(saved.error)
+      setPendingPermissions(saved.pendingPermissions)
+      setPendingQuestions(saved.pendingQuestions)
+      sdkSessionIdRef.current = saved.sdkSessionId
+      sdkSessionInfoRef.current = saved.sdkSessionInfo
+      eventSourceRef.current = saved.eventSource
+      eventReadySessionIdRef.current = saved.eventReadySessionId
+      eventReadyResolveRef.current = saved.eventReadyResolve
+      currentAssistantIdRef.current = saved.currentAssistantId
+      currentThinkingRef.current = saved.currentThinking
+      currentThinkingStartRef.current = saved.currentThinkingStart
+      currentThinkingStepIdRef.current = saved.currentThinkingStepId
+      pendingToolUpdateRef.current = saved.pendingToolUpdate
+      toolUpdateTimerRef.current = saved.toolUpdateTimer
+      pendingTextDeltaRef.current = saved.pendingTextDelta
+      textDeltaTimerRef.current = saved.textDeltaTimer
+      pendingThinkingDeltaRef.current = saved.pendingThinkingDelta
+      thinkingDeltaTimerRef.current = saved.thinkingDeltaTimer
+      skillParserRef.current = saved.skillParser
+      pendingSkillFreeTextRef.current = saved.pendingSkillFreeText
+      normalizeSessionIdRef.current = saved.normalizeSessionId
+      toolPermissionMapRef.current = saved.toolPermissionMap
+      allowedSessionPermissionsRef.current = saved.allowedSessionPermissions
+      scannedForArtifactsRef.current = saved.scannedForArtifacts
+      fallbackScanTimerRef.current = saved.fallbackScanTimer
+      forceScrollRef.current = true
+      if (!saved.eventSource) {
+        void connectEvents(sessionId)
+      }
+      if (autoApproveAllTools && saved.pendingPermissions.length > 0) {
+        for (const req of saved.pendingPermissions) {
+          const sid = req.sessionId || sdkSessionIdRef.current
+          if (!sid) continue
+          void resolvePermission(sid, req.permissionId, true).catch((err) => {
+            console.error('[YOLO] flush restored permission failed:', err)
+          })
+        }
+        setPendingPermissions([])
+      }
+      return
+    }
+
+    // 丢弃未完成的占位快照（如上次初始化被切走）
+    sessionStatesRef.current.delete(sessionId)
+
+    messagesRef.current = []
+    _setMessages([])
+    setHasMessages(false)
+    setStreaming(false)
+    setError(null)
+    setPendingPermissions([])
+    setPendingQuestions([])
+    sdkSessionIdRef.current = sessionId
+    sdkSessionInfoRef.current = session ?? null
+    eventSourceRef.current = null
+    eventReadySessionIdRef.current = null
+    eventReadyResolveRef.current = null
+    currentAssistantIdRef.current = null
+    currentThinkingRef.current = ''
+    currentThinkingStartRef.current = 0
+    currentThinkingStepIdRef.current = null
+    pendingToolUpdateRef.current = null
+    toolUpdateTimerRef.current = null
+    pendingTextDeltaRef.current = ''
+    textDeltaTimerRef.current = null
+    pendingThinkingDeltaRef.current = ''
+    thinkingDeltaTimerRef.current = null
+    skillParserRef.current = null
+    pendingSkillFreeTextRef.current = ''
+    normalizeSessionIdRef.current = sessionId
+    toolPermissionMapRef.current = new Map()
+    allowedSessionPermissionsRef.current = new Map()
+    scannedForArtifactsRef.current = new Map()
+    fallbackScanTimerRef.current = null
+
+    try {
+      await connectEvents(sessionId)
+      const cwd = sdkSessionInfoRef.current?.cwd ?? session?.cwd
+      const loadedMessages = await getMessages(sessionId, cwd)
+      const normalized = normalizeLoadedMessages(loadedMessages)
+      const state = getOrCreateSessionState(sessionId)
+      state.messages = normalized
+      state.hasMessages = normalized.length > 0
+      state.sdkSessionId = sessionId
+      state.sdkSessionInfo = sdkSessionInfoRef.current
+      state.loaded = true
+      if (activeSessionIdRef.current === sessionId) {
+        messagesRef.current = normalized
+        _setMessages(normalized)
+        setHasMessages(normalized.length > 0)
+        forceScrollRef.current = true
+      }
+    } catch (err) {
+      const state = getOrCreateSessionState(sessionId)
+      const message = err instanceof Error ? err.message : String(err)
+      state.error = message
+      if (activeSessionIdRef.current === sessionId) {
+        setError(`加载会话失败：${message}`)
+        setMessages([])
+      }
+    }
+  }
+
+  function closeAllEventSources() {
+    for (const [es] of eventSourceSessionMapRef.current) {
+      es.close()
+    }
+    eventSourceSessionMapRef.current.clear()
+    eventSourceRef.current = null
+    for (const entry of staleEventSourcesRef.current) {
+      clearTimeout(entry.closeTimer)
+      entry.es.close()
+    }
+    staleEventSourcesRef.current = []
+    for (const state of sessionStatesRef.current.values()) {
+      state.eventSource = null
+      state.eventReadySessionId = null
+      state.eventReadyResolve = null
+    }
+  }
+
   useEffect(() => {
     autoApproveAllToolsRef.current = autoApproveAllTools
   }, [autoApproveAllTools])
@@ -394,13 +738,236 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     }
   }, [])
 
-  const handleAgentEvent = useCallback((event: WebAgentEvent) => {
+  function applyBackgroundAgentEvent(event: WebAgentEvent, sessionId: string) {
+    const state = getOrCreateSessionState(sessionId)
+
+    switch (event.type) {
+      case 'connected': {
+        if (state.eventReadyResolve) {
+          state.eventReadyResolve()
+          state.eventReadyResolve = null
+        }
+        state.eventReadySessionId = event.sessionId
+        break
+      }
+      case 'agent_start': {
+        state.streaming = true
+        state.error = null
+        state.hasMessages = true
+        break
+      }
+      case 'thinking_start': {
+        state.currentThinking = ''
+        state.currentThinkingStart = Date.now()
+        const assistantId = state.currentAssistantId
+        if (!assistantId) break
+        const stepId = 'think-' + Date.now()
+        state.currentThinkingStepId = stepId
+        const step: AgentStep = { type: 'thinking', id: stepId, content: '', durationMs: 0, isThinking: true }
+        state.messages = state.messages.map((msg) => (
+          msg.id === assistantId ? { ...msg, steps: [...(msg.steps ?? []), step] } : msg
+        ))
+        break
+      }
+      case 'thinking_delta': {
+        state.currentThinking += event.delta
+        const assistantId = state.currentAssistantId
+        const stepId = state.currentThinkingStepId
+        if (!assistantId || !stepId) return
+        const content = state.currentThinking
+        state.pendingThinkingDelta = ''
+        state.messages = state.messages.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'thinking' && s.id === stepId ? { ...s, content } : s
+          )) }
+        })
+        break
+      }
+      case 'thinking_end': {
+        const content = event.content || state.currentThinking
+        state.currentThinking = content
+        const durationMs = Date.now() - state.currentThinkingStart
+        const assistantId = state.currentAssistantId
+        const stepId = state.currentThinkingStepId
+        state.pendingThinkingDelta = ''
+        if (assistantId && stepId) {
+          state.messages = state.messages.map((msg) => {
+            if (msg.id !== assistantId || !msg.steps) return msg
+            return { ...msg, steps: msg.steps.map((s) => (
+              s.type === 'thinking' && s.id === stepId ? { ...s, content, durationMs, isThinking: false } : s
+            )) }
+          })
+        }
+        state.currentThinkingStepId = null
+        break
+      }
+      case 'assistant_delta': {
+        const assistantId = state.currentAssistantId
+        if (!assistantId) return
+        if (!state.skillParser) {
+          state.skillParser = createSkillStreamParser({
+            onText: (text) => { state.pendingSkillFreeText += text },
+            onSkillStart: (id, name, baseDir) => {
+              const step: AgentStep = { type: 'skill_load', id, name, baseDir, content: '', isLoading: true }
+              state.messages = state.messages.map((msg) => (
+                msg.id === assistantId ? { ...msg, steps: [...(msg.steps ?? []), step] } : msg
+              ))
+            },
+            onSkillDelta: (id, content) => {
+              state.messages = state.messages.map((msg) => {
+                if (msg.id !== assistantId || !msg.steps) return msg
+                return { ...msg, steps: msg.steps.map((s) => (
+                  s.type === 'skill_load' && s.id === id ? { ...s, content: s.content + content } : s
+                )) }
+              })
+            },
+            onSkillEnd: (id) => {
+              state.messages = state.messages.map((msg) => {
+                if (msg.id !== assistantId || !msg.steps) return msg
+                return { ...msg, steps: msg.steps.map((s) => (
+                  s.type === 'skill_load' && s.id === id ? { ...s, isLoading: false } : s
+                )) }
+              })
+            },
+          })
+        }
+        state.skillParser.push(event.delta)
+        const buffered = state.pendingSkillFreeText
+        state.pendingSkillFreeText = ''
+        if (buffered) state.pendingTextDelta += buffered
+        const toFlush = state.pendingTextDelta
+        state.pendingTextDelta = ''
+        if (toFlush) {
+          state.messages = state.messages.map((msg) => (
+            msg.id === assistantId ? { ...msg, content: msg.content + toFlush } : msg
+          ))
+        }
+        break
+      }
+      case 'tool_start': {
+        const assistantId = state.currentAssistantId
+        if (!assistantId) break
+        const step: AgentStep = { type: 'tool', id: event.toolCallId, name: event.toolName, status: 'running', args: event.args }
+        state.messages = state.messages.map((msg) => (
+          msg.id === assistantId ? { ...msg, steps: [...(msg.steps ?? []), step] } : msg
+        ))
+        break
+      }
+      case 'tool_update': {
+        const assistantId = state.currentAssistantId
+        if (!assistantId) break
+        state.pendingToolUpdate = { toolCallId: event.toolCallId, partialResult: event.partialResult }
+        const pending = state.pendingToolUpdate
+        state.pendingToolUpdate = null
+        if (pending) {
+          state.messages = state.messages.map((msg) => {
+            if (msg.id !== assistantId || !msg.steps) return msg
+            return { ...msg, steps: msg.steps.map((s) => (
+              s.type === 'tool' && s.id === pending.toolCallId ? { ...s, partialResult: pending.partialResult } : s
+            )) }
+          })
+        }
+        break
+      }
+      case 'tool_end': {
+        const assistantId = state.currentAssistantId
+        if (!assistantId) break
+        state.messages = state.messages.map((msg) => {
+          if (msg.id !== assistantId || !msg.steps) return msg
+          return { ...msg, steps: msg.steps.map((s) => (
+            s.type === 'tool' && s.id === event.toolCallId ? { ...s, status: event.isError ? 'error' : 'done', result: event.result } : s
+          )) }
+        })
+        break
+      }
+      case 'artifact_created': {
+        const assistantId = state.currentAssistantId
+        const targetId = assistantId ?? [...state.messages].reverse().find((msg) => msg.role === 'assistant')?.id
+        if (!targetId) break
+        state.messages = state.messages.map((msg) => (
+          msg.id === targetId ? { ...msg, artifacts: [...(msg.artifacts ?? []), event.artifact] } : msg
+        ))
+        break
+      }
+      case 'session_renamed': {
+        if (state.sdkSessionInfo) {
+          state.sdkSessionInfo = { ...state.sdkSessionInfo, name: event.name, titleSource: event.titleSource, aiTitleGenerated: event.aiTitleGenerated }
+        }
+        onSessionCreated?.({
+          id: event.sessionId,
+          cwd: state.sdkSessionInfo?.cwd ?? selectedCwd ?? '',
+          sessionFile: state.sdkSessionInfo?.sessionFile,
+          created: state.sdkSessionInfo?.created ?? new Date().toISOString(),
+          modified: new Date().toISOString(),
+          firstMessage: state.sdkSessionInfo?.firstMessage ?? '',
+          messageCount: state.sdkSessionInfo?.messageCount ?? 0,
+          name: event.name,
+          titleSource: event.titleSource,
+          aiTitleGenerated: event.aiTitleGenerated,
+        })
+        break
+      }
+      case 'agent_end': {
+        state.streaming = false
+        const finishedAssistantId = state.currentAssistantId
+        state.currentAssistantId = null
+        if (state.skillParser) {
+          state.skillParser.flush()
+          state.skillParser = null
+        }
+        if (state.pendingSkillFreeText) {
+          state.pendingTextDelta += state.pendingSkillFreeText
+          state.pendingSkillFreeText = ''
+        }
+        const tailText = state.pendingTextDelta
+        state.pendingTextDelta = ''
+        state.pendingThinkingDelta = ''
+        if (tailText && finishedAssistantId) {
+          state.messages = state.messages.map((msg) => (
+            msg.id === finishedAssistantId ? { ...msg, content: msg.content + tailText } : msg
+          ))
+        }
+        break
+      }
+      case 'error': {
+        state.error = event.message
+        state.streaming = false
+        break
+      }
+    }
+  }
+
+  const handleAgentEvent = useCallback((event: WebAgentEvent & { target?: EventSource }) => {
+    const sourceSessionId = event.target
+      ? eventSourceSessionMapRef.current.get(event.target)
+      : activeSessionIdRef.current
+    if (!sourceSessionId) return
+    const isActiveSession = sourceSessionId === activeSessionIdRef.current
+
+    // 连接事件：始终处理，用于释放 connectEvents 的 ready Promise。
     if (event.type === 'connected') {
-      if (eventReadyResolveRef.current) {
+      if (eventReadyResolveRef.current && isActiveSession) {
         eventReadyResolveRef.current()
         eventReadyResolveRef.current = null
       }
       eventReadySessionIdRef.current = event.sessionId
+      if (!isActiveSession) {
+        const state = getOrCreateSessionState(sourceSessionId)
+        if (state.eventReadyResolve) {
+          state.eventReadyResolve()
+          state.eventReadyResolve = null
+        }
+        state.eventReadySessionId = event.sessionId
+      }
+      return
+    }
+
+    // 非当前会话的流式/状态事件：更新该会话快照，不污染当前 UI。
+    // 权限/提问弹窗需要全局处理（因为 ChatArea 常驻，弹窗不应随切会话消失）。
+    const isDialogEvent = event.type === 'permission_requested' || event.type === 'permission_resolved' || event.type === 'question' || event.type === 'question_resolved'
+    if (!isActiveSession && !isDialogEvent) {
+      applyBackgroundAgentEvent(event, sourceSessionId)
       return
     }
 
@@ -698,20 +1265,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         break
       }
       case 'permission_requested': {
-        const sessionId = sdkSessionIdRef.current
         const request = event.request
-        if (!sessionId) break
+        const targetSessionId = request.sessionId || sdkSessionIdRef.current
+        if (!targetSessionId) break
 
         // YOLO mode：全局自动允许（优先级最高，跳过一切兜底逻辑）
         if (autoApproveAllToolsRef.current) {
-          void resolvePermission(sessionId, request.permissionId, true).catch((err) => {
+          void resolvePermission(targetSessionId, request.permissionId, true).catch((err) => {
             console.error('[YOLO] auto-approve permission failed:', err)
           })
           break
         }
 
-        if (isSessionAllowed(sessionId, request.kind, request.options)) {
-          void resolvePermission(sessionId, request.permissionId, true)
+        if (isSessionAllowed(targetSessionId, request.kind, request.options)) {
+          void resolvePermission(targetSessionId, request.permissionId, true)
           break
         }
 
@@ -734,10 +1301,35 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             }),
           }
         }))
+
+        // 后台会话：同步更新快照，切回时仍能看到等待授权状态
+        if (!isActiveSession) {
+          const bgState = getOrCreateSessionState(sourceSessionId)
+          if (!bgState.pendingPermissions.some((p) => p.permissionId === request.permissionId)) {
+            bgState.pendingPermissions = [...bgState.pendingPermissions, request]
+          }
+          bgState.messages = bgState.messages.map((msg) => {
+            if (msg.role !== 'assistant' || !msg.steps) return msg
+            return {
+              ...msg,
+              steps: msg.steps.map((s) => {
+                if (s.type === 'tool' && s.name === request.kind && s.status === 'running') {
+                  bgState.toolPermissionMap.set(s.id, request)
+                  return { ...s, status: 'waiting_permission' as const, permissionId: request.permissionId }
+                }
+                return s
+              }),
+            }
+          })
+        }
         break
       }
       case 'permission_resolved': {
         setPendingPermissions((prev) => prev.filter((p) => p.permissionId !== event.permissionId))
+        if (!isActiveSession) {
+          const bgState = getOrCreateSessionState(sourceSessionId)
+          bgState.pendingPermissions = bgState.pendingPermissions.filter((p) => p.permissionId !== event.permissionId)
+        }
         break
       }
       case 'question': {
@@ -746,10 +1338,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           if (prev.some((x) => x.questionId === q.questionId)) return prev
           return [...prev, q]
         })
+        if (!isActiveSession) {
+          const bgState = getOrCreateSessionState(sourceSessionId)
+          if (!bgState.pendingQuestions.some((x) => x.questionId === q.questionId)) {
+            bgState.pendingQuestions = [...bgState.pendingQuestions, q]
+          }
+        }
         break
       }
       case 'question_resolved': {
         setPendingQuestions((prev) => prev.filter((q) => q.questionId !== event.questionId))
+        if (!isActiveSession) {
+          const bgState = getOrCreateSessionState(sourceSessionId)
+          bgState.pendingQuestions = bgState.pendingQuestions.filter((q) => q.questionId !== event.questionId)
+        }
         break
       }
       case 'error':
@@ -760,34 +1362,65 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }, [onSessionCreated, selectedCwd])
 
   const connectEvents = useCallback(async (sessionId: string): Promise<void> => {
-    if (eventSourceRef.current && eventReadySessionIdRef.current === sessionId) {
+    // 查找该会话是否已有 SSE 连接
+    let existingEs: EventSource | undefined
+    for (const [es, sid] of eventSourceSessionMapRef.current) {
+      if (sid === sessionId) {
+        existingEs = es
+        break
+      }
+    }
+    const state = getOrCreateSessionState(sessionId)
+    if (existingEs) {
+      // 该会话已有 SSE 连接（可能正在后台运行），直接复用
+      if (sessionId === activeSessionIdRef.current) {
+        eventSourceRef.current = existingEs
+      }
       return
     }
-
-    eventSourceRef.current?.close()
-    eventSourceRef.current = null
-    eventReadySessionIdRef.current = null
-    eventReadyResolveRef.current = null
 
     return new Promise((resolve) => {
       // SSE 连接应尽快就绪，但不应阻塞用户发送消息。
       // 2 秒内收到 open/connected 即认为就绪；否则也放行，由后续 prompt 调用自己报错。
       const timeout = setTimeout(() => {
-        eventReadyResolveRef.current = null
+        if (state.eventReadyResolve === readyResolve) {
+          state.eventReadyResolve = null
+        }
+        if (sessionId === activeSessionIdRef.current) {
+          eventReadyResolveRef.current = null
+        }
         resolve()
       }, 2000)
 
-      eventReadyResolveRef.current = () => {
+      const readyResolve = () => {
         clearTimeout(timeout)
-        eventReadyResolveRef.current = null
+        if (state.eventReadyResolve === readyResolve) {
+          state.eventReadyResolve = null
+        }
+        if (sessionId === activeSessionIdRef.current) {
+          eventReadyResolveRef.current = null
+        }
         resolve()
       }
 
+      state.eventReadyResolve = readyResolve
+      if (sessionId === activeSessionIdRef.current) {
+        eventReadyResolveRef.current = readyResolve
+      }
+
       try {
-        eventSourceRef.current = connectSessionEvents(sessionId, handleAgentEvent)
+        const es = connectSessionEvents(sessionId, (event) => handleAgentEvent({ ...event, target: es }))
+        eventSourceSessionMapRef.current.set(es, sessionId)
+        state.eventSource = es
+        if (sessionId === activeSessionIdRef.current) {
+          eventSourceRef.current = es
+        }
       } catch (err) {
         clearTimeout(timeout)
-        eventReadyResolveRef.current = null
+        state.eventReadyResolve = null
+        if (sessionId === activeSessionIdRef.current) {
+          eventReadyResolveRef.current = null
+        }
         console.error('Failed to connect session events:', err)
         resolve()
       }
@@ -800,6 +1433,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     const created = await createSession(cwd)
     sdkSessionIdRef.current = created.id
     sdkSessionInfoRef.current = created
+    activeSessionIdRef.current = created.id
+    const state = getOrCreateSessionState(created.id)
+    state.sdkSessionId = created.id
+    state.sdkSessionInfo = created
     await connectEvents(created.id)
     return created
   }, [connectEvents, newSessionCwd, selectedCwd, session?.cwd])
@@ -944,11 +1581,21 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     const assistantId = currentAssistantIdRef.current
     if (!sdkSessionId) return
 
-    // Close SSE connection first
-    eventSourceRef.current?.close()
-    eventSourceRef.current = null
+    // Close SSE connection for the active session only
+    const es = eventSourceRef.current
+    if (es) {
+      es.close()
+      eventSourceSessionMapRef.current.delete(es)
+      eventSourceRef.current = null
+    }
     eventReadySessionIdRef.current = null
     eventReadyResolveRef.current = null
+    const state = sessionStatesRef.current.get(sdkSessionId)
+    if (state) {
+      state.eventSource = null
+      state.eventReadySessionId = null
+      state.eventReadyResolve = null
+    }
 
     // Call backend abort
     try {
@@ -998,6 +1645,19 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
     if (decision === 'allow_session') {
       addSessionAllowed(sessionId, request.kind, request.options)
+      // 如果允许的是非当前会话，同步更新该会话快照，避免切回后丢失 allow_session 决策
+      if (sessionId !== activeSessionIdRef.current) {
+        const bgState = sessionStatesRef.current.get(sessionId)
+        if (bgState) {
+          const key = getPermissionKey(request.kind, request.options)
+          let set = bgState.allowedSessionPermissions.get(sessionId)
+          if (!set) {
+            set = new Set<string>()
+            bgState.allowedSessionPermissions.set(sessionId, set)
+          }
+          set.add(key)
+        }
+      }
     }
 
     try {
@@ -1032,63 +1692,62 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   }, [])
 
   useEffect(() => {
-    let cancelled = false
-    sdkSessionIdRef.current = null
-    sdkSessionInfoRef.current = null
-    currentAssistantIdRef.current = null
-    currentThinkingRef.current = ''
-    currentThinkingStartRef.current = 0
-    currentThinkingStepIdRef.current = null
-    if (skillParserRef.current) {
-      skillParserRef.current = null
-    }
-    pendingSkillFreeTextRef.current = ''
-    eventSourceRef.current?.close()
-    eventSourceRef.current = null
-    eventReadySessionIdRef.current = null
-    eventReadyResolveRef.current = null
-    scannedForArtifactsRef.current.clear()
+    activeSessionIdRef.current = session?.id ?? null
 
-        // 使用 queueMicrotask 延迟同步状态重置，避免 react-hooks/set-state-in-effect
-    queueMicrotask(() => {
-      if (session?.id) {
-        // 已有会话：直接使用 session.id（super-king 没有 open_existing/sessionFile）
-        setMessages([])
-        setHasMessages(true)
-        sdkSessionIdRef.current = session.id
-        sdkSessionInfoRef.current = session
-        normalizeSessionIdRef.current = session.id
-        void connectEvents(session.id)
-        getMessages(session.id, session.cwd)
-          .then((loadedMessages) => {
-            if (cancelled) return
-            setMessages(normalizeLoadedMessages(loadedMessages))
-            forceScrollRef.current = true
-          })
-          .catch((err) => {
-            if (!cancelled) {
-              const message = err instanceof Error ? err.message : String(err)
-              setError(`加载会话失败：${message}`)
-              setMessages([])
-            }
-          })
-      } else if (session) {
-        setMessages([])
-        setHasMessages(true)
-      } else {
-        setMessages([])
-        setHasMessages(false)
+    if (!session?.id) {
+      // 新会话占位状态：清空 active refs + UI
+      messagesRef.current = []
+      setMessages([])
+      setHasMessages(!!session)
+      setStreaming(false)
+      setError(null)
+      setPendingPermissions([])
+      setPendingQuestions([])
+      sdkSessionIdRef.current = null
+      sdkSessionInfoRef.current = session
+      eventSourceRef.current = null
+      eventReadySessionIdRef.current = null
+      eventReadyResolveRef.current = null
+      currentAssistantIdRef.current = null
+      currentThinkingRef.current = ''
+      currentThinkingStartRef.current = 0
+      currentThinkingStepIdRef.current = null
+      pendingToolUpdateRef.current = null
+      toolUpdateTimerRef.current = null
+      pendingTextDeltaRef.current = ''
+      textDeltaTimerRef.current = null
+      pendingThinkingDeltaRef.current = ''
+      thinkingDeltaTimerRef.current = null
+      if (skillParserRef.current) {
+        skillParserRef.current = null
       }
-    })
+      pendingSkillFreeTextRef.current = ''
+      normalizeSessionIdRef.current = null
+      toolPermissionMapRef.current = new Map()
+      allowedSessionPermissionsRef.current = new Map()
+      scannedForArtifactsRef.current.clear()
+      if (fallbackScanTimerRef.current) {
+        clearTimeout(fallbackScanTimerRef.current)
+        fallbackScanTimerRef.current = null
+      }
+      return
+    }
 
-    return () => { cancelled = true }
-  }, [connectEvents, session, newSessionCwd])
+    const sid = session.id
+    void loadSessionState(sid)
+
+    return () => {
+      // 切走前保存当前会话状态；后台 SSE 保持连接
+      if (activeSessionIdRef.current === sid) {
+        saveSessionState(sid)
+      }
+    }
+  }, [session, newSessionCwd])
 
   useEffect(() => {
     return () => {
-      eventSourceRef.current?.close()
-      eventSourceRef.current = null
-      // 清理所有节流定时器，避免组件卸载后 setTimeout 回调还在跑触发 setState
+      // 组件卸载：关闭所有会话的 SSE，清理所有节流定时器
+      closeAllEventSources()
       if (textDeltaTimerRef.current) {
         clearTimeout(textDeltaTimerRef.current)
         textDeltaTimerRef.current = null

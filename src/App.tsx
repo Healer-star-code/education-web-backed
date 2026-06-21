@@ -78,7 +78,6 @@ export default function App() {
   }, [])
 
   const [newSessionCwd, setNewSessionCwd] = useState<string | null>(null)
-  const [newSessionToken, setNewSessionToken] = useState(0)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [isDark, setIsDark] = useState(() => {
     try { return localStorage.getItem('pi-theme') === 'dark' } catch { return false }
@@ -339,7 +338,6 @@ export default function App() {
     if (!selectedCwd) return
     setSelectedSession(null)
     setNewSessionCwd(selectedCwd)
-    setNewSessionToken((v) => v + 1)
   }, [selectedCwd])
 
   const handleCwdChange = useCallback((cwd: string | null) => {
@@ -509,7 +507,6 @@ export default function App() {
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
             {showChat ? (
               <ChatArea
-                key={selectedSession?.id ?? `new-${newSessionCwd ?? selectedCwd ?? 'none'}-${newSessionToken}`}
                 session={selectedSession}
                 selectedCwd={selectedCwd}
                 newSessionCwd={newSessionCwd}
