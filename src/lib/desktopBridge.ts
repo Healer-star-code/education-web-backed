@@ -74,6 +74,15 @@ export interface PiDesktopBridge {
     saveAs: (src: string) => Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }>
     reveal: (target: string) => Promise<{ ok: boolean; fallback?: string; error?: string }>
     openLocal: (target: string) => Promise<{ ok: boolean; error?: string }>
+    writeBlobToTemp: (payload: { buffer: ArrayBuffer | Uint8Array; fileName: string }) => Promise<{
+      ok: boolean; tempPath?: string; size?: number; error?: string
+    }>
+    copyToSession: (payload: { tempPath: string; cwd: string; fileName: string }) => Promise<{
+      ok: boolean; absPath?: string; relPath?: string; size?: number; error?: string
+    }>
+    readAsBase64: (target: string) => Promise<{
+      ok: boolean; data?: string; mimeType?: string; size?: number; error?: string
+    }>
   }
   local: {
     health: () => Promise<{ ok: true }>

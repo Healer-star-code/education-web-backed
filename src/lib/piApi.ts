@@ -492,10 +492,15 @@ export async function getMessages(sessionId: string): Promise<WebMessage[]> {
 }
 
 export async function sendPrompt(sessionId: string, payload: PromptPayload): Promise<void> {
-  // 严格按文档：只发送 { message }
+  // 按 super-king /prompt 文档：支持 { message, images? }
+  // images 走 base64（ApiImagePayload），文档类附件由前端复制到 cwd 后通过 message 文本注入路径提示
+  const body: Record<string, unknown> = { message: payload.message }
+  if (payload.images && payload.images.length > 0) {
+    body.images = payload.images
+  }
   await requestJson<{ ok: true }>(`/api/sessions/${encodeURIComponent(sessionId)}/prompt`, {
     method: 'POST',
-    body: JSON.stringify({ message: payload.message }),
+    body: JSON.stringify(body),
   }, { timeoutMs: null })
 }
 

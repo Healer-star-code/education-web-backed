@@ -83,9 +83,37 @@ function UserMessageView({ message }: { message: Message }) {
         >
           {hasAttachments && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: hasContent ? 6 : 0 }}>
-              {message.attachments!.map((att) => (
-                <AttachmentCard key={att.id} attachment={att} />
-              ))}
+              {message.attachments!.map((att) => {
+                // 已经被上传/复制到 <cwd>/.uploads/ 的附件 → 走 ArtifactCard 三按钮（保存/打开/文件夹）
+                // 没有 localPath 的（浏览器旧消息 / 失败 fallback）→ 走旧的 AttachmentCard（点击下载）
+                if (att.localPath) {
+                  const kind = att.type === 'image' ? 'image'
+                    : att.type === 'pdf' ? 'pdf'
+                    : att.type === 'spreadsheet' ? 'spreadsheet'
+                    : att.type === 'presentation' ? 'presentation'
+                    : att.type === 'document' ? 'word'
+                    : att.type === 'text' ? 'text'
+                    : 'file'
+                  return (
+                    <ArtifactCard
+                      key={att.id}
+                      artifact={{
+                        id: 'upload-' + att.id,
+                        sessionId: '',
+                        name: att.name,
+                        path: att.localPath,
+                        localPath: att.localPath,
+                        mimeType: att.mimeType ?? 'application/octet-stream',
+                        size: att.size ?? 0,
+                        kind,
+                        timeCreated: Date.now(),
+                        source: 'local-scan',
+                      }}
+                    />
+                  )
+                }
+                return <AttachmentCard key={att.id} attachment={att} />
+              })}
             </div>
           )}
           {hasContent && (

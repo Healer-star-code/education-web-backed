@@ -23,6 +23,7 @@ import {
   type QuestionInfo,
   type ModelProviderInfo,
   type ConfigInfo,
+  type ApiImagePayload,
 } from '../lib/piApi'
 import { detectLocalArtifacts } from '../lib/artifactDetector'
 import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
@@ -624,8 +625,83 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       }
       sdkSessionInfoRef.current = updatedSession
       onSessionCreated?.(updatedSession)
-      // super-king /prompt 文档只支持 { message }，附件暂由前端展示，不随消息发送
-      await sendPrompt(sdkSession.id, { message: text })
+
+      // ---- 附件处理：图片 base64 / 文档复制到 <cwd>/.uploads/ ----
+      const ready = (attachments ?? []).filter((a) => a.status === 'ready' && a.tempPath)
+      const images: ApiImagePayload[] = []
+      const docFiles: { name: string; relPath: string; absPath: string }[] = []
+      let uploadFailedNotice: string[] = []
+
+      if (ready.length > 0 && isDesktop) {
+        const bridge = getDesktopBridge()
+        if (bridge?.file) {
+          for (const att of ready) {
+            const isImg = att.file.type.startsWith('image/')
+            if (isImg) {
+              const r = await bridge.file.readAsBase64(att.tempPath!)
+              if (r.ok && r.data && r.mimeType) {
+                images.push({ name: att.name, mimeType: r.mimeType, data: r.data })
+              } else {
+                uploadFailedNotice.push(`${att.name}（读取失败：${r.error ?? '未知'}）`)
+              }
+            } else {
+              const r = await bridge.file.copyToSession({
+                tempPath: att.tempPath!,
+                cwd: sdkSession.cwd,
+                fileName: att.name,
+              })
+              if (r.ok && r.absPath && r.relPath) {
+                docFiles.push({ name: att.name, relPath: r.relPath, absPath: r.absPath })
+              } else {
+                uploadFailedNotice.push(`${att.name}（复制失败：${r.error ?? '未知'}）`)
+              }
+            }
+          }
+        }
+      }
+
+      // ---- 拼接 message：透明插入附件指引，让 agent 知道去 .uploads/ 读 ----
+      let finalMessage = text
+      const promptLines: string[] = []
+      if (docFiles.length > 0) {
+        promptLines.push('')
+        promptLines.push('[系统：已为你上传以下附件到本会话工作目录]')
+        for (const f of docFiles) promptLines.push(`- ${f.name} → ${f.relPath}`)
+        promptLines.push('请使用 read 等工具读取文件内容后回答用户问题。')
+      }
+      if (images.length > 0) {
+        promptLines.push('')
+        promptLines.push(`[系统：用户附了 ${images.length} 张图片，请使用视觉能力分析。]`)
+      }
+      if (uploadFailedNotice.length > 0) {
+        promptLines.push('')
+        promptLines.push('[系统：以下附件上传失败，请告知用户：' + uploadFailedNotice.join('；') + ']')
+      }
+      if (promptLines.length > 0) {
+        finalMessage = text + '\n' + promptLines.join('\n')
+      }
+
+      // ---- 把 absPath 回填进 userMsg.attachments[i].localPath，让历史卡片走 ArtifactCard ----
+      if (docFiles.length > 0 || images.length > 0) {
+        const docMap = new Map(docFiles.map((d) => [d.name, d.absPath]))
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== userMsg.id) return m
+          if (!m.attachments) return m
+          return {
+            ...m,
+            attachments: m.attachments.map((a) => ({
+              ...a,
+              localPath: docMap.get(a.name) ?? a.localPath,
+              isImage: a.type === 'image' ? true : a.isImage,
+            })),
+          }
+        }))
+      }
+
+      await sendPrompt(sdkSession.id, {
+        message: finalMessage,
+        images: images.length > 0 ? images : undefined,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setError(message)

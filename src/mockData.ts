@@ -24,6 +24,10 @@ export interface MessageAttachment {
   type: 'image' | 'document' | 'presentation' | 'spreadsheet' | 'pdf' | 'text' | 'file'
   mimeType?: string
   size?: number
+  /** 上传到 <cwd>/.uploads/ 之后的绝对路径，用于历史消息复用 ArtifactCard 三按钮 */
+  localPath?: string
+  /** 是否图片（图片走 base64 + super-king images 字段，文档走 cwd 复制） */
+  isImage?: boolean
 }
 
 export interface ArtifactInfo {
@@ -50,6 +54,12 @@ export interface LocalAttachment {
   url: string
   file: File
   progress: number
+  /** 写入到 OS 临时目录的绝对路径（writeBlobToTemp 结果）。ready 后才有。 */
+  tempPath?: string
+  /** 上传状态机：uploading（写 temp 中）/ ready（可发送）/ error（失败） */
+  status?: 'uploading' | 'ready' | 'error'
+  /** 失败时的错误信息（显示在卡片上） */
+  error?: string
 }
 
 export type ToolStatus = 'running' | 'done' | 'error' | 'waiting_permission'

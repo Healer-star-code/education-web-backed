@@ -1,6 +1,7 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join, basename, dirname } from 'node:path'
-import { existsSync, statSync, copyFileSync } from 'node:fs'
+import { join, basename, dirname, extname } from 'node:path'
+import { existsSync, statSync, copyFileSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { getDefaultSkillsRoot, scanLocalSkills } from './helper.js'
 import {
   clearError,
@@ -265,6 +266,75 @@ function registerIpc(): void {
       const err = await shell.openPath(target)
       if (err) return { ok: false, error: err }
       return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // ---- 上传相关：把渲染层 ArrayBuffer 落到 OS 临时目录 ----
+  // 用于附件上传第一步：File 对象 -> ArrayBuffer -> Buffer 写入 %TEMP%/super-king-uploads/
+  // 之后 handleSend 时再从这里 copyToSession 到 <cwd>/.uploads/，或 readAsBase64（图片）
+  ipcMain.handle('file:writeBlobToTemp', async (_e, payload: { buffer: ArrayBuffer | Uint8Array; fileName: string }) => {
+    try {
+      if (!payload || !payload.fileName) return { ok: false, error: '缺少文件名' }
+      const dir = join(tmpdir(), 'super-king-uploads')
+      mkdirSync(dir, { recursive: true })
+      const safeName = String(payload.fileName).replace(/[\\/:*?"<>|]/g, '_')
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const tempPath = join(dir, `${stamp}-${safeName}`)
+      const buf = Buffer.isBuffer(payload.buffer)
+        ? payload.buffer
+        : Buffer.from(payload.buffer as ArrayBuffer)
+      writeFileSync(tempPath, buf)
+      const st = statSync(tempPath)
+      return { ok: true, tempPath, size: st.size }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // 把 temp 文件复制到 <cwd>/.uploads/<timestamp>-<原名>，agent 用 read 工具能直接读
+  // 返回 relPath（用于 prompt 注入）和 absPath（用于 UI 卡片复用 ArtifactCard）
+  ipcMain.handle('file:copyToSession', async (_e, payload: { tempPath: string; cwd: string; fileName: string }) => {
+    try {
+      if (!payload?.tempPath || !payload?.cwd || !payload?.fileName) {
+        return { ok: false, error: '参数缺失' }
+      }
+      if (!existsSync(payload.tempPath)) return { ok: false, error: '源临时文件不存在' }
+      const uploadsDir = join(payload.cwd, '.uploads')
+      mkdirSync(uploadsDir, { recursive: true })
+      const safeName = String(payload.fileName).replace(/[\\/:*?"<>|]/g, '_')
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+      const fileName = `${stamp}-${safeName}`
+      const absPath = join(uploadsDir, fileName)
+      copyFileSync(payload.tempPath, absPath)
+      const st = statSync(absPath)
+      // 相对路径用 / 分隔（agent prompt 里更通用，跨工具友好）
+      const relPath = `.uploads/${fileName}`
+      return { ok: true, absPath, relPath, size: st.size }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // 读文件为 base64（用于图片附件直接塞进 super-king /prompt 的 images 字段）
+  ipcMain.handle('file:readAsBase64', async (_e, target: string) => {
+    try {
+      if (!target) return { ok: false, error: 'no path' }
+      if (!existsSync(target)) return { ok: false, error: '文件不存在' }
+      const buf = readFileSync(target)
+      const ext = extname(target).toLowerCase().slice(1)
+      const mimeMap: Record<string, string> = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        gif: 'image/gif',
+        webp: 'image/webp',
+        bmp: 'image/bmp',
+        svg: 'image/svg+xml',
+      }
+      const mimeType = mimeMap[ext] ?? 'application/octet-stream'
+      return { ok: true, data: buf.toString('base64'), mimeType, size: buf.length }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
     }

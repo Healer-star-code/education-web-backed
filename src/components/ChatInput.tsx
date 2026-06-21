@@ -1,6 +1,18 @@
 import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect, type KeyboardEvent } from 'react'
 import type { LocalAttachment, MessageAttachment } from '../mockData'
 import { AttachmentCard } from './FileCard'
+import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
+
+// 视频不允许上传：super-king 没有视频处理能力，agent 也看不了视频
+const BLOCKED_EXT = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'flv', 'wmv', 'm4v', '3gp']
+const BLOCKED_MIME_PREFIX = ['video/']
+
+function isBlocked(file: File): string | null {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (BLOCKED_EXT.includes(ext)) return `不支持上传视频文件（.${ext}）`
+  if (BLOCKED_MIME_PREFIX.some((p) => file.type.startsWith(p))) return '不支持上传视频文件'
+  return null
+}
 
 interface Props {
   onSend: (message: string, attachments?: LocalAttachment[]) => void
@@ -162,7 +174,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         textareaRef.current.style.height = 'auto'
       }
       if (msg || currentAttachments.length > 0) {
-        const readyAttachments = currentAttachments.filter((a) => a.progress >= 100)
+        const readyAttachments = currentAttachments.filter((a) => a.status === 'ready')
         onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
       }
       // Auto-focus textarea after voice send
@@ -204,31 +216,73 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0) return
-    const total = files.length
-    let completed = 0
+    const bridge = isDesktop ? getDesktopBridge() : null
+
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const id = Date.now() + i
-      const entry = { name: file.name, url: URL.createObjectURL(file), file, progress: 0, id }
-      setAttachments((prev) => [...prev, entry])
-      const steps = [10, 25, 40, 60, 75, 90, 100]
-      steps.forEach((p, si) => {
-        const timer = setTimeout(() => {
-          setAttachments((prev) =>
-            prev.map((a) => (a.id === id ? { ...a, progress: p } : a))
-          )
-          if (p === 100) {
-            completed++
-            if (completed === total && recordingRef.current) {
-              stopRecording()
-            }
+      const blockedReason = isBlocked(file)
+
+      const baseEntry: LocalAttachment = {
+        id,
+        name: file.name,
+        url: URL.createObjectURL(file),
+        file,
+        progress: blockedReason ? 100 : 0,
+        status: blockedReason ? 'error' : 'uploading',
+        error: blockedReason ?? undefined,
+      }
+      setAttachments((prev) => [...prev, baseEntry])
+
+      if (blockedReason) continue  // 拒绝视频：直接挂错误，不上传
+
+      // 浏览器模式（非桌面）：没有 IPC 能力，保留旧的 setTimeout 假进度兜底
+      if (!bridge?.file?.writeBlobToTemp) {
+        const steps = [10, 25, 40, 60, 75, 90, 100]
+        steps.forEach((p, si) => {
+          const timer = setTimeout(() => {
+            setAttachments((prev) => prev.map((a) => (
+              a.id === id
+                ? { ...a, progress: p, status: p === 100 ? 'ready' : 'uploading' }
+                : a
+            )))
+          }, 200 * (si + 1))
+          uploadTimersRef.current.push(timer)
+        })
+        continue
+      }
+
+      // 桌面模式真上传：File -> ArrayBuffer -> IPC writeBlobToTemp
+      ;(async () => {
+        try {
+          setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, progress: 15 } : a)))
+          const buffer = await file.arrayBuffer()
+          setAttachments((prev) => prev.map((a) => (a.id === id ? { ...a, progress: 50 } : a)))
+
+          const res = await bridge.file.writeBlobToTemp({
+            buffer: new Uint8Array(buffer),
+            fileName: file.name,
+          })
+          if (!res.ok || !res.tempPath) {
+            throw new Error(res.error ?? '写入临时文件失败')
           }
-        }, 200 * (si + 1))
-        uploadTimersRef.current.push(timer)
-      })
+          setAttachments((prev) => prev.map((a) => (
+            a.id === id
+              ? { ...a, progress: 100, status: 'ready', tempPath: res.tempPath }
+              : a
+          )))
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          setAttachments((prev) => prev.map((a) => (
+            a.id === id
+              ? { ...a, progress: 100, status: 'error', error: `上传失败：${msg}` }
+              : a
+          )))
+        }
+      })()
     }
     e.target.value = ''
-  }, [stopRecording])
+  }, [])
 
   const removeAttachment = useCallback((index: number) => {
     setAttachments((prev) => {
@@ -249,8 +303,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const handleSend = useCallback(() => {
     const msg = value.trim()
     if (!msg && attachments.length === 0) return
-    if (isStreaming) return
-    const readyAttachments = attachments.filter((a) => a.progress >= 100)
+
+    const readyAttachments = attachments.filter((a) => a.status === 'ready')
     onSend(msg, readyAttachments.length > 0 ? readyAttachments : undefined)
     setValue('')
     setAttachments([])
@@ -281,7 +335,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   }, [])
 
   const hasText = !!value.trim()
-  const canSend = hasText || attachments.length > 0
+  const hasReady = attachments.some((a) => a.status === 'ready')
+  const canSend = hasText || hasReady
 
   useEffect(() => {
     return () => {
@@ -355,36 +410,59 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.pdf,.txt,.md"
+            accept="image/*,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.pdf,.txt,.md,.json,.html,.htm,.zip,.rar,.7z,.svg,.log"
             multiple
             onChange={handleFileChange}
             style={{ display: 'none' }}
           />
           {attachments.length > 0 && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-              {attachments.map((att, i) => (
-                <div key={att.id} style={{ position: 'relative', opacity: att.progress < 100 ? 0.65 : 1 }}>
-                  <AttachmentCard compact attachment={{ id: att.id, name: att.name, url: att.url, type: attachmentType(att.file), mimeType: att.file.type, size: att.file.size }} />
-                  {att.progress < 100 && (
-                    <div style={{
-                      position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: 'rgba(0,0,0,0.4)',
-                    }}>
-                      <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700 }}>{att.progress}%</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removeAttachment(i) }}
+              {attachments.map((att, i) => {
+                const isUploading = att.status === 'uploading'
+                const isError = att.status === 'error'
+                return (
+                  <div
+                    key={att.id}
                     style={{
-                      position: 'absolute', top: -2, right: -2,
-                      width: 16, height: 16, borderRadius: '50%',
-                      background: 'rgba(0,0,0,0.7)', border: 'none',
-                      color: '#fff', fontSize: 'calc(var(--font-base) * 0.714)', lineHeight: '16px',
-                      textAlign: 'center', cursor: 'pointer', padding: 0,
+                      position: 'relative',
+                      opacity: isUploading ? 0.65 : 1,
+                      outline: isError ? '1.5px solid #ef4444' : 'none',
+                      borderRadius: 10,
                     }}
+                    title={isError ? att.error : undefined}
+                  >
+                    <AttachmentCard compact attachment={{ id: att.id, name: att.name, url: att.url, type: attachmentType(att.file), mimeType: att.file.type, size: att.file.size }} />
+                    {isUploading && (
+                      <div style={{
+                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(0,0,0,0.4)',
+                      }}>
+                        <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700 }}>{att.progress}%</span>
+                      </div>
+                    )}
+                    {isError && (
+                      <div style={{
+                        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: 'rgba(239,68,68,0.85)', borderRadius: 10,
+                      }}>
+                        <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700, padding: '0 6px', textAlign: 'center', lineHeight: 1.2 }}>
+                          {att.error ?? '失败'}
+                        </span>
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeAttachment(i) }}
+                      style={{
+                        position: 'absolute', top: -2, right: -2,
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: 'rgba(0,0,0,0.7)', border: 'none',
+                        color: '#fff', fontSize: 'calc(var(--font-base) * 0.714)', lineHeight: '16px',
+                        textAlign: 'center', cursor: 'pointer', padding: 0,
+                      }}
                   >×</button>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

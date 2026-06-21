@@ -80,6 +80,15 @@ const api = {
       ipcRenderer.invoke('file:reveal', target),
     openLocal: (target: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('file:openLocal', target),
+    writeBlobToTemp: (payload: { buffer: ArrayBuffer | Uint8Array; fileName: string }): Promise<{
+      ok: boolean; tempPath?: string; size?: number; error?: string
+    }> => ipcRenderer.invoke('file:writeBlobToTemp', payload),
+    copyToSession: (payload: { tempPath: string; cwd: string; fileName: string }): Promise<{
+      ok: boolean; absPath?: string; relPath?: string; size?: number; error?: string
+    }> => ipcRenderer.invoke('file:copyToSession', payload),
+    readAsBase64: (target: string): Promise<{
+      ok: boolean; data?: string; mimeType?: string; size?: number; error?: string
+    }> => ipcRenderer.invoke('file:readAsBase64', target),
   },
   local: {
     health: (): Promise<{ ok: true }> => ipcRenderer.invoke('local:health'),
