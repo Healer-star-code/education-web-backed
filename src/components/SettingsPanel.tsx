@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { testConnection } from '../lib/piApi'
 import { isDesktop } from '../lib/desktopBridge'
+import { DesktopBackendSection } from './DesktopBackendSection'
 
 interface Props {
   isDark: boolean
@@ -118,6 +119,20 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
           >×</button>
         </div>
+
+        {/* Desktop-only backend control */}
+        <DesktopBackendSection
+          onApplyBackendUrl={(url, pwd) => {
+            setDraftServerUrl(url)
+            setDraftPassword(pwd)
+            try {
+              localStorage.setItem('pi-server-url', url)
+              localStorage.setItem('pi-server-password', pwd)
+            } catch { /* ignore */ }
+            onServerUrlChange(url)
+            onPasswordChange(pwd)
+          }}
+        />
 
         {/* Server Connection */}
         <div style={{ marginBottom: 24 }}>
