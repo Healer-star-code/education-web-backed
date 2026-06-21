@@ -1103,7 +1103,7 @@ export function stripSystemPrompt(content: string): {
 }
 
 /** 根据后端持久化的「[系统：...]」区块解析出的上传记录，重建一条 MessageAttachment。
- *  - absPath 用 cwd + relPath 拼接（Windows 反斜杠路径）
+ *  - absPath 用 cwd + relPath 拼接（统一规范成 Windows 反斜杠路径）
  *  - id 用时间戳 + index 保证稳定（同一条 user 消息多附件不重复） */
 function buildAttachmentFromUpload(
   upload: { name: string; relPath: string },
@@ -1111,12 +1111,13 @@ function buildAttachmentFromUpload(
   msgTimestamp: number,
   idx: number,
 ): import('../mockData').MessageAttachment {
-  // 把 relPath 内的正斜杠也统一成反斜杠（Windows）
-  const relWin = upload.relPath.replace(/\//g, '\\')
+  // 把 relPath 内的正斜杠统一成反斜杠（Windows），并 trim 前导分隔符避免双 \\
+  const relWin = upload.relPath.replace(/\//g, '\\').replace(/^[\\]+/, '')
+  const cwdWin = cwd.replace(/\//g, '\\').replace(/[\\]+$/, '')
   // 如果 relPath 已经是绝对路径就直接用，否则拼 cwd
   const absPath = /^[A-Za-z]:\\/.test(relWin)
     ? relWin
-    : (cwd.endsWith('\\') ? cwd + relWin : cwd + '\\' + relWin)
+    : (cwdWin + '\\' + relWin)
   const lower = upload.name.toLowerCase()
   const type: import('../mockData').MessageAttachment['type'] =
     /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico|tiff|tif|avif)$/.test(lower) ? 'image'

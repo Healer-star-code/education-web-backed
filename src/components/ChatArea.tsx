@@ -234,6 +234,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const autoApproveAllToolsRef = useRef(autoApproveAllTools)
   // 记录已扫描过 artifact 的消息 id + content 长度，避免对同一条消息重复扫描
   const scannedForArtifactsRef = useRef<Map<string, number>>(new Map())
+  // 兜底扫描 200ms debounce timer：高频 setMessages 时合并成一次扫描
+  const fallbackScanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => {
     autoApproveAllToolsRef.current = autoApproveAllTools
   }, [autoApproveAllTools])
@@ -1099,6 +1101,10 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         clearTimeout(toolUpdateTimerRef.current)
         toolUpdateTimerRef.current = null
       }
+      if (fallbackScanTimerRef.current) {
+        clearTimeout(fallbackScanTimerRef.current)
+        fallbackScanTimerRef.current = null
+      }
     }
   }, [])
 
@@ -1106,6 +1112,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   // 这是终极保底——不管 agent_end / normalize / 历史加载哪条路径走对走错，
   // 只要 message.content 里有路径，最终都会被这里扫到并显示卡片。
   // 用 scannedForArtifactsRef 按 (msgId + content.length) 去重，避免无限循环。
+  // 200ms debounce：高频 setMessages（流式 delta、normalize、新消息）合并成一次扫描，
+  // 避免 stat 风暴。
   useEffect(() => {
     if (!isDesktop || streaming) return
     const bridge = getDesktopBridge()
@@ -1113,47 +1121,64 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     const sessionId = sdkSessionIdRef.current
     if (!sessionId) return
 
-    const tasks: Array<{ id: string; content: string; existing: ArtifactInfo[] }> = []
-    for (const msg of messages) {
-      if (msg.role !== 'assistant') continue
-      if (!msg.content || msg.content.length < 4) continue
-      const seen = scannedForArtifactsRef.current.get(msg.id)
-      if (seen === msg.content.length) continue
-      tasks.push({ id: msg.id, content: msg.content, existing: msg.artifacts ?? [] })
+    // 取消上一次未触发的 debounce
+    if (fallbackScanTimerRef.current) {
+      clearTimeout(fallbackScanTimerRef.current)
+      fallbackScanTimerRef.current = null
     }
-    if (tasks.length === 0) return
 
     let cancelled = false
-    void (async () => {
-      const updates = new Map<string, ArtifactInfo[]>()
-      for (const t of tasks) {
-        try {
-          const detected = await detectLocalArtifacts(
-            t.content,
-            sessionId,
-            t.existing,
-            (p) => bridge.file.stat(p),
-          )
-          // 在记录"已扫描"前先标记，避免无限循环
-          scannedForArtifactsRef.current.set(t.id, t.content.length)
-          if (detected.length > 0) updates.set(t.id, detected)
-        } catch (err) {
-          console.warn('[fallback-scan] failed for', t.id, err)
-        }
-      }
-      if (cancelled || updates.size === 0) return
-      console.info(`[fallback-scan] applying ${updates.size} update(s)`)
-      setMessages((prev) => prev.map((m) => {
-        const add = updates.get(m.id)
-        if (!add) return m
-        const existingPaths = new Set((m.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
-        const keep = add.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
-        if (keep.length === 0) return m
-        return { ...m, artifacts: [...(m.artifacts ?? []), ...keep] }
-      }))
-    })()
+    fallbackScanTimerRef.current = setTimeout(() => {
+      fallbackScanTimerRef.current = null
+      if (cancelled) return
 
-    return () => { cancelled = true }
+      const tasks: Array<{ id: string; content: string; existing: ArtifactInfo[] }> = []
+      for (const msg of messages) {
+        if (msg.role !== 'assistant') continue
+        if (!msg.content || msg.content.length < 4) continue
+        const seen = scannedForArtifactsRef.current.get(msg.id)
+        if (seen === msg.content.length) continue
+        tasks.push({ id: msg.id, content: msg.content, existing: msg.artifacts ?? [] })
+      }
+      if (tasks.length === 0) return
+
+      void (async () => {
+        const updates = new Map<string, ArtifactInfo[]>()
+        for (const t of tasks) {
+          try {
+            const detected = await detectLocalArtifacts(
+              t.content,
+              sessionId,
+              t.existing,
+              (p) => bridge.file.stat(p),
+            )
+            // 在记录"已扫描"前先标记，避免无限循环
+            scannedForArtifactsRef.current.set(t.id, t.content.length)
+            if (detected.length > 0) updates.set(t.id, detected)
+          } catch (err) {
+            console.warn('[fallback-scan] failed for', t.id, err)
+          }
+        }
+        if (cancelled || updates.size === 0) return
+        console.info(`[fallback-scan] applying ${updates.size} update(s)`)
+        setMessages((prev) => prev.map((m) => {
+          const add = updates.get(m.id)
+          if (!add) return m
+          const existingPaths = new Set((m.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
+          const keep = add.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
+          if (keep.length === 0) return m
+          return { ...m, artifacts: [...(m.artifacts ?? []), ...keep] }
+        }))
+      })()
+    }, 200)
+
+    return () => {
+      cancelled = true
+      if (fallbackScanTimerRef.current) {
+        clearTimeout(fallbackScanTimerRef.current)
+        fallbackScanTimerRef.current = null
+      }
+    }
   }, [messages, streaming])
 
   useEffect(() => {

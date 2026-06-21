@@ -31,20 +31,20 @@ const ARTIFACT_EXTS = [
 
 const EXT_GROUP = ARTIFACT_EXTS.join('|')
 
-// 三种匹配模式：
+// 三种匹配模式（均同时认 Windows 反斜杠 `\` 与 Node/AI 常用正斜杠 `/`）：
 // 1) 引号 / 反引号 / 方括号包裹 —— 允许任意字符（含空格中文）
 const REGEX_QUOTED = new RegExp(
-  `["\`'\\[]?\\s*([A-Za-z]:\\\\[^"'\\\`\\[\\]<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))\\s*["\`'\\]]?`,
+  `["\`'\\[]?\\s*([A-Za-z]:[\\\\/][^"'\\\`\\[\\]<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))\\s*["\`'\\]]?`,
   'gi',
 )
 // 2) 裸路径 —— 不带引号，不允许空格（避免吃到后面的标点）
 const REGEX_BARE = new RegExp(
-  `(?<![A-Za-z0-9_/\\\\])([A-Za-z]:\\\\[^\\s"'\`<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))(?![A-Za-z0-9])`,
+  `(?<![A-Za-z0-9_/\\\\])([A-Za-z]:[\\\\/][^\\s"'\`<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))(?![A-Za-z0-9])`,
   'gi',
 )
 // 3) Markdown 链接 [name](path)
 const REGEX_MD_LINK = new RegExp(
-  `\\[[^\\]]+\\]\\(([A-Za-z]:\\\\[^)]+?\\.(?:${EXT_GROUP}))\\)`,
+  `\\[[^\\]]+\\]\\(([A-Za-z]:[\\\\/][^)]+?\\.(?:${EXT_GROUP}))\\)`,
   'gi',
 )
 
@@ -139,7 +139,11 @@ export function extractCandidatePaths(text: string): string[] {
       if (prev === undefined || pos < prev) firstSeen.set(path, pos)
     }
   }
-  return [...firstSeen.entries()].sort((a, b) => a[1] - b[1]).map(([p]) => p)
+  const out = [...firstSeen.entries()].sort((a, b) => a[1] - b[1]).map(([p]) => p)
+  if (out.length > 0) {
+    console.info(`[artifactDetector] extractCandidatePaths: text.length=${text.length}, found ${out.length} path(s)`)
+  }
+  return out
 }
 
 /**
