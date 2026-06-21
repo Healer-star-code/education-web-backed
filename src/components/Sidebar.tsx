@@ -168,20 +168,12 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
         setDropdownOpen(false)
         return
       }
-      // super-king 没有 /api/dialog/select-directory，fallback 到手动输入
-      const manualPath = window.prompt('请输入项目目录路径：')
-      if (manualPath?.trim()) {
-        onCwdChange(manualPath.trim())
-        setDropdownOpen(false)
-      }
+      // 用户取消选择对话框：什么都不做，保持下拉打开让用户从历史里选。
+      // 注意：不能调 window.prompt() —— Electron 渲染进程禁用了 prompt/alert/confirm，
+      // 会抛 "prompt() is not supported"。
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       setDirectoryError(message)
-      const manualPath = window.prompt('选择目录失败，请手动输入项目目录路径：')
-      if (manualPath?.trim()) {
-        onCwdChange(manualPath.trim())
-        setDropdownOpen(false)
-      }
     } finally {
       setSelectingDirectory(false)
     }

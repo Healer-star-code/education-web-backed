@@ -1,8 +1,8 @@
 {
-  "name": "educational-agent-desktop",
+  "name": "super-king-agent",
   "private": true,
-  "version": "0.1.2",
-  "description": "Educational Agent desktop client",
+  "version": "0.1.3",
+  "description": "Super King Agent desktop client",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {

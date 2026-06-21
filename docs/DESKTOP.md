@@ -24,7 +24,7 @@
 ### 2.1 终端用户（拿到 .exe 的人）
 
 ```text
-1. 下载 EducationalAgent-X.Y.Z-setup.exe  （或 -portable.exe 免安装版）
+1. 下载 super-king-agent-X.Y.Z-setup.exe  （或 -portable.exe 免安装版）
 2. 双击安装 / 双击启动
 3. 第一次启动会弹出窗口，并自动检测本机 :30142 端口是否已经有 super-king 在跑：
      ● 蓝点「已连接」  → 直接用
@@ -66,9 +66,9 @@ cd E:\EducationalAgent\v4
 npm run build:win
 
 # 3) 产物在 release\ ：
-#    - EducationalAgent-0.1.1-setup.exe          ← 一键安装包
-#    - EducationalAgent-0.1.1-setup.exe.blockmap ← 差分更新元数据
-#    - EducationalAgent-0.1.1-portable.exe       ← 免安装版
+#    - super-king-agent-0.1.1-setup.exe          ← 一键安装包
+#    - super-king-agent-0.1.1-setup.exe.blockmap ← 差分更新元数据
+#    - super-king-agent-0.1.1-portable.exe       ← 免安装版
 #    - latest.yml                                ← 自动更新清单
 ```
 
@@ -191,7 +191,7 @@ error     🔴  spawn 失败 / 异常退出
 `electron-store` 文件位置：
 
 ```text
-%APPDATA%\EducationalAgent\desktop-settings.json
+%APPDATA%\super-king-agent\desktop-settings.json
 ```
 
 字段 (`DesktopSettingsShape`)：
@@ -230,15 +230,15 @@ app.whenReady() + 5s
 ```yaml
 publish:
   - provider: generic
-    url: https://example.com/educational-agent/updates
+    url: https://example.com/super-king-agent/updates
     channel: latest
 ```
 
 把以下文件上传到该 URL 即可：
 
 ```text
-EducationalAgent-X.Y.Z-setup.exe
-EducationalAgent-X.Y.Z-setup.exe.blockmap   ← 差分更新需要
+super-king-agent-X.Y.Z-setup.exe
+super-king-agent-X.Y.Z-setup.exe.blockmap   ← 差分更新需要
 latest.yml
 ```
 
@@ -289,10 +289,10 @@ npm install
 npm run build
 
 # 仅看打包包能不能跑
-.\release\EducationalAgent-0.1.0-portable.exe
+.\release\super-king-agent-0.1.0-portable.exe
 
 # 杀掉所有客户端进程
-Get-Process -Name 'electron','EducationalAgent' -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process -Name 'electron','super-king-agent' -ErrorAction SilentlyContinue | Stop-Process -Force
 
 # super-king 推荐启动
 $env:SUPER_KING_SERVER_PASSWORD='123456'

@@ -1,6 +1,6 @@
-appId: com.educational-agent.desktop
-productName: EducationalAgent
-copyright: Copyright © 2025 EducationalAgent
+appId: com.super-king-agent.desktop
+productName: super-king-agent
+copyright: Copyright © 2025 super-king-agent
 directories:
   output: release
   buildResources: build
@@ -49,10 +49,10 @@ linux:
 publish:
   # 主要分发渠道：GitHub Releases（由 .github/workflows/release.yml 自动发布）
   # 当 push tag vX.Y.Z 时，Actions 会构建并把以下文件作为附件上传到 Release：
-  #   - EducationalAgent-X.Y.Z-setup.exe       （Windows nsis 一键安装器）
-  #   - EducationalAgent-X.Y.Z-setup.exe.blockmap （差分更新元数据）
-  #   - EducationalAgent-X.Y.Z-portable.exe    （Windows 便携版）
-  #   - EducationalAgent-X.Y.Z-x86_64.AppImage （Linux AppImage）
+  #   - super-king-agent-X.Y.Z-setup.exe       （Windows nsis 一键安装器）
+  #   - super-king-agent-X.Y.Z-setup.exe.blockmap （差分更新元数据）
+  #   - super-king-agent-X.Y.Z-portable.exe    （Windows 便携版）
+  #   - super-king-agent-X.Y.Z-x86_64.AppImage （Linux AppImage）
   #   - latest.yml / latest-linux.yml         （electron-updater 清单）
   - provider: github
     owner: Healer-star-code
