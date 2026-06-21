@@ -87,14 +87,14 @@ export class MessageErrorBoundary extends Component<Props, State> {
           marginBottom: 16,
           padding: 12,
           borderRadius: 10,
-          border: '1px solid rgba(239, 68, 68, 0.35)',
-          background: 'rgba(239, 68, 68, 0.06)',
+          border: '1px solid var(--danger)',
+          background: 'var(--danger-bg)',
           color: 'var(--text)',
           fontSize: 'var(--font-sm)',
           lineHeight: 1.55,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: '#ef4444' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600, color: 'var(--danger)' }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />

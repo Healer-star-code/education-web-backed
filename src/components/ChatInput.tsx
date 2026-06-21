@@ -521,7 +521,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         const barH = 4 + amp * (h - 8)
         const x = i * (barW + gap)
         const y = (h - barH) / 2
-        drawingCtx.fillStyle = `rgba(239, 68, 68, ${0.5 + amp * 0.5})`
+        drawingCtx.fillStyle = `rgba(220, 38, 38, ${0.5 + amp * 0.5})`
         drawingCtx.beginPath()
         drawingCtx.roundRect(x, y, barW, barH, 1.5)
         drawingCtx.fill()
@@ -578,7 +578,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     style={{
                       position: 'relative',
                       opacity: isUploading ? 0.65 : 1,
-                      outline: isError ? '1.5px solid #ef4444' : 'none',
+                      outline: isError ? '1.5px solid var(--danger)' : 'none',
                       borderRadius: 10,
                     }}
                     title={isError ? att.error : undefined}
@@ -595,7 +595,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                     {isError && (
                       <div style={{
                         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'rgba(239,68,68,0.85)', borderRadius: 10,
+                        background: 'var(--danger)', opacity: 0.85, borderRadius: 10,
                       }}>
                         <span style={{ color: '#fff', fontSize: 'var(--font-xs)', fontWeight: 700, padding: '0 6px', textAlign: 'center', lineHeight: 1.2 }}>
                           {att.error ?? '失败'}
@@ -655,10 +655,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   width: 'var(--icon-button-size, 40px)', height: 'var(--icon-button-size, 40px)',
                   padding: 0,
-                  background: recording ? 'rgba(239,68,68,0.15)' : 'none',
-                  border: recording ? '1px solid rgba(239,68,68,0.4)' : '1px solid var(--border)',
-                  borderRadius: 8,
-                  color: recording ? '#ef4444' : 'var(--text-muted)',
+                  background: recording ? 'var(--danger-bg)' : 'none',
+                  border: recording ? '1px solid var(--danger)' : '1px solid var(--border)',
+                  color: recording ? 'var(--danger)' : 'var(--text-muted)',
                   cursor: isStreaming ? 'not-allowed' : 'pointer',
                   transition: 'background 0.15s, border-color 0.15s, color 0.15s',
                 }}

@@ -124,8 +124,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     }
   }
 
-  const accentColor = draftMode === 'senior' ? '#ea580c' : 'var(--accent)'
-  const accentHover = draftMode === 'senior' ? '#c2410c' : 'var(--accent-hover)'
+  const accentColor = draftMode === 'senior' ? 'var(--accent-senior)' : 'var(--accent)'
+  const accentHover = draftMode === 'senior' ? 'var(--accent-senior-hover)' : 'var(--accent-hover)'
 
   return (
     <div onClick={() => {
@@ -212,7 +212,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   style={{
                     flex: 1, boxSizing: 'border-box',
                     padding: '10px 12px', borderRadius: 10,
-                    border: passwordError ? '1px solid #ef4444' : '1px solid var(--border)',
+                    border: passwordError ? '1px solid var(--danger)' : '1px solid var(--border)',
                     background: 'var(--bg)', color: 'var(--text)',
                     fontSize: 14, fontFamily: 'var(--font-mono)',
                     outline: 'none',
@@ -231,7 +231,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 </button>
               </div>
               {passwordError && (
-                <div style={{ marginTop: 6, fontSize: 12, color: '#ef4444', lineHeight: 1.4 }}>
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--danger)', lineHeight: 1.4 }}>
                   {passwordError}
                 </div>
               )}
@@ -279,7 +279,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                     marginTop: 6,
                     fontSize: 12,
                     lineHeight: 1.4,
-                    color: testStatus.ok ? '#16a34a' : '#ef4444',
+                    color: testStatus.ok ? 'var(--success)' : 'var(--danger)',
                   }}
                 >
                   {testStatus.ok ? '✓ ' : '✗ '}{testStatus.message}
@@ -334,7 +334,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               display: 'flex', alignItems: 'center', gap: 14,
               padding: '16px 18px', borderRadius: 12,
               textAlign: 'left', width: '100%',
-              background: draftMode === 'young' ? 'rgba(37,99,235,0.08)' : 'var(--bg-hover)',
+              background: draftMode === 'young' ? 'var(--accent-bg-subtle)' : 'var(--bg-hover)',
               border: draftMode === 'young' ? '2px solid var(--accent)' : '2px solid transparent',
               color: 'var(--text)', cursor: 'pointer',
               transition: 'all 0.15s',
@@ -356,7 +356,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   {draftMode === 'young' && (
                     <span style={{
                       fontSize: 11, fontWeight: 600, color: 'var(--accent)',
-                      background: 'rgba(37,99,235,0.12)', padding: '2px 8px',
+                      background: 'var(--accent-bg)', padding: '2px 8px',
                       borderRadius: 10,
                     }}>当前</span>
                   )}
@@ -375,18 +375,18 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               display: 'flex', alignItems: 'center', gap: 14,
               padding: '16px 18px', borderRadius: 12,
               textAlign: 'left', width: '100%',
-              background: draftMode === 'senior' ? 'rgba(234,88,12,0.08)' : 'var(--bg-hover)',
-              border: draftMode === 'senior' ? '2px solid #ea580c' : '2px solid transparent',
+              background: draftMode === 'senior' ? 'var(--accent-senior-bg)' : 'var(--bg-hover)',
+              border: draftMode === 'senior' ? '2px solid var(--accent-senior)' : '2px solid transparent',
               color: 'var(--text)', cursor: 'pointer',
               transition: 'all 0.15s',
             }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12,
-                background: draftMode === 'senior' ? '#ea580c' : 'var(--bg-selected)',
+                background: draftMode === 'senior' ? 'var(--accent-senior)' : 'var(--bg-selected)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={draftMode === 'senior' ? '#fff' : '#ea580c'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={draftMode === 'senior' ? '#fff' : 'var(--accent-senior)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
                   <path d="M12 18v-3" />
                   <path d="M12 8v1" />
@@ -398,8 +398,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   老教师版本
                   {draftMode === 'senior' && (
                     <span style={{
-                      fontSize: 11, fontWeight: 600, color: '#ea580c',
-                      background: 'rgba(234,88,12,0.12)', padding: '2px 8px',
+                      fontSize: 11, fontWeight: 600, color: 'var(--accent-senior)',
+                      background: 'var(--warning-bg)', padding: '2px 8px',
                       borderRadius: 10,
                     }}>当前</span>
                   )}
@@ -409,7 +409,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 </div>
               </div>
               {draftMode === 'senior' && (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent-senior)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               )}
@@ -488,7 +488,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             <button onClick={() => setDraftTheme(false)} style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               padding: '12px 0', borderRadius: 10, fontSize: 14,
-              background: !draftTheme ? '#f8fafc' : 'var(--bg-hover)',
+              background: !draftTheme ? 'var(--bg-panel)' : 'var(--bg-hover)',
               color: !draftTheme ? '#1e293b' : 'var(--text-muted)',
               border: !draftTheme ? '2px solid #cbd5e1' : '1px solid var(--border)',
               cursor: 'pointer', fontWeight: !draftTheme ? 700 : 500,
@@ -513,8 +513,8 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
             style={{
               padding: '14px 16px',
               borderRadius: 12,
-              border: draftAutoApproveAll ? '2px solid #ea580c' : '1px solid var(--border)',
-              background: draftAutoApproveAll ? 'rgba(234,88,12,0.06)' : 'var(--bg-hover)',
+              border: draftAutoApproveAll ? '2px solid var(--accent-senior)' : '1px solid var(--border)',
+              background: draftAutoApproveAll ? 'var(--accent-senior-bg)' : 'var(--bg-hover)',
               transition: 'all 0.15s',
             }}
           >
@@ -546,7 +546,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   height: 24,
                   borderRadius: 999,
                   border: 'none',
-                  background: draftAutoApproveAll ? '#ea580c' : 'var(--bg-selected)',
+                  background: draftAutoApproveAll ? 'var(--accent-senior)' : 'var(--bg-selected)',
                   cursor: 'pointer',
                   transition: 'background 0.15s',
                   padding: 0,
@@ -575,10 +575,10 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                 marginTop: 10,
                 padding: '8px 10px',
                 borderRadius: 8,
-                background: 'rgba(234,88,12,0.08)',
-                border: '1px solid rgba(234,88,12,0.25)',
+                background: 'var(--warning-bg)',
+                border: '1px solid var(--accent-senior)',
                 fontSize: 12,
-                color: '#c2410c',
+                color: 'var(--accent-senior)',
                 lineHeight: 1.5,
               }}
             >
@@ -630,7 +630,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               width: '100%',
               maxWidth: 480,
               background: 'var(--bg-panel)',
-              border: '2px solid #ea580c',
+              border: '2px solid var(--accent-senior)',
               borderRadius: 14,
               boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
               padding: '22px 24px',
@@ -654,10 +654,10 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
               style={{
                 padding: '10px 12px',
                 borderRadius: 8,
-                background: 'rgba(234,88,12,0.10)',
-                border: '1px solid rgba(234,88,12,0.3)',
+                background: 'var(--accent-senior-bg)',
+                border: '1px solid var(--accent-senior)',
                 fontSize: 13,
-                color: '#c2410c',
+                color: 'var(--accent-senior)',
                 lineHeight: 1.55,
                 marginBottom: 18,
               }}
@@ -693,14 +693,14 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   padding: '9px 16px',
                   borderRadius: 8,
                   border: 'none',
-                  background: '#ea580c',
+                  background: 'var(--accent-senior)',
                   color: '#fff',
                   fontSize: 14,
                   fontWeight: 700,
                   cursor: 'pointer',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#c2410c' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#ea580c' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--accent-senior-hover)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--accent-senior)' }}
               >
                 我已了解风险，开启
               </button>

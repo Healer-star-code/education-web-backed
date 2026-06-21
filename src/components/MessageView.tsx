@@ -142,7 +142,7 @@ function UserMessageView({ message }: { message: Message }) {
             flex: 1,
             minWidth: 0,
             background: 'var(--user-bg)',
-            border: '1px solid rgba(59,130,246,0.2)',
+            border: '1px solid var(--user-border)',
             borderRadius: '12px 12px 4px 12px',
             padding: hasAttachments ? '6px' : '8px 12px',
             fontSize: 'var(--msg-font-size, var(--font-base))',
@@ -414,7 +414,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
         marginBottom: 8,
         borderRadius: 10,
         overflow: 'hidden',
-        background: '#1a1a2e',
+        background: 'var(--code-bg)',
       }}
     >
       <div
@@ -423,7 +423,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
           background: 'rgba(255,255,255,0.06)',
           borderBottom: '1px solid rgba(255,255,255,0.08)',
           fontSize: 'var(--font-xs)',
-          color: 'rgba(255,255,255,0.5)',
+          color: 'var(--text-dim)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -437,7 +437,7 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
           style={{
             background: 'none',
             border: 'none',
-            color: copied ? '#4ade80' : 'rgba(255,255,255,0.45)',
+            color: copied ? 'var(--success)' : 'var(--text-dim)',
             cursor: 'pointer',
             padding: '2px 4px',
             borderRadius: 4,
@@ -474,8 +474,8 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
             padding: '14px 16px',
             fontSize: '0.929rem',
             lineHeight: 1.65,
-            background: '#1a1a2e',
-            color: '#e6e8ef',
+            background: 'var(--code-bg)',
+            color: 'var(--code-text)',
             fontFamily: 'var(--font-mono)',
             overflow: 'auto',
             maxHeight: 480,
@@ -496,9 +496,9 @@ const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: 
             fontSize: '0.929rem',
             lineHeight: 1.65,
             borderRadius: 0,
-            background: '#1a1a2e',
+            background: 'var(--code-bg)',
           }}
-          codeTagProps={{ style: { fontFamily: 'var(--font-mono)' } }}
+          codeTagProps={{ style: { fontFamily: 'var(--font-mono)', color: 'var(--code-text)' } }}
         >
           {code}
         </SyntaxHighlighter>

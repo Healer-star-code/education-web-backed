@@ -105,7 +105,7 @@ export function SkillLoadRow({ name, baseDir, content, isLoading }: Props) {
             color: 'var(--text-muted)',
             wordBreak: 'break-word',
             maxHeight: 360, overflowY: 'auto',
-            background: 'rgba(0,0,0,0.025)',
+            background: 'var(--bg-subtle)',
             borderRadius: 6,
             marginTop: 2,
           }}

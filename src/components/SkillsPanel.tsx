@@ -92,7 +92,7 @@ export function SkillsPanel({ cwd: _cwd, onClose }: Props) {
 
         <div style={{ padding: 14, overflowY: 'auto' }}>
           {loading && <div style={{ color: 'var(--text-muted)', fontSize: 'calc(var(--font-base) * 0.929)' }}>Loading skills...</div>}
-          {error && <div style={{ color: '#ef4444', fontSize: 'calc(var(--font-base) * 0.929)', marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--danger)', fontSize: 'var(--font-sm)', marginBottom: 10 }}>{error}</div>}
 
           {unsupported && (
             <div style={{

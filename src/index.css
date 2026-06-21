@@ -6,14 +6,29 @@
   --border: #e4e4e7;
   --text: #18181b;
   --text-muted: #6b7280;
-  --text-dim: #a1a1aa;
+  --text-dim: #71717a;
   --accent: #3354d6;
   --accent-hover: #2641b5;
+  --accent-bg: rgba(51,84,214,0.12);
+  --accent-bg-subtle: rgba(51,84,214,0.08);
+  --accent-senior: #ea580c;
+  --accent-senior-hover: #c2410c;
+  --accent-senior-bg: rgba(234,88,12,0.08);
+  --tool-error: #f97316;
   --streaming: #10b981;
   --streaming-dim: color-mix(in srgb, #10b981 30%, transparent);
   --user-bg: #eef2ff;
+  --user-border: rgba(51,84,214,0.18);
   --assistant-bg: #ffffff;
   --tool-bg: #f4f4f5;
+  --code-bg: #1a1a2e;
+  --code-text: #e6e8ef;
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-bg: rgba(220,38,38,0.08);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245,158,11,0.08);
+  --success: #16a34a;
   --bg-subtle: rgba(0,0,0,0.025);
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
@@ -37,14 +52,29 @@ html.dark {
   --border: #2e3344;
   --text: #e8eaef;
   --text-muted: #9ca3af;
-  --text-dim: #6b7280;
+  --text-dim: #9ca3af;
   --accent: #5c9dff;
   --accent-hover: #7cb3ff;
+  --accent-bg: rgba(92,157,255,0.12);
+  --accent-bg-subtle: rgba(92,157,255,0.08);
+  --accent-senior: #fb923c;
+  --accent-senior-hover: #fdba74;
+  --accent-senior-bg: rgba(251,146,60,0.10);
+  --tool-error: #fb923c;
   --streaming: #34d399;
   --streaming-dim: color-mix(in srgb, #34d399 30%, transparent);
   --user-bg: #1e293b;
+  --user-border: rgba(92,157,255,0.22);
   --assistant-bg: #14171f;
   --tool-bg: #1a1e29;
+  --code-bg: #1a1a2e;
+  --code-text: #e6e8ef;
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --danger-bg: rgba(239,68,68,0.12);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251,191,36,0.08);
+  --success: #22c55e;
   --bg-subtle: rgba(255,255,255,0.035);
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.25);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.35);
@@ -57,7 +87,7 @@ html.dark {
 html.senior-mode {
   --line-height: 1.8;
   --text-muted: #4b5563;
-  --text-dim: #6b7280;
+  --text-dim: #52525b;
   --session-item-height: 68px;
   --sidebar-title-size: 15px;
   --sidebar-meta-size: 13px;
@@ -83,7 +113,7 @@ html.senior-mode {
 
 html.senior-mode.dark {
   --text-muted: #9ca3af;
-  --text-dim: #6b7280;
+  --text-dim: #a1a1aa;
 }
 
 html.senior-mode,
@@ -131,6 +161,27 @@ html.senior-mode .markdown-body td {
 ::view-transition-new(root) { z-index: 2; }
 
 * { box-sizing: border-box; }
+
+/* Respect system-level reduced motion preference.
+   Keep functional loading indicators (spinners, shimmer, streaming breathe)
+   visible so users still perceive activity; only suppress decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.05s !important;
+    scroll-behavior: auto !important;
+  }
+
+  .tool-call-spinner,
+  .thinking-shimmer,
+  .chat-input-wrapper.is-streaming .chat-input-inner {
+    animation-duration: 0.8s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
 
 /* Interactive button primitives */
 .btn-interactive {
@@ -481,18 +532,24 @@ pre, code { font-family: var(--font-mono); }
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
-/* Subtle noise texture overlay for depth */
+/* Subtle noise texture overlay for depth (very conservative default) */
 .noise-overlay {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.025;
+  opacity: 0.012;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
 
 html.dark .noise-overlay {
-  opacity: 0.04;
+  opacity: 0.02;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .noise-overlay {
+    display: none;
+  }
 }
 
 /* Chat input focus ring & streaming breathe indicator */
@@ -576,7 +633,7 @@ html.dark .noise-overlay {
 }
 
 .tool-call-button--waiting_permission {
-  color: #f59e0b;
+  color: var(--warning);
   font-weight: 500;
 }
 
@@ -589,11 +646,11 @@ html.dark .noise-overlay {
 }
 
 .tool-call-status-error {
-  color: #f97316;
+  color: var(--tool-error);
 }
 
 .tool-call-status-waiting {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .tool-call-spinner {

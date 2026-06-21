@@ -167,7 +167,7 @@ export function ArtifactCard({ artifact, hideActions = false }: { artifact: Arti
         </div>
         <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 3 }}>
           {disabled ? (
-            <span style={{ color: '#ef4444' }}>⚠ 文件已不存在</span>
+            <span style={{ color: 'var(--danger)' }}>⚠ 文件已不存在</span>
           ) : (
             <>
               {kindLabel(artifact.kind, artifact.name)}

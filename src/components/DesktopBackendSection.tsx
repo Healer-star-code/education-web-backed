@@ -107,14 +107,14 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
   const exeMissing = !settings.useRemote && (!settings.superKingExePath || !settings.superKingExePath.trim())
 
   const statusDot = running
-    ? '#10b981'
+    ? 'var(--streaming)'
     : external
-      ? '#3b82f6'
+      ? 'var(--accent)'
       : errored
-        ? '#ef4444'
+        ? 'var(--danger)'
         : starting
-          ? '#f59e0b'
-          : '#9ca3af'
+          ? 'var(--warning)'
+          : 'var(--text-dim)'
   const statusText = running
     ? `运行中 · PID ${status?.pid ?? '?'} · :${status?.port ?? settings.superKingPort}`
     : external
@@ -138,8 +138,8 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
           style={{
             padding: '12px 14px',
             borderRadius: 10,
-            border: '1px solid #f59e0b',
-            background: 'rgba(245, 158, 11, 0.08)',
+            border: '1px solid var(--warning)',
+            background: 'var(--warning-bg)',
             marginBottom: 12,
             fontSize: 13,
             color: 'var(--text)',
@@ -325,7 +325,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
           保存后端设置
         </button>
         {savedFlash && (
-          <span style={{ fontSize: 12, color: '#10b981', alignSelf: 'center' }}>已保存</span>
+          <span style={{ fontSize: 12, color: 'var(--success)', alignSelf: 'center' }}>已保存</span>
         )}
       </div>
     </div>

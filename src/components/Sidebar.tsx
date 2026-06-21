@@ -259,8 +259,8 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               display: 'flex',
               alignItems: 'center',
               padding: '6px 10px',
-              background: selectedCwd ? 'var(--bg-hover)' : 'rgba(37,99,235,0.08)',
-              border: selectedCwd ? '1px solid var(--border)' : '1px dashed rgba(37,99,235,0.5)',
+              background: selectedCwd ? 'var(--bg-hover)' : 'var(--user-bg)',
+              border: selectedCwd ? '1px solid var(--border)' : '1px dashed var(--accent)',
               borderRadius: 7,
               cursor: 'pointer',
               fontSize: 'var(--font-sm)',
@@ -365,7 +365,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
           )}
         </div>
         {directoryError && (
-          <div style={{ marginTop: 6, color: '#dc2626', fontSize: 'var(--font-xs)', lineHeight: 1.4 }}>
+          <div style={{ marginTop: 6, color: 'var(--danger)', fontSize: 'var(--font-xs)', lineHeight: 1.4 }}>
             {directoryError}
           </div>
         )}
@@ -667,9 +667,9 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
           {!editing && session.orphaned && (
             <span style={{
               padding: '1px 5px',
-              background: 'rgba(239,68,68,0.12)',
+              background: 'var(--danger-bg)',
               borderRadius: 3, fontSize: 'var(--font-xs)',
-              color: '#f87171', fontWeight: 500,
+              color: 'var(--danger)', fontWeight: 500,
               flexShrink: 0,
             }}>
               incomplete
@@ -766,7 +766,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
             </MenuButton>
             <div style={{ height: 1, background: 'var(--border)', margin: '2px 6px' }} />
             {!confirming ? (
-              <MenuButton onClick={(e) => { e.stopPropagation(); setConfirming(true) }} style={{ color: '#ef4444' }}>
+              <MenuButton onClick={(e) => { e.stopPropagation(); setConfirming(true) }} style={{ color: 'var(--danger)' }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="3 6 5 6 21 6" />
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -775,7 +775,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               </MenuButton>
             ) : (
               <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: '#ef4444', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>
                   确认
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer' }}>

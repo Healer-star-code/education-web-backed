@@ -97,7 +97,7 @@ export function ThinkingBlock({ content, durationMs, isThinking }: Props) {
           color: 'var(--text-muted)',
           whiteSpace: 'pre-line', wordBreak: 'break-word',
           maxHeight: 300, overflowY: 'auto',
-          background: 'rgba(0,0,0,0.025)',
+          background: 'var(--bg-subtle)',
           borderRadius: 6,
           marginTop: 2,
         }}>

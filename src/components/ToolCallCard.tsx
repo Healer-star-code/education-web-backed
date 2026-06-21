@@ -258,7 +258,7 @@ export function ToolCallRow({ tool, onResolvePermission }: { tool: ToolCallInfo;
       {expanded && (
         <div className="tool-call-result">
           {stuckHint && (
-            <div style={{ color: 'var(--error)', fontSize: 'var(--font-xs)', marginBottom: 6, lineHeight: 1.4 }}>
+            <div style={{ color: 'var(--danger)', fontSize: 'var(--font-xs)', marginBottom: 6, lineHeight: 1.4 }}>
               {stuckHint}
             </div>
           )}

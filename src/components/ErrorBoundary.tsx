@@ -172,13 +172,13 @@ export class ErrorBoundary extends Component<Props, State> {
                 width: 44,
                 height: 44,
                 borderRadius: 12,
-                background: 'rgba(239, 68, 68, 0.12)',
+                background: 'var(--danger-bg)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" />
                 <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -194,12 +194,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.08)',
-              border: '1px solid rgba(239, 68, 68, 0.25)',
+              background: 'var(--danger-bg)',
+              border: '1px solid var(--danger)',
               borderRadius: 8,
               padding: '10px 14px',
               fontSize: 13,
-              color: '#fca5a5',
+              color: 'var(--danger-hover)',
               fontFamily: 'var(--font-mono, ui-monospace, "SF Mono", Menlo, Consolas, monospace)',
               wordBreak: 'break-word',
               maxHeight: 120,

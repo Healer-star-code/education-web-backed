@@ -60,14 +60,14 @@ export function SuperKingBadge({ onOpenSettings }: Props) {
   }
 
   const color = running
-    ? '#10b981'
+    ? 'var(--streaming)'
     : external
-      ? '#3b82f6'
+      ? 'var(--accent)'
       : errored
-        ? '#ef4444'
+        ? 'var(--danger)'
         : starting
-          ? '#f59e0b'
-          : '#9ca3af'
+          ? 'var(--warning)'
+          : 'var(--text-dim)'
   const label = starting
     ? '启动中…'
     : stopping

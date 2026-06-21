@@ -91,7 +91,7 @@ export function UpdaterCard() {
               style={{
                 width: `${state.percent}%`,
                 height: '100%',
-                background: '#3b82f6',
+                background: 'var(--accent)',
                 transition: 'width 0.2s',
               }}
             />

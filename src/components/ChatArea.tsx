@@ -1420,7 +1420,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               </div>
             )
           })}
-          {error && <div style={{ color: '#ef4444', fontSize: 'calc(var(--font-base) * 0.929)', marginBottom: 10 }}>{error}</div>}
+          {error && <div style={{ color: 'var(--danger)', fontSize: 'var(--font-sm)', marginBottom: 10 }}>{error}</div>}
           <div ref={messagesEndRef} />
         </div>
       </div>
