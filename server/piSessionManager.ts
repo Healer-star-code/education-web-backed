@@ -298,6 +298,9 @@ export async function createWebSession(cwd?: string): Promise<WebSessionInfo> {
     settingsManager: SettingsManager.create(root, getAgentDir(), { projectTrusted: true }),
     additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(root, () => sessionId)],
+    appendSystemPrompt: [
+      '注意：你的内部思考过程（thinking / reasoning）请使用中文，这样中文用户能更好地理解你的推理逻辑。最终给用户的回复也保持中文。',
+    ],
   })
   await resourceLoader.reload()
   const customTools: ToolDefinition[] = []
@@ -341,6 +344,9 @@ export async function openWebSession(sessionFile: string): Promise<WebSessionInf
     settingsManager: SettingsManager.create(cwd, getAgentDir(), { projectTrusted: true }),
     additionalSkillPaths: allGlobalSkillPaths(),
     extensionFactories: [createSandboxGuardExtension(cwd, () => sessionId)],
+    appendSystemPrompt: [
+      '注意：你的内部思考过程（thinking / reasoning）请使用中文，这样中文用户能更好地理解你的推理逻辑。最终给用户的回复也保持中文。',
+    ],
   })
   await resourceLoader.reload()
   const customTools: ToolDefinition[] = []
