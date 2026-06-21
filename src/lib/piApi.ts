@@ -73,6 +73,12 @@ export interface ArtifactInfo {
   kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
   timeCreated: number
   messageIndex?: number
+  /** 仅本地启发式提取的 artifact 才有：文件在用户磁盘上的绝对路径 */
+  localPath?: string
+  /** 文件是否仍存在（来自 file:stat 验证）。未验证时 undefined。 */
+  exists?: boolean
+  /** 来源标记：'backend' = super-king SSE 推送；'local-scan' = 前端文本扫描兜底 */
+  source?: 'backend' | 'local-scan'
 }
 
 export interface PermissionRequestInfo {
@@ -783,6 +789,30 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     markConnectedOnce()
     flushFinal()
     onEvent({ type: 'agent_end' })
+  })
+
+  // ---- artifact_created：super-king 在生成文件后发的事件 ----
+  // 文档里 SSE 协议层定义了这个 named event，但之前前端漏接，导致文件卡片无法显示。
+  // 后端可能发的 payload 两种：
+  //   1) { artifact: { id, sessionId, name, path, ... } }       <- 标准
+  //   2) { id, sessionId, name, path, ... }                     <- 简化（直接平铺）
+  es.addEventListener('artifact_created', (event) => {
+    markConnectedOnce()
+    try {
+      const data = JSON.parse((event as MessageEvent).data)
+      const raw = (data && typeof data === 'object' && 'artifact' in data && data.artifact)
+        ? data.artifact
+        : data
+      if (raw && typeof raw === 'object') {
+        const artifact: ArtifactInfo = {
+          ...(raw as ArtifactInfo),
+          source: 'backend',
+        }
+        onEvent({ type: 'artifact_created', artifact })
+      }
+    } catch {
+      // ignore
+    }
   })
 
   // super-king 实际也会把权限/问题作为独立 named event 发送

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep } from '../mockData'
+import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep, ArtifactInfo } from '../mockData'
 import { MessageView } from './MessageView'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
@@ -24,6 +24,8 @@ import {
   type ModelProviderInfo,
   type ConfigInfo,
 } from '../lib/piApi'
+import { detectLocalArtifacts } from '../lib/artifactDetector'
+import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
 
 interface Props {
   session: SessionInfo | null
@@ -263,6 +265,37 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         return normalized
       })
       forceScrollRef.current = true
+      // 历史消息加载完后，对每条 assistant 消息跑本地路径扫描，让"重新打开会话"也能看到文件卡片
+      if (isDesktop) {
+        const bridge = getDesktopBridge()
+        if (bridge?.file?.stat) {
+          void (async () => {
+            try {
+              let snapshot: Message[] = []
+              setMessages((prev) => { snapshot = prev; return prev })
+              const updates = new Map<string, ArtifactInfo[]>()
+              for (const msg of snapshot) {
+                if (msg.role !== 'assistant' || !msg.content) continue
+                const detected = await detectLocalArtifacts(
+                  msg.content,
+                  sessionId,
+                  msg.artifacts ?? [],
+                  (p) => bridge.file.stat(p),
+                )
+                if (detected.length > 0) updates.set(msg.id, detected)
+              }
+              if (updates.size === 0) return
+              if (normalizeSessionIdRef.current !== sessionId) return
+              setMessages((prev) => prev.map((m) => {
+                const add = updates.get(m.id)
+                return add ? { ...m, artifacts: [...(m.artifacts ?? []), ...add] } : m
+              }))
+            } catch (err) {
+              console.warn('[artifactDetector] history scan failed', err)
+            }
+          })()
+        }
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       console.error('Normalize messages failed:', err)
@@ -412,9 +445,40 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'agent_end': {
         setStreaming(false)
         const sessionId = sdkSessionIdRef.current
+        const finishedAssistantId = currentAssistantIdRef.current
         currentAssistantIdRef.current = null
         if (sessionId) {
           void normalizeMessagesForSession(sessionId)
+        }
+        // 启发式扫描：从 assistant 消息文本里抓本地路径，验证存在后追加 artifact 卡片
+        // 仅桌面端（需要 file:stat IPC）；后端已发 backend artifact 的会自动去重
+        if (isDesktop && sessionId && finishedAssistantId) {
+          const bridge = getDesktopBridge()
+          if (bridge?.file?.stat) {
+            void (async () => {
+              try {
+                // 用 setMessages(prev => prev) 拿到最新 messages 快照（避免 stale closure）
+                let snapshot: Message[] = []
+                setMessages((prev) => { snapshot = prev; return prev })
+                const target = snapshot.find((m) => m.id === finishedAssistantId)
+                if (!target) return
+                const detected = await detectLocalArtifacts(
+                  target.content ?? '',
+                  sessionId,
+                  target.artifacts ?? [],
+                  (p) => bridge.file.stat(p),
+                )
+                if (detected.length === 0) return
+                setMessages((prev) => prev.map((msg) => (
+                  msg.id === finishedAssistantId
+                    ? { ...msg, artifacts: [...(msg.artifacts ?? []), ...detected] }
+                    : msg
+                )))
+              } catch (err) {
+                console.warn('[artifactDetector] scan failed', err)
+              }
+            })()
+          }
         }
         break
       }

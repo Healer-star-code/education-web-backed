@@ -63,6 +63,18 @@ export interface PiDesktopBridge {
     openPath: (target: string) => Promise<{ ok: boolean; error?: string }>
     openExternal: (url: string) => Promise<{ ok: boolean; error?: string }>
   }
+  file: {
+    stat: (target: string) => Promise<{
+      exists: boolean
+      size?: number
+      mtime?: number
+      isDirectory?: boolean
+      isFile?: boolean
+    }>
+    saveAs: (src: string) => Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }>
+    reveal: (target: string) => Promise<{ ok: boolean; fallback?: string; error?: string }>
+    openLocal: (target: string) => Promise<{ ok: boolean; error?: string }>
+  }
   local: {
     health: () => Promise<{ ok: true }>
     getSkillsRoot: () => Promise<{ path: string }>

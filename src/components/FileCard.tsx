@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import { getFileIcon } from './FileIcons'
 import type { ArtifactInfo, MessageAttachment } from '../mockData'
 import { artifactDownloadUrl, type ArtifactInfo as ApiArtifactInfo } from '../lib/piApi'
+import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
 
 function formatBytes(size?: number): string {
   if (!size && size !== 0) return ''
@@ -12,6 +14,18 @@ function formatBytes(size?: number): string {
 function extLabel(name: string): string {
   const ext = name.split('.').pop()?.toUpperCase()
   return ext || 'FILE'
+}
+
+function kindLabel(kind: ArtifactInfo['kind'], name: string): string {
+  switch (kind) {
+    case 'word': return 'Word 文档'
+    case 'spreadsheet': return 'Excel 表格'
+    case 'presentation': return 'PPT 演示文稿'
+    case 'pdf': return 'PDF 文档'
+    case 'image': return '图片'
+    case 'text': return '文本文件'
+    default: return extLabel(name)
+  }
 }
 
 export function AttachmentCard({ attachment, compact = false }: { attachment: MessageAttachment; compact?: boolean }) {
@@ -34,32 +48,208 @@ export function AttachmentCard({ attachment, compact = false }: { attachment: Me
 }
 
 export function ArtifactCard({ artifact }: { artifact: ArtifactInfo }) {
-  const url = artifactDownloadUrl(artifact as ApiArtifactInfo)
-  async function saveAs() {
-    if ('showSaveFilePicker' in window) {
-      const picker = (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker
-      const handle = await picker({ suggestedName: artifact.name })
-      const writable = await handle.createWritable()
-      const res = await fetch(url)
-      await writable.write(await res.blob())
-      await writable.close()
-      return
-    }
-    const a = document.createElement('a')
-    a.href = url
-    a.download = artifact.name
-    a.click()
+  // 区分两种 artifact：
+  // - localPath 存在 = 启发式扫描出来的本地文件，走 Electron IPC（保存/打开/定位）
+  // - 否则 = backend artifact，走 HTTP 下载（保留旧行为）
+  const hasLocalPath = !!artifact.localPath
+  const bridge = getDesktopBridge()
+
+  // 探测文件是否还在（仅本地路径需要）
+  const [exists, setExists] = useState<boolean>(artifact.exists ?? true)
+  const [busy, setBusy] = useState<null | 'save' | 'open' | 'reveal'>(null)
+  const [toast, setToast] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!hasLocalPath || !isDesktop || !bridge?.file?.stat) return
+    let cancelled = false
+    bridge.file.stat(artifact.localPath!).then((s) => {
+      if (!cancelled) setExists(!!s.exists)
+    }).catch(() => { /* ignore */ })
+    return () => { cancelled = true }
+  }, [hasLocalPath, artifact.localPath, bridge])
+
+  function flashToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2200)
   }
 
+  async function handleSaveAs() {
+    if (busy) return
+    setBusy('save')
+    try {
+      if (hasLocalPath && bridge?.file?.saveAs) {
+        const res = await bridge.file.saveAs(artifact.localPath!)
+        if (res.ok) flashToast(`已保存到 ${res.savedTo}`)
+        else if (!res.canceled && res.error) flashToast(`保存失败：${res.error}`)
+      } else {
+        // backend artifact：通过 HTTP 下载 + showSaveFilePicker
+        const url = artifactDownloadUrl(artifact as ApiArtifactInfo)
+        if ('showSaveFilePicker' in window) {
+          const picker = (window as unknown as { showSaveFilePicker: (opts: unknown) => Promise<FileSystemFileHandle> }).showSaveFilePicker
+          const handle = await picker({ suggestedName: artifact.name })
+          const writable = await handle.createWritable()
+          const res = await fetch(url)
+          await writable.write(await res.blob())
+          await writable.close()
+          flashToast('已保存')
+        } else {
+          const a = document.createElement('a')
+          a.href = url
+          a.download = artifact.name
+          a.click()
+        }
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleOpen() {
+    if (busy || !hasLocalPath || !bridge?.file?.openLocal) return
+    setBusy('open')
+    try {
+      const r = await bridge.file.openLocal(artifact.localPath!)
+      if (!r.ok) flashToast(`打开失败：${r.error ?? '未知错误'}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function handleReveal() {
+    if (busy || !hasLocalPath || !bridge?.file?.reveal) return
+    setBusy('reveal')
+    try {
+      const r = await bridge.file.reveal(artifact.localPath!)
+      if (!r.ok) flashToast(`定位失败：${r.error ?? '未知错误'}`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const disabled = hasLocalPath && !exists
+  const opacity = disabled ? 0.55 : 1
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--bg-panel)', maxWidth: 520 }}>
-      <span style={{ flexShrink: 0 }}>{getFileIcon(artifact.name, 34)}</span>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 14px',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'var(--bg-panel)',
+        maxWidth: 560,
+        opacity,
+        position: 'relative',
+      }}
+    >
+      <span style={{ flexShrink: 0 }}>{getFileIcon(artifact.name, 38)}</span>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artifact.name}</div>
-        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 2 }}>{extLabel(artifact.name)} · {formatBytes(artifact.size)}</div>
+        <div
+          style={{
+            fontSize: 'calc(var(--font-base) * 0.95)',
+            fontWeight: 700,
+            color: 'var(--text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+          title={artifact.localPath ?? artifact.path ?? artifact.name}
+        >
+          {artifact.name}
+        </div>
+        <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 3 }}>
+          {disabled ? (
+            <span style={{ color: '#ef4444' }}>⚠ 文件已不存在</span>
+          ) : (
+            <>
+              {kindLabel(artifact.kind, artifact.name)}
+              {artifact.size > 0 && ` · ${formatBytes(artifact.size)}`}
+            </>
+          )}
+        </div>
       </div>
-      <a href={url} download={artifact.name} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none', fontSize: 'var(--font-sm)' }}>下载</a>
-      <button onClick={saveAs} style={{ padding: '6px 10px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 'var(--font-sm)', cursor: 'pointer' }}>另存为</button>
+
+      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <button
+          onClick={handleSaveAs}
+          disabled={disabled || !!busy}
+          title="保存到电脑"
+          style={primaryBtn(disabled || !!busy)}
+        >
+          📥 保存到电脑
+        </button>
+        {hasLocalPath && (
+          <>
+            <button
+              onClick={handleOpen}
+              disabled={disabled || !!busy}
+              title="用系统默认程序打开"
+              style={ghostBtn(disabled || !!busy)}
+            >
+              ▶ 打开
+            </button>
+            <button
+              onClick={handleReveal}
+              disabled={!!busy}
+              title="在文件夹中显示"
+              style={ghostBtn(!!busy)}
+            >
+              📂 文件夹
+            </button>
+          </>
+        )}
+      </div>
+
+      {toast && (
+        <div
+          style={{
+            position: 'absolute',
+            top: -32,
+            right: 8,
+            padding: '6px 10px',
+            borderRadius: 6,
+            background: 'var(--text)',
+            color: 'var(--bg)',
+            fontSize: 12,
+            whiteSpace: 'nowrap',
+            zIndex: 10,
+            maxWidth: 380,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   )
+}
+
+function primaryBtn(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '7px 12px',
+    borderRadius: 8,
+    border: 'none',
+    background: disabled ? 'var(--border)' : 'var(--accent)',
+    color: disabled ? 'var(--text-dim)' : '#fff',
+    fontSize: 'var(--font-sm)',
+    fontWeight: 600,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    whiteSpace: 'nowrap',
+  }
+}
+
+function ghostBtn(disabled: boolean): React.CSSProperties {
+  return {
+    padding: '7px 10px',
+    borderRadius: 8,
+    border: '1px solid var(--border)',
+    background: 'transparent',
+    color: 'var(--text)',
+    fontSize: 'var(--font-sm)',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    whiteSpace: 'nowrap',
+  }
 }

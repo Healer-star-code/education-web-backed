@@ -1,5 +1,6 @@
 ﻿import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import { join } from 'node:path'
+import { join, basename, dirname } from 'node:path'
+import { existsSync, statSync, copyFileSync } from 'node:fs'
 import { getDefaultSkillsRoot, scanLocalSkills } from './helper.js'
 import {
   clearError,
@@ -198,6 +199,75 @@ function registerIpc(): void {
     })
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
+  })
+
+  // ---- 本地文件操作（artifact 卡片用） ----
+  // 探测本地文件状态：用于消息里出现的本地路径 artifact 卡片
+  ipcMain.handle('file:stat', async (_e, target: string) => {
+    if (!target || typeof target !== 'string') return { exists: false }
+    try {
+      if (!existsSync(target)) return { exists: false }
+      const st = statSync(target)
+      return {
+        exists: true,
+        size: st.size,
+        mtime: st.mtimeMs,
+        isDirectory: st.isDirectory(),
+        isFile: st.isFile(),
+      }
+    } catch {
+      return { exists: false }
+    }
+  })
+
+  // 弹保存对话框 + 复制文件到用户选定位置（「保存到电脑」按钮的核心）
+  ipcMain.handle('file:saveAs', async (_e, src: string) => {
+    if (!mainWindow) return { ok: false, error: 'no main window' }
+    if (!src || !existsSync(src)) return { ok: false, error: '源文件不存在' }
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存到电脑',
+      defaultPath: basename(src),
+    })
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true }
+    try {
+      copyFileSync(src, result.filePath)
+      return { ok: true, savedTo: result.filePath }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // 在资源管理器中显示并选中该文件（不是打开文件夹）
+  ipcMain.handle('file:reveal', async (_e, target: string) => {
+    if (!target) return { ok: false, error: 'no path' }
+    try {
+      if (existsSync(target)) {
+        shell.showItemInFolder(target)
+        return { ok: true }
+      }
+      // 文件已不在，至少打开父目录
+      const parent = dirname(target)
+      if (existsSync(parent)) {
+        await shell.openPath(parent)
+        return { ok: true, fallback: 'parent' }
+      }
+      return { ok: false, error: '文件和所在目录都已不存在' }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // 用系统默认程序打开文件（docx -> Word 等）
+  ipcMain.handle('file:openLocal', async (_e, target: string) => {
+    if (!target) return { ok: false, error: 'no path' }
+    if (!existsSync(target)) return { ok: false, error: '文件不存在' }
+    try {
+      const err = await shell.openPath(target)
+      if (err) return { ok: false, error: err }
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
   })
 
   // ---- settings ----

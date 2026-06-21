@@ -36,6 +36,12 @@ export interface ArtifactInfo {
   kind: 'word' | 'presentation' | 'spreadsheet' | 'pdf' | 'image' | 'text' | 'file'
   timeCreated: number
   messageIndex?: number
+  /** 本地启发式扫描出来的 artifact：用户磁盘上的绝对路径（FileCard 据此走 IPC 而不是 HTTP） */
+  localPath?: string
+  /** 文件当前是否存在（用于卡片置灰） */
+  exists?: boolean
+  /** 来源：backend = super-king SSE 推送；local-scan = 前端文本扫描兜底 */
+  source?: 'backend' | 'local-scan'
 }
 
 export interface LocalAttachment {

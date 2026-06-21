@@ -1,0 +1,155 @@
+// 启发式：从 assistant 消息文本里提取「小金刚写出来的本地文件路径」，
+// 通过 IPC 验证存在后，包装成 ArtifactInfo 注入消息底部 → 卡片自动出现。
+//
+// 设计原则：
+// - 宁可漏不可错。only Windows 绝对路径（盘符开头）+ 白名单扩展名。
+// - 同一条消息多次出现同一路径只算一次。
+// - 路径中允许中文、空格（路径用引号 / 反引号包裹时）。
+// - 兜底使用：如果 super-king 后端已经通过 SSE 发了 backend artifact，前端就跳过同路径的 local-scan。
+
+import type { ArtifactInfo } from './piApi'
+
+// 我们关心的「成果文件」扩展名
+const ARTIFACT_EXTS = [
+  'docx', 'doc',
+  'xlsx', 'xls', 'csv',
+  'pptx', 'ppt',
+  'pdf',
+  'md', 'txt',
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg',
+  'zip', 'json', 'html',
+] as const
+
+const EXT_GROUP = ARTIFACT_EXTS.join('|')
+
+// 三种匹配模式：
+// 1) 引号 / 反引号 / 方括号包裹 —— 允许任意字符（含空格中文）
+const REGEX_QUOTED = new RegExp(
+  `["\`'\\[]?\\s*([A-Za-z]:\\\\[^"'\\\`\\[\\]<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))\\s*["\`'\\]]?`,
+  'gi',
+)
+// 2) 裸路径 —— 不带引号，不允许空格（避免吃到后面的标点）
+const REGEX_BARE = new RegExp(
+  `(?<![A-Za-z0-9_/\\\\])([A-Za-z]:\\\\[^\\s"'\`<>|?*\\n\\r]+?\\.(?:${EXT_GROUP}))(?![A-Za-z0-9])`,
+  'gi',
+)
+// 3) Markdown 链接 [name](path)
+const REGEX_MD_LINK = new RegExp(
+  `\\[[^\\]]+\\]\\(([A-Za-z]:\\\\[^)]+?\\.(?:${EXT_GROUP}))\\)`,
+  'gi',
+)
+
+function pickKind(name: string): ArtifactInfo['kind'] {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  if (['docx', 'doc'].includes(ext)) return 'word'
+  if (['xlsx', 'xls', 'csv'].includes(ext)) return 'spreadsheet'
+  if (['pptx', 'ppt'].includes(ext)) return 'presentation'
+  if (ext === 'pdf') return 'pdf'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'image'
+  if (['md', 'txt', 'json', 'html'].includes(ext)) return 'text'
+  return 'file'
+}
+
+function mimeFor(name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  const map: Record<string, string> = {
+    docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    doc: 'application/msword',
+    xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    xls: 'application/vnd.ms-excel',
+    pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ppt: 'application/vnd.ms-powerpoint',
+    pdf: 'application/pdf',
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    txt: 'text/plain',
+    md: 'text/markdown',
+    csv: 'text/csv',
+    json: 'application/json',
+    html: 'text/html',
+    zip: 'application/zip',
+  }
+  return map[ext] ?? 'application/octet-stream'
+}
+
+function basename(p: string): string {
+  const parts = p.split(/[\\/]/)
+  return parts[parts.length - 1] || p
+}
+
+/** 从一段 assistant 文本里抽出所有"看起来像被生成的文件路径"。去重。 */
+export function extractCandidatePaths(text: string): string[] {
+  if (!text) return []
+  const found = new Set<string>()
+  for (const re of [REGEX_MD_LINK, REGEX_QUOTED, REGEX_BARE]) {
+    re.lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text)) !== null) {
+      const path = m[1]?.trim()
+      if (path) found.add(path)
+    }
+  }
+  return [...found]
+}
+
+/**
+ * 给定一段消息文本 + sessionId + 已经存在的 backend artifacts，
+ * 返回需要追加的 local-scan artifacts（已经通过 file:stat 验证存在）。
+ *
+ * 调用方需要传入 file:stat 接口（保持与 Electron bridge 解耦）。
+ */
+export async function detectLocalArtifacts(
+  text: string,
+  sessionId: string,
+  existing: ArtifactInfo[],
+  stat: (target: string) => Promise<{ exists: boolean; size?: number; mtime?: number; isFile?: boolean }>,
+): Promise<ArtifactInfo[]> {
+  const candidates = extractCandidatePaths(text)
+  if (candidates.length === 0) return []
+
+  // 已经被后端 artifact 占用的路径就跳过（避免重复卡片）
+  const existingPaths = new Set<string>()
+  for (const a of existing) {
+    if (a.localPath) existingPaths.add(a.localPath.toLowerCase())
+    if (a.path) existingPaths.add(a.path.toLowerCase())
+  }
+
+  const results: ArtifactInfo[] = []
+  for (const path of candidates) {
+    if (existingPaths.has(path.toLowerCase())) continue
+    try {
+      const info = await stat(path)
+      if (!info.exists || info.isFile === false) continue
+      const name = basename(path)
+      results.push({
+        id: 'local-' + Math.abs(hashCode(path)).toString(36) + '-' + (info.mtime ?? Date.now()),
+        sessionId,
+        name,
+        path,
+        localPath: path,
+        mimeType: mimeFor(name),
+        size: info.size ?? 0,
+        kind: pickKind(name),
+        timeCreated: info.mtime ?? Date.now(),
+        exists: true,
+        source: 'local-scan',
+      })
+    } catch {
+      // ignore single-file failures
+    }
+  }
+  return results
+}
+
+function hashCode(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) {
+    h = (h << 5) - h + s.charCodeAt(i)
+    h |= 0
+  }
+  return h
+}

@@ -66,6 +66,21 @@ const api = {
     openExternal: (url: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('shell:openExternal', url),
   },
+  file: {
+    stat: (target: string): Promise<{
+      exists: boolean
+      size?: number
+      mtime?: number
+      isDirectory?: boolean
+      isFile?: boolean
+    }> => ipcRenderer.invoke('file:stat', target),
+    saveAs: (src: string): Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }> =>
+      ipcRenderer.invoke('file:saveAs', src),
+    reveal: (target: string): Promise<{ ok: boolean; fallback?: string; error?: string }> =>
+      ipcRenderer.invoke('file:reveal', target),
+    openLocal: (target: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('file:openLocal', target),
+  },
   local: {
     health: (): Promise<{ ok: true }> => ipcRenderer.invoke('local:health'),
     getSkillsRoot: (): Promise<{ path: string }> => ipcRenderer.invoke('local:getSkillsRoot'),
