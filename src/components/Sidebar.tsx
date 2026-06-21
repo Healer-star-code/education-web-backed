@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { SessionInfo } from '../mockData'
-import { selectDirectory } from '../lib/piApi'
+import { getMessages, selectDirectory } from '../lib/piApi'
+import type { WebMessage } from '../lib/piApi'
 import { XiaojinLogo } from './XiaojinLogo'
 
 interface Props {
@@ -18,6 +19,7 @@ interface Props {
   sessionLoadError?: string | null
   sessionsLoading?: boolean
   onOpenSkills?: () => void
+  onToast?: (message: string, type?: 'success' | 'error') => void
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -105,7 +107,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, sessionsLoading, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, sessionsLoading, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds, onToast }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -410,6 +412,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
             onPinSession={onPinSession}
             pinnedIds={pinnedIds}
             depth={0}
+            onToast={onToast}
           />
         ))}
       </div>
@@ -434,7 +437,7 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
   )
 }
 
-function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, onRenameSession, onPinSession, pinnedIds, depth }: {
+function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, onRenameSession, onPinSession, pinnedIds, depth, onToast }: {
   node: SessionTreeNode
   selectedId: string | null
   onSelectSession: (s: SessionInfo) => void
@@ -443,6 +446,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
   onPinSession?: (s: SessionInfo) => void
   pinnedIds?: Set<string>
   depth: number
+  onToast?: (message: string, type?: 'success' | 'error') => void
 }) {
   const [collapsed, setCollapsed] = useState(false)
   const hasChildren = node.children.length > 0
@@ -472,6 +476,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
           hasChildren={hasChildren}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((v) => !v)}
+          onToast={onToast}
         />
       </div>
       {hasChildren && !collapsed && (
@@ -487,6 +492,7 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
               onPinSession={onPinSession}
               pinnedIds={pinnedIds}
               depth={depth + 1}
+              onToast={onToast}
             />
           ))}
         </div>
@@ -495,7 +501,39 @@ function SessionTreeItem({ node, selectedId, onSelectSession, onDeleteSession, o
   )
 }
 
-function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, isPinned, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse }: {
+function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): string {
+  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const lines: string[] = []
+  lines.push(`# ${title}`)
+  lines.push('')
+  lines.push(`> 项目：\`${session.cwd}\``)
+  lines.push(`> 时间：${session.modified}`)
+  if (session.model) {
+    lines.push(`> 模型：${session.model.provider}/${session.model.modelId}`)
+  }
+  lines.push(`> 消息数：${messages.length} 条`)
+  lines.push('')
+  lines.push('---')
+  lines.push('')
+
+  let index = 0
+  for (const msg of messages) {
+    index++
+    const speaker = msg.role === 'user' ? '用户' : '超级小金'
+    lines.push(`## ${index}. ${speaker}`)
+    lines.push('')
+    if (msg.content) {
+      lines.push(msg.content)
+    } else {
+      lines.push('（无内容）')
+    }
+    lines.push('')
+  }
+
+  return lines.join('\n')
+}
+
+function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, isPinned, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse, onToast }: {
   session: SessionInfo
   isSelected: boolean
   onClick: () => void
@@ -507,6 +545,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
   hasChildren?: boolean
   collapsed?: boolean
   onToggleCollapse?: () => void
+  onToast?: (message: string, type?: 'success' | 'error') => void
 }) {
   const [hovered, setHovered] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -573,10 +612,17 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
     if (next && next !== title) onRename?.(next)
   }
 
-  function handleShare() {
+  async function handleShare() {
     setMenuOpen(false)
-    const text = `会话：${title}\n项目：${session.cwd}\n时间：${session.modified}\n消息数：${session.messageCount}`
-    navigator.clipboard?.writeText(text).catch(() => {})
+    onToast?.('正在加载对话...', 'success')
+    try {
+      const messages = await getMessages(session.id, session.cwd)
+      const markdown = formatSessionToMarkdown(session, messages)
+      await navigator.clipboard?.writeText(markdown)
+      onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
+    } catch (err) {
+      onToast?.('复制失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+    }
   }
 
   const detailTitle = [

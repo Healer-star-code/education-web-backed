@@ -98,7 +98,7 @@ export default function App() {
   })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [skillsOpen, setSkillsOpen] = useState(false)
-  const [toast, setToast] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null)
   const [serverUrl, setServerUrl] = useState(() => {
     try {
       const saved = localStorage.getItem('pi-server-url')
@@ -364,7 +364,7 @@ export default function App() {
       setSessions((current) => upsertSession(current, { ...session, ...renamed, modified: session.modified }))
       setSelectedSession((current) => current?.id === session.id ? { ...current, ...renamed, modified: current.modified } : current)
     } catch (err) {
-      setToast('重命名失败：' + (err instanceof Error ? err.message : String(err)))
+      setToast({ message: '重命名失败：' + (err instanceof Error ? err.message : String(err)), type: 'error' })
     }
   }, [])
 
@@ -390,7 +390,7 @@ export default function App() {
       }
       setSessions((current) => current.filter((s) => s.id !== session.id))
     } catch (err) {
-      setToast('删除失败：' + (err instanceof Error ? err.message : String(err)))
+      setToast({ message: '删除失败：' + (err instanceof Error ? err.message : String(err)), type: 'error' })
     }
   }, [selectedSession, selectedCwd])
 
@@ -401,7 +401,7 @@ export default function App() {
       setSessions((current) => current.map((s) => s.id === sessionId ? { ...s, ...updated } : s))
       setSelectedSession((current) => current?.id === sessionId ? { ...current, ...updated } : current)
     } catch (err) {
-      setToast('切换模型失败：' + (err instanceof Error ? err.message : String(err)))
+      setToast({ message: '切换模型失败：' + (err instanceof Error ? err.message : String(err)), type: 'error' })
     }
   }, [])
 
@@ -439,6 +439,7 @@ export default function App() {
               sessionLoadError={sessionLoadError}
               sessionsLoading={sessionsLoading}
               onOpenSkills={() => setSkillsOpen(true)}
+              onToast={(message, type) => setToast({ message, type })}
             />
           </div>
         </div>
@@ -549,7 +550,7 @@ export default function App() {
                     <ChatInput
                       ref={chatInputRef}
                       placeholder="先选择项目目录后即可开始对话..."
-                      onSend={() => setToast('请先从左侧选择项目目录')}
+                      onSend={() => setToast({ message: '请先从左侧选择项目目录', type: 'error' })}
                     />
                   </div>
                 </div>
@@ -586,11 +587,12 @@ export default function App() {
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-          padding: '10px 20px', borderRadius: 'var(--radius-lg)', background: 'var(--danger)', color: '#fff',
+          padding: '10px 20px', borderRadius: 'var(--radius-lg)',
+          background: toast.type === 'success' ? 'var(--success)' : 'var(--danger)', color: '#fff',
           fontSize: 'calc(var(--font-base) * 0.929)', fontWeight: 600, boxShadow: 'var(--shadow-lg)',
           zIndex: 999, transition: 'opacity 0.3s',
         }}>
-          {toast}
+          {toast.message}
         </div>
       )}
     </>
