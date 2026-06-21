@@ -119,19 +119,27 @@ function basename(p: string): string {
   return parts[parts.length - 1] || p
 }
 
-/** 从一段 assistant 文本里抽出所有"看起来像被生成的文件路径"。去重。 */
+/** 从一段 assistant 文本里抽出所有"看起来像被生成的文件路径"。
+ *  返回值按路径在 text 中**首次出现的位置升序**排列，保证文件卡片顺序
+ *  与 AI 在消息里写出路径的顺序一致（用户期望"文档要按顺序来"）。 */
 export function extractCandidatePaths(text: string): string[] {
   if (!text) return []
-  const found = new Set<string>()
+  // 用 Map 保存"路径 -> 首次出现的 index"，保证去重 + 保序
+  const firstSeen = new Map<string, number>()
   for (const re of [REGEX_MD_LINK, REGEX_QUOTED, REGEX_BARE]) {
     re.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = re.exec(text)) !== null) {
       const path = m[1]?.trim()
-      if (path) found.add(path)
+      if (!path) continue
+      // 取 capture group 在 text 中的起始位置（近似：用 m.index 即可，
+      // 即使 m.index 指向匹配头部而非 capture 头部，仍能保证相对顺序）
+      const pos = m.index
+      const prev = firstSeen.get(path)
+      if (prev === undefined || pos < prev) firstSeen.set(path, pos)
     }
   }
-  return [...found]
+  return [...firstSeen.entries()].sort((a, b) => a[1] - b[1]).map(([p]) => p)
 }
 
 /**
