@@ -125,6 +125,9 @@ export default function App() {
   const [localHelperUrl, setLocalHelperUrl] = useState(() => {
     try { return localStorage.getItem('pi-local-helper-url') || (import.meta.env.VITE_LOCAL_HELPER_BASE as string | undefined) || 'http://127.0.0.1:30143' } catch { return 'http://127.0.0.1:30143' }
   })
+  const [autoApproveAllTools, setAutoApproveAllToolsState] = useState<boolean>(() => {
+    try { return localStorage.getItem('pi-auto-approve-all-tools') === '1' } catch { return false }
+  })
   const [modelProviders, setModelProviders] = useState<ModelProviderInfo[]>([])
   const [config, setConfig] = useState<ConfigInfo | null>(null)
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
@@ -211,6 +214,33 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('pi-local-helper-url', localHelperUrl)
   }, [localHelperUrl])
+
+  // 启动时从 electron-store 同步 autoApproveAllTools（权威数据源），覆盖 localStorage 兜底值
+  useEffect(() => {
+    if (!isDesktop) return
+    const bridge = getDesktopBridge()
+    if (!bridge) return
+    bridge.settings.get().then((s) => {
+      const v = !!s?.autoApproveAllTools
+      setAutoApproveAllToolsState(v)
+      try { localStorage.setItem('pi-auto-approve-all-tools', v ? '1' : '0') } catch {}
+    }).catch((err) => {
+      console.warn('[autoApprove] failed to load from electron-store:', err)
+    })
+  }, [])
+
+  const setAutoApproveAllTools = useCallback((v: boolean) => {
+    setAutoApproveAllToolsState(v)
+    try { localStorage.setItem('pi-auto-approve-all-tools', v ? '1' : '0') } catch {}
+    if (isDesktop) {
+      const bridge = getDesktopBridge()
+      if (bridge?.settings?.set) {
+        bridge.settings.set({ autoApproveAllTools: v }).catch((err) => {
+          console.warn('[autoApprove] failed to persist to electron-store:', err)
+        })
+      }
+    }
+  }, [])
 
   // 加载模型列表与全局配置
   useEffect(() => {
@@ -488,6 +518,7 @@ export default function App() {
                 modelProviders={modelProviders}
                 config={config}
                 onSwitchModel={handleSwitchModel}
+                autoApproveAllTools={autoApproveAllTools}
               />
             ) : (
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--bg)', overflow: 'hidden' }}>
@@ -550,6 +581,8 @@ export default function App() {
           onPasswordChange={setPassword}
           localHelperUrl={localHelperUrl}
           onLocalHelperUrlChange={setLocalHelperUrl}
+          autoApproveAllTools={autoApproveAllTools}
+          onAutoApproveAllToolsChange={setAutoApproveAllTools}
           onClose={() => setSettingsOpen(false)}
         />
       )}

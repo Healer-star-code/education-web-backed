@@ -27,6 +27,7 @@ export interface DesktopSettingsShape {
   autoStartSuperKing: boolean
   remoteUrl: string
   useRemote: boolean
+  autoApproveAllTools: boolean
 }
 
 export type UpdaterPhase =

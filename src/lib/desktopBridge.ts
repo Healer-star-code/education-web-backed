@@ -27,6 +27,8 @@ export interface DesktopSettingsShape {
   autoStartSuperKing: boolean
   remoteUrl: string
   useRemote: boolean
+  /** YOLO mode: 自动允许所有工具调用（默认 false） */
+  autoApproveAllTools: boolean
 }
 
 export type UpdaterPhase =

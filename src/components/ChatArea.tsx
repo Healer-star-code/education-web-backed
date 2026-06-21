@@ -38,6 +38,8 @@ interface Props {
   modelProviders: ModelProviderInfo[]
   config: ConfigInfo | null
   onSwitchModel: (sessionId: string, provider: string, modelId: string) => void
+  /** YOLO mode: 收到 permission_requested 时自动允许，不弹窗 */
+  autoApproveAllTools?: boolean
 }
 
 const APP_INSTITUTION = (import.meta.env.VITE_APP_INSTITUTION as string | undefined) ?? `v${__APP_VERSION__}`
@@ -185,7 +187,7 @@ function toMessageAttachments(attachments: LocalAttachment[] | undefined): Messa
   }))
 }
 
-export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, onSessionCreated, modelProviders, config, onSwitchModel }: Props) {
+export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, onSessionCreated, modelProviders, config, onSwitchModel, autoApproveAllTools = false }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [hasMessages, setHasMessages] = useState(false)
   const [streaming, setStreaming] = useState(false)
@@ -217,6 +219,12 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   // 本会话自动允许的权限规则：{ sessionId -> { kindKey -> true } }
   const allowedSessionPermissionsRef = useRef<Map<string, Set<string>>>(new Map())
+
+  // YOLO mode：autoApproveAllTools 的 ref 镜像（handleAgentEvent 是稳定闭包，state 拿不到最新值）
+  const autoApproveAllToolsRef = useRef(autoApproveAllTools)
+  useEffect(() => {
+    autoApproveAllToolsRef.current = autoApproveAllTools
+  }, [autoApproveAllTools])
 
   function getPermissionKey(kind: string, options: unknown): string {
     return `${kind}:${JSON.stringify(options ?? {})}`
@@ -533,6 +541,14 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         const sessionId = sdkSessionIdRef.current
         const request = event.request
         if (!sessionId) break
+
+        // YOLO mode：全局自动允许（优先级最高，跳过一切兜底逻辑）
+        if (autoApproveAllToolsRef.current) {
+          void resolvePermission(sessionId, request.permissionId, true).catch((err) => {
+            console.error('[YOLO] auto-approve permission failed:', err)
+          })
+          break
+        }
 
         if (isSessionAllowed(sessionId, request.kind, request.options)) {
           void resolvePermission(sessionId, request.permissionId, true)

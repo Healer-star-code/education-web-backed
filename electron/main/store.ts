@@ -10,6 +10,8 @@ export interface DesktopSettings {
   autoStartSuperKing: boolean
   remoteUrl: string
   useRemote: boolean
+  /** 自动允许所有工具调用（YOLO mode）：开启后所有 permission_requested 自动放行 */
+  autoApproveAllTools: boolean
 }
 
 // 默认值原则：和机器路径相关的全部留空，强制用户首次进设置面板配置；
@@ -28,6 +30,7 @@ const defaults: DesktopSettings = {
   autoStartSuperKing: false,
   remoteUrl: '',
   useRemote: false,
+  autoApproveAllTools: false,
 }
 
 const store = new Store<DesktopSettings>({
@@ -45,6 +48,7 @@ export function getSettings(): DesktopSettings {
     autoStartSuperKing: (store as any).get('autoStartSuperKing') as boolean,
     remoteUrl: (store as any).get('remoteUrl') as string,
     useRemote: (store as any).get('useRemote') as boolean,
+    autoApproveAllTools: Boolean((store as any).get('autoApproveAllTools') ?? false),
   }
 }
 
