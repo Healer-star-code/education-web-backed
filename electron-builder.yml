@@ -19,6 +19,9 @@ files:
 asar: true
 
 win:
+  # 应用图标：build/icon.ico（6 分辨率：16/32/48/64/128/256）
+  # 同时控制：.exe 内嵌图标、桌面快捷方式、开始菜单、任务栏、Alt+Tab、窗口标题栏
+  icon: build/icon.ico
   target:
     - target: nsis
       arch:
@@ -36,11 +39,15 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: 超级小金
   artifactName: ${productName}-${version}-setup.${ext}
+  # 安装器本身也用同一张图标（如 NSIS 窗口标题栏）
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
 
 portable:
   artifactName: ${productName}-${version}-portable.${ext}
 
 linux:
+  icon: build/icon.png
   target:
     - AppImage
   category: Development

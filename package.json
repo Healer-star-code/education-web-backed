@@ -1,7 +1,7 @@
 {
   "name": "super-king-agent",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Super King Agent desktop client",
   "main": "out/main/index.js",
   "type": "module",
@@ -50,6 +50,8 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.6.0",
+    "png-to-ico": "^3.0.1",
+    "sharp": "^0.35.2",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"

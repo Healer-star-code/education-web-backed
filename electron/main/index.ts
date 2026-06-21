@@ -28,6 +28,21 @@ const isDev = !!process.env['ELECTRON_RENDERER_URL']
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 
+// 解析 app 图标路径：
+// - 开发模式：项目根 build/icon.ico
+// - 打包模式：app.asar 内部不能放 ico（Windows 不会从 asar 加载图标），
+//   electron-builder 会自动把 .exe 的资源嵌入图标；这里给 BrowserWindow 用
+//   __dirname 下的相对位置（out/main/ 同级），fallback 是 process.resourcesPath
+function resolveAppIcon(): string {
+  // 优先 build/icon.ico（dev 模式 + 打包时 out/main 编译产物相对路径）
+  const candidates = [
+    join(import.meta.dirname, '../../build/icon.ico'),
+    join(import.meta.dirname, '../build/icon.ico'),
+    join(process.resourcesPath ?? '', 'build/icon.ico'),
+  ]
+  return candidates[0]
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -37,6 +52,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     title: '超级小金',
+    icon: resolveAppIcon(),
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: false,
