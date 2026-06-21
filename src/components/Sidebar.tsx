@@ -976,12 +976,19 @@ function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToa
     }
   }
 
-  async function handleCopy() {
+  async function withLoadedMessages<T>(action: (messages: WebMessage[]) => Promise<T> | T): Promise<void> {
     setLoading(true)
     try {
       const messages = await loadMessages()
       if (!messages) return
+      await action(messages)
+    } finally {
+      setLoading(false)
+    }
+  }
 
+  async function handleCopy() {
+    await withLoadedMessages(async (messages) => {
       const markdown = formatSessionToMarkdown(session, messages)
       if (markdown.length > MAX_SHARE_BYTES) {
         const mb = (markdown.length / (1024 * 1024)).toFixed(1)
@@ -1002,9 +1009,7 @@ function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToa
         console.warn('[SharePanel] clipboard write failed', err)
         onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
       }
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   async function handleExport(format: ShareFormat) {
@@ -1014,11 +1019,7 @@ function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToa
     }
     const bridge = window.piDesktop
 
-    setLoading(true)
-    try {
-      const messages = await loadMessages()
-      if (!messages) return
-
+    await withLoadedMessages(async (messages) => {
       const title = safeFileName(getSessionTitle(session))
       const config = (() => {
         switch (format) {
@@ -1063,9 +1064,7 @@ function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToa
         console.warn('[SharePanel] saveText failed', err)
         onToast?.('保存失败：' + (err instanceof Error ? err.message : String(err)), 'error')
       }
-    } finally {
-      setLoading(false)
-    }
+    })
   }
 
   return (
