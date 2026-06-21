@@ -115,6 +115,22 @@ export interface PiDesktopBridge {
     install: () => Promise<{ ok: boolean }>
     onChange: (cb: (state: UpdaterState) => void) => () => void
   }
+  log: {
+    rendererError: (payload: {
+      source?: string
+      message?: string
+      stack?: string
+      componentStack?: string
+      url?: string
+      userAgent?: string
+      sessionId?: string | null
+      contentLength?: number
+      extra?: Record<string, unknown>
+    }) => Promise<{ ok: boolean; path?: string; error?: string }>
+    readRendererErrors: (maxBytes?: number) => Promise<{ ok: boolean; path?: string; content?: string; error?: string }>
+    getRendererErrorPath: () => Promise<{ ok: boolean; path?: string; error?: string }>
+    revealRendererErrors: () => Promise<{ ok: boolean; path?: string; error?: string }>
+  }
 }
 
 declare global {

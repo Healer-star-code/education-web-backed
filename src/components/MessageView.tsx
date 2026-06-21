@@ -13,13 +13,43 @@ interface Props {
 }
 
 /**
- * 单条 assistant 消息超过此阈值时，默认只渲染前 N 字 + 折叠按钮。
+ * 单条 assistant 消息超过此阈值时（且非流式状态），默认只渲染前 N 字 + 折叠按钮。
  *
  * 原因：长任务（生成 Word/Excel 等）流式期间，每个 SSE delta 都会让 ReactMarkdown
  * 重新解析整段文本，几千字以上的 markdown 会让主线程卡顿，最终窗口白屏。
  * 截断后超长尾部需要用户点开才完整渲染，平时只渲染头部足够展示。
+ *
+ * 注意：流式期间永远不截断（性能保护靠 memo + delta 节流就够了）。
+ * 流式中截断 = 砍在 markdown token 中间 → react-markdown 解析炸 → 渲染错误页。
  */
 const LONG_MESSAGE_THRESHOLD = 50_000
+
+/**
+ * 在段落/行/句子边界做安全截断，避免砍在 markdown token 中间
+ * 导致 react-markdown 解析失败（未闭合代码围栏、半截链接、半截 HTML 等）。
+ *
+ * 策略：从 hardLimit 位置向前找最近的安全边界。
+ * 优先级：双换行（段落）> 单换行 > 中文句号 > 英文句号+空格 > 空格 > 兜底硬切。
+ */
+function safeTruncateAtBoundary(text: string, hardLimit: number): string {
+  if (text.length <= hardLimit) return text
+  const SAFE_MARGIN = 2000  // 在 hardLimit 前 2KB 内找边界
+  const start = Math.max(0, hardLimit - SAFE_MARGIN)
+  const window = text.slice(start, hardLimit)
+  const candidates: { sep: string; len: number }[] = [
+    { sep: '\n\n', len: 2 },
+    { sep: '\n', len: 1 },
+    { sep: '。', len: 1 },
+    { sep: '. ', len: 2 },
+    { sep: ' ', len: 1 },
+  ]
+  for (const { sep, len } of candidates) {
+    const idx = window.lastIndexOf(sep)
+    if (idx >= 0) return text.slice(0, start + idx + len)
+  }
+  // 兜底：实在找不到边界（罕见，如超长无空白字符串）就硬切
+  return text.slice(0, hardLimit)
+}
 
 function copyText(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
@@ -218,13 +248,14 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
     })
   }
 
-  // 超长消息保护：默认只渲染头部 LONG_MESSAGE_THRESHOLD 字符。
-  // 流式期间也启用截断（这是白屏的主要源头之一）。
-  const fullContent = message.content
-  const isTooLong = fullContent.length > LONG_MESSAGE_THRESHOLD
-  const renderedContent = isTooLong && !expandFull
-    ? fullContent.slice(0, LONG_MESSAGE_THRESHOLD)
+  // 超长消息保护：仅在「非流式 + 内容真的超长 + 用户没点展开」三个条件同时满足时截断。
+  // 流式中绝对不截断（避免砍在 markdown token 中间炸 react-markdown 解析）。
+  const fullContent = message.content ?? ''
+  const shouldTruncate = !isStreaming && fullContent.length > LONG_MESSAGE_THRESHOLD && !expandFull
+  const renderedContent = shouldTruncate
+    ? safeTruncateAtBoundary(fullContent, LONG_MESSAGE_THRESHOLD)
     : fullContent
+  const isTooLong = fullContent.length > LONG_MESSAGE_THRESHOLD
 
   // 缓存 ReactMarkdown 节点：只有 renderedContent 变了才重新解析高亮。
   // 这是性能修复的核心：之前每个 delta 都让整段重做 ReactMarkdown + Prism。
@@ -273,7 +304,7 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
         <div className="markdown-body">
           {markdownNode}
         </div>
-        {isTooLong && !expandFull && (
+        {shouldTruncate && (
           <button
             onClick={() => setExpandFull(true)}
             style={{
@@ -288,9 +319,14 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
             }}
             title="超长消息默认折叠，避免卡顿"
           >
-            展开剩余 {(fullContent.length - LONG_MESSAGE_THRESHOLD).toLocaleString()} 字
-            {isStreaming ? '（流式中，建议生成完再展开）' : ''}
+            展开剩余 {(fullContent.length - renderedContent.length).toLocaleString()} 字
           </button>
+        )}
+        {/* isStreaming 期间用 isTooLong 做提示但不截断 */}
+        {isStreaming && isTooLong && (
+          <div style={{ fontSize: 'var(--font-xs)', color: 'var(--text-dim)', marginTop: 4 }}>
+            消息较长（{fullContent.length.toLocaleString()} 字），完整生成后会自动优化显示
+          </div>
         )}
         {message.artifacts && message.artifacts.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>

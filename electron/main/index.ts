@@ -24,6 +24,7 @@ import {
   initUpdater,
   quitAndInstall,
 } from './updater.js'
+import { appendRendererError, readRendererErrorTail, getRendererErrorLogPath, type RendererErrorPayload } from './errorLog.js'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
@@ -212,6 +213,36 @@ function registerIpc(): void {
   // ---- super-king lifecycle ----
   ipcMain.handle('superking:status', async () => getSuperKingStatus())
   ipcMain.handle('superking:logs', async () => getSuperKingLogs())
+
+  // ---- Renderer 错误日志：让 React 错误页能持久化错误详情到本地文件 ----
+  // 用户出错后不需要复制错误页内容，直接打开日志文件粘给开发者即可定位 bug。
+  ipcMain.handle('log:rendererError', async (_e, payload: RendererErrorPayload) => {
+    return appendRendererError(payload ?? {})
+  })
+  ipcMain.handle('log:readRendererErrors', async (_e, maxBytes?: number) => {
+    return readRendererErrorTail(typeof maxBytes === 'number' ? maxBytes : undefined)
+  })
+  ipcMain.handle('log:getRendererErrorPath', async () => {
+    try {
+      return { ok: true, path: getRendererErrorLogPath() }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+  ipcMain.handle('log:revealRendererErrors', async () => {
+    try {
+      const p = getRendererErrorLogPath()
+      // 如果文件不存在就打开父目录
+      if (existsSync(p)) {
+        shell.showItemInFolder(p)
+      } else {
+        await shell.openPath(dirname(p))
+      }
+      return { ok: true, path: p }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
   ipcMain.handle('superking:start', async () => {
     return startSuperKing(buildStartOptions())
   })

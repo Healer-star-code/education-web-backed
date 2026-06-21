@@ -648,6 +648,11 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     const delta = fullText.slice(state.assistantText.length)
     if (delta) {
       state.assistantText = fullText
+      // 探针：单次 delta > 10KB 是异常情况，可能是后端把整段文本作为一次 delta 推送
+      // （比如非流式 fallback 路径），先 console.warn 留痕便于将来定位渲染问题
+      if (delta.length > 10_000) {
+        console.warn(`[piApi] huge assistant_delta: ${delta.length} chars (total ${fullText.length})`)
+      }
       onEvent({ type: 'assistant_delta', delta })
     }
   }

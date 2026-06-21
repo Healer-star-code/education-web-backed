@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { reportRendererError } from '../lib/errorReporter'
 
 interface Props {
   children: ReactNode
@@ -45,6 +46,13 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[ErrorBoundary]', error, errorInfo)
     this.setState({ errorInfo })
     this.startCountdown()
+    // 持久化到主进程日志文件，方便用户事后给开发者排查
+    reportRendererError({
+      source: 'ErrorBoundary',
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack ?? undefined,
+    })
   }
 
   componentWillUnmount() {
@@ -114,6 +122,17 @@ export class ErrorBoundary extends Component<Props, State> {
       }
     } catch (e) {
       console.warn('clipboard write failed', e)
+    }
+  }
+
+  private openLogFolder = async () => {
+    try {
+      const bridge = (window as { piDesktop?: { log?: { revealRendererErrors?: () => Promise<unknown> } } }).piDesktop
+      if (bridge?.log?.revealRendererErrors) {
+        await bridge.log.revealRendererErrors()
+      }
+    } catch (err) {
+      console.warn('[ErrorBoundary] open log folder failed', err)
     }
   }
 
@@ -252,6 +271,21 @@ export class ErrorBoundary extends Component<Props, State> {
                 }}
               >
                 复制错误详情
+              </button>
+              <button
+                onClick={this.openLogFolder}
+                title="打开 %APPDATA%/super-king-agent/logs/ 文件夹，把 renderer-errors.log 发给开发者"
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border, #2a2f3d)',
+                  background: 'transparent',
+                  color: 'var(--text, #e6e8ef)',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                📂 打开日志文件夹
               </button>
               {autoReload && (
                 <button

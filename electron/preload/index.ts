@@ -136,6 +136,26 @@ const api = {
       return () => ipcRenderer.removeListener('updater:state', handler)
     },
   },
+  log: {
+    rendererError: (payload: {
+      source?: string
+      message?: string
+      stack?: string
+      componentStack?: string
+      url?: string
+      userAgent?: string
+      sessionId?: string | null
+      contentLength?: number
+      extra?: Record<string, unknown>
+    }): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('log:rendererError', payload),
+    readRendererErrors: (maxBytes?: number): Promise<{ ok: boolean; path?: string; content?: string; error?: string }> =>
+      ipcRenderer.invoke('log:readRendererErrors', maxBytes),
+    getRendererErrorPath: (): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('log:getRendererErrorPath'),
+    revealRendererErrors: (): Promise<{ ok: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('log:revealRendererErrors'),
+  },
 }
 
 try {

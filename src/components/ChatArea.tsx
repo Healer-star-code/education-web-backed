@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { SessionInfo, Message, MessageAttachment, LocalAttachment, AgentStep, ArtifactInfo } from '../mockData'
 import { MessageView } from './MessageView'
+import { MessageErrorBoundary } from './MessageErrorBoundary'
 import { ChatInput, type ChatInputHandle } from './ChatInput'
 import { Typewriter } from './Typewriter'
 import { ReasoningBlock } from './ReasoningBlock'
@@ -1111,7 +1112,13 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
                   <PendingTaskCard task={m.pendingTask} />
                 )}
                 {hasText && (
-                  <MessageView message={m} isStreaming={isLast && streaming} />
+                  <MessageErrorBoundary
+                    content={m.content}
+                    sessionId={sdkSessionIdRef.current ?? session?.id ?? null}
+                    messageId={m.id}
+                  >
+                    <MessageView message={m} isStreaming={isLast && streaming} />
+                  </MessageErrorBoundary>
                 )}
               </div>
             )
