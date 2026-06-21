@@ -230,6 +230,8 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
 
   // YOLO mode：autoApproveAllTools 的 ref 镜像（handleAgentEvent 是稳定闭包，state 拿不到最新值）
   const autoApproveAllToolsRef = useRef(autoApproveAllTools)
+  // 记录已扫描过 artifact 的消息 id + content 长度，避免对同一条消息重复扫描
+  const scannedForArtifactsRef = useRef<Map<string, number>>(new Map())
   useEffect(() => {
     autoApproveAllToolsRef.current = autoApproveAllTools
   }, [autoApproveAllTools])
@@ -287,16 +289,20 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
           }
         }
 
-        // 保留前端 detector 算出来的 local-scan artifacts（后端不知道这些卡片，
-        // 如果不保留，agent_end 内刚写入的文件卡片会被 normalize 覆盖丢失）。
-        // 按 (role + content 前 200 字 + content 长度) 作为消息指纹匹配。
-        const localArtifactsByFingerprint = new Map<string, ArtifactInfo[]>()
+        // 保留前端独有的字段（后端不知道，normalize 会丢）：
+        // 1) 用户消息的 attachments（上传文件卡片）
+        // 2) assistant 消息的 source==='local-scan' artifacts（AI 生成文件卡片）
+        // 用「同 role 出现顺序」匹配（id 在 normalize 前后会变，content 也可能略有差异，
+        // 但顺序最稳定）。
+        const userAttachmentsByOrder: (MessageAttachment[] | undefined)[] = []
+        const assistantLocalArtifactsByOrder: ArtifactInfo[][] = []
         for (const msg of currentMessages) {
-          if (msg.role !== 'assistant' || !msg.artifacts || msg.artifacts.length === 0) continue
-          const localOnes = msg.artifacts.filter((a) => a.source === 'local-scan')
-          if (localOnes.length === 0) continue
-          const fp = `${msg.role}|${(msg.content ?? '').length}|${(msg.content ?? '').slice(0, 200)}`
-          localArtifactsByFingerprint.set(fp, localOnes)
+          if (msg.role === 'user') {
+            userAttachmentsByOrder.push(msg.attachments)
+          } else if (msg.role === 'assistant') {
+            const localOnes = (msg.artifacts ?? []).filter((a) => a.source === 'local-scan')
+            assistantLocalArtifactsByOrder.push(localOnes)
+          }
         }
 
         let normalized = normalizeLoadedMessages(loadedMessages)
@@ -314,18 +320,32 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
             }
           })
         }
-        if (localArtifactsByFingerprint.size > 0) {
+        // 按同 role 出现顺序回填前端独有字段
+        {
+          let userIdx = 0
+          let assistantIdx = 0
           normalized = normalized.map((msg) => {
-            if (msg.role !== 'assistant') return msg
-            const fp = `${msg.role}|${(msg.content ?? '').length}|${(msg.content ?? '').slice(0, 200)}`
-            const carry = localArtifactsByFingerprint.get(fp)
-            if (!carry) return msg
-            // 已有的 backend artifact 优先；按 path 去重避免双卡片
-            const existingPaths = new Set((msg.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
-            const keep = carry.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
-            if (keep.length === 0) return msg
-            console.info(`[artifactDetector] normalize: carrying ${keep.length} local artifact(s) to msg=${msg.id}`)
-            return { ...msg, artifacts: [...(msg.artifacts ?? []), ...keep] }
+            if (msg.role === 'user') {
+              const carry = userAttachmentsByOrder[userIdx++]
+              if (carry && carry.length > 0) {
+                console.info(`[normalize] carry user attachments: ${carry.length} item(s) → ${msg.id}`)
+                return { ...msg, attachments: carry }
+              }
+              return msg
+            }
+            if (msg.role === 'assistant') {
+              const carry = assistantLocalArtifactsByOrder[assistantIdx++]
+              if (carry && carry.length > 0) {
+                const existingPaths = new Set((msg.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
+                const keep = carry.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
+                if (keep.length > 0) {
+                  console.info(`[normalize] carry assistant local-scan artifacts: ${keep.length} item(s) → ${msg.id}`)
+                  return { ...msg, artifacts: [...(msg.artifacts ?? []), ...keep] }
+                }
+              }
+              return msg
+            }
+            return msg
           })
         }
         return normalized
@@ -1022,6 +1042,7 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     eventSourceRef.current = null
     eventReadySessionIdRef.current = null
     eventReadyResolveRef.current = null
+    scannedForArtifactsRef.current.clear()
 
         // 使用 queueMicrotask 延迟同步状态重置，避免 react-hooks/set-state-in-effect
     queueMicrotask(() => {
@@ -1077,6 +1098,60 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       }
     }
   }, [])
+
+  // ⭐ 兜底扫描：监听 messages 变化，对任意非流式的 assistant 消息跑 detector。
+  // 这是终极保底——不管 agent_end / normalize / 历史加载哪条路径走对走错，
+  // 只要 message.content 里有路径，最终都会被这里扫到并显示卡片。
+  // 用 scannedForArtifactsRef 按 (msgId + content.length) 去重，避免无限循环。
+  useEffect(() => {
+    if (!isDesktop || streaming) return
+    const bridge = getDesktopBridge()
+    if (!bridge?.file?.stat) return
+    const sessionId = sdkSessionIdRef.current
+    if (!sessionId) return
+
+    const tasks: Array<{ id: string; content: string; existing: ArtifactInfo[] }> = []
+    for (const msg of messages) {
+      if (msg.role !== 'assistant') continue
+      if (!msg.content || msg.content.length < 4) continue
+      const seen = scannedForArtifactsRef.current.get(msg.id)
+      if (seen === msg.content.length) continue
+      tasks.push({ id: msg.id, content: msg.content, existing: msg.artifacts ?? [] })
+    }
+    if (tasks.length === 0) return
+
+    let cancelled = false
+    void (async () => {
+      const updates = new Map<string, ArtifactInfo[]>()
+      for (const t of tasks) {
+        try {
+          const detected = await detectLocalArtifacts(
+            t.content,
+            sessionId,
+            t.existing,
+            (p) => bridge.file.stat(p),
+          )
+          // 在记录"已扫描"前先标记，避免无限循环
+          scannedForArtifactsRef.current.set(t.id, t.content.length)
+          if (detected.length > 0) updates.set(t.id, detected)
+        } catch (err) {
+          console.warn('[fallback-scan] failed for', t.id, err)
+        }
+      }
+      if (cancelled || updates.size === 0) return
+      console.info(`[fallback-scan] applying ${updates.size} update(s)`)
+      setMessages((prev) => prev.map((m) => {
+        const add = updates.get(m.id)
+        if (!add) return m
+        const existingPaths = new Set((m.artifacts ?? []).map((a) => (a.localPath ?? a.path ?? '').toLowerCase()))
+        const keep = add.filter((a) => !existingPaths.has((a.localPath ?? a.path ?? '').toLowerCase()))
+        if (keep.length === 0) return m
+        return { ...m, artifacts: [...(m.artifacts ?? []), ...keep] }
+      }))
+    })()
+
+    return () => { cancelled = true }
+  }, [messages, streaming])
 
   useEffect(() => {
     // Auto-scroll to bottom only when user is near bottom
