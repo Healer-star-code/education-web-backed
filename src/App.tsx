@@ -250,10 +250,29 @@ export default function App() {
         if (cancelled) return
         setSessions(loaded)
         setSessionLoadError(null)
-        if (cwd) {
-          setSelectedCwd(cwd)
-          setSelectedSession(null)
-          setNewSessionCwd(cwd)
+        // 注意：故意不在这里 setSelectedSession(null) / setSelectedCwd(cwd) —— 
+        // handleCwdChange 已经负责切目录时的状态重置；如果在这里再清一遍，
+        // 用户点击某个会话会触发 effect 重跑 loadSessions 时把刚选中的会话清掉。
+        // 把所有会话里出现过的 cwd 合并进 recentCwds，让首次启动的用户
+        // 立刻在「选择项目」下拉里看到历史项目目录（不用等用户手动添加）。
+        // 同时持久化到 localStorage，下次启动直接可见。
+        const cwdsFromSessions = Array.from(
+          new Set(loaded.map((s) => s.cwd).filter((c): c is string => !!c))
+        )
+        if (cwdsFromSessions.length > 0) {
+          setRecentCwds((prev) => {
+            const merged = Array.from(new Set([...prev, ...cwdsFromSessions]))
+            return merged.length === prev.length ? prev : merged
+          })
+          // 异步持久化每一个 —— addRecentPath 内部会去重并维护最新顺序
+          Promise.all(cwdsFromSessions.map((c) => addRecentPath(c)))
+            .then((results) => {
+              if (cancelled) return
+              // 取最后一次调用返回的完整列表（包含所有 cwds，因为是叠加写）
+              const last = results[results.length - 1]
+              if (last) setRecentCwds(last.map((p) => p.path))
+            })
+            .catch(() => {})
         }
       })
       .catch((error) => {
@@ -274,6 +293,15 @@ export default function App() {
   const handleSelectSession = useCallback((session: SessionInfo) => {
     setNewSessionCwd(null)
     setSelectedSession(session)
+    // 点了某个会话 -> 同步把 selectedCwd 设为该会话的 cwd，
+    // 让左上角 CWD picker 立刻显示当前项目目录（之前会一直显示「选择项目...」）。
+    if (session.cwd) {
+      setSelectedCwd((prev) => (prev === session.cwd ? prev : session.cwd))
+      // 顺手写进 recentCwds，确保下次启动也能在下拉里看到
+      addRecentPath(session.cwd)
+        .then((paths) => setRecentCwds(paths.map((p) => p.path)))
+        .catch(() => {})
+    }
   }, [])
 
   const handleNewSession = useCallback(() => {
