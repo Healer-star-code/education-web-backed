@@ -613,6 +613,20 @@ export async function rejectQuestion(questionId: string): Promise<void> {
 // SSE (按 super-king 文档 named events；内部转换为前端 WebAgentEvent)
 // ---------------------------------------------------------------------------
 
+/**
+ * 工具流式 partialResult 在白屏修复中需要截断：某些工具（write/edit/bash）
+ * 在生成 docx/excel/视频等大文件时 partialResult 可能是几 MB 的二进制转字符串，
+ * 直接塞进 React state 会触发主线程长时间 GC + 重渲染卡死。
+ *
+ * - tool_execution_update 截断到 2KB，确保流式预览不至于太重
+ * - tool_execution_end 截断到 200KB，最终结果仍然能放进 state（避免完全丢失）
+ */
+function truncateForUi(value: unknown, limit: number): unknown {
+  if (typeof value !== 'string') return value
+  if (value.length <= limit) return value
+  return value.slice(0, limit) + `\n…（已省略 ${value.length - limit} 字符以保护渲染性能）`
+}
+
 export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgentEvent) => void): EventSource {
   const base = getApiBase()
   const token = getAuthToken()
@@ -767,7 +781,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
         type: 'tool_update',
         toolCallId: data.toolCallId,
         toolName: data.toolName,
-        partialResult: data.partialResult,
+        partialResult: truncateForUi(data.partialResult, 2000),
       })
     } catch {
       // ignore
@@ -782,7 +796,7 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
         type: 'tool_end',
         toolCallId: data.toolCallId,
         toolName: data.toolName,
-        result: data.result,
+        result: truncateForUi(data.result, 200_000),
         isError: data.isError,
       })
     } catch {

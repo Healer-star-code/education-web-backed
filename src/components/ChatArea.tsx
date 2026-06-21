@@ -204,6 +204,11 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
   const currentThinkingStepIdRef = useRef<string | null>(null)
   const pendingToolUpdateRef = useRef<{ toolCallId: string; partialResult: unknown } | null>(null)
   const toolUpdateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 流式 delta 缓冲（修复白屏：之前每个 SSE delta 都触发一次 setState + Markdown 重渲染）
+  const pendingTextDeltaRef = useRef<string>('')
+  const textDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingThinkingDeltaRef = useRef<string>('')
+  const thinkingDeltaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isUserNearBottomRef = useRef(true)
   const forceScrollRef = useRef(false)
   const normalizeSessionIdRef = useRef<string | null>(null)
@@ -337,12 +342,19 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         const assistantId = currentAssistantIdRef.current
         const stepId = currentThinkingStepIdRef.current
         if (!assistantId || !stepId) return
-        setMessages((prev) => prev.map((msg) => {
-          if (msg.id !== assistantId || !msg.steps) return msg
-          return { ...msg, steps: msg.steps.map((s) => (
-            s.type === 'thinking' && s.id === stepId ? { ...s, content: currentThinkingRef.current } : s
-          )) }
-        }))
+        // 节流 60ms：避免每个 SSE delta 都触发一次 React 重渲染（白屏修复的核心）
+        pendingThinkingDeltaRef.current = currentThinkingRef.current
+        if (thinkingDeltaTimerRef.current) break
+        thinkingDeltaTimerRef.current = setTimeout(() => {
+          thinkingDeltaTimerRef.current = null
+          const latestContent = pendingThinkingDeltaRef.current
+          setMessages((prev) => prev.map((msg) => {
+            if (msg.id !== assistantId || !msg.steps) return msg
+            return { ...msg, steps: msg.steps.map((s) => (
+              s.type === 'thinking' && s.id === stepId ? { ...s, content: latestContent } : s
+            )) }
+          }))
+        }, 60)
         break
       }
       case 'thinking_end': {
@@ -351,6 +363,12 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         const durationMs = Date.now() - currentThinkingStartRef.current
         const assistantId = currentAssistantIdRef.current
         const stepId = currentThinkingStepIdRef.current
+        // 立刻 flush pending thinking delta（保证 thinking_end 不被节流的 setTimeout 覆盖）
+        if (thinkingDeltaTimerRef.current) {
+          clearTimeout(thinkingDeltaTimerRef.current)
+          thinkingDeltaTimerRef.current = null
+        }
+        pendingThinkingDeltaRef.current = ''
         if (assistantId && stepId) {
           setMessages((prev) => prev.map((msg) => {
             if (msg.id !== assistantId || !msg.steps) return msg
@@ -365,9 +383,18 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       case 'assistant_delta': {
         const assistantId = currentAssistantIdRef.current
         if (!assistantId) return
-        setMessages((prev) => prev.map((msg) => (
-          msg.id === assistantId ? { ...msg, content: msg.content + event.delta } : msg
-        )))
+        // 节流 60ms：把若干 delta 合并成一次 setState（白屏修复主力）
+        pendingTextDeltaRef.current += event.delta
+        if (textDeltaTimerRef.current) break
+        textDeltaTimerRef.current = setTimeout(() => {
+          textDeltaTimerRef.current = null
+          const buffered = pendingTextDeltaRef.current
+          pendingTextDeltaRef.current = ''
+          if (!buffered) return
+          setMessages((prev) => prev.map((msg) => (
+            msg.id === assistantId ? { ...msg, content: msg.content + buffered } : msg
+          )))
+        }, 60)
         break
       }
       case 'tool_start': {
@@ -448,6 +475,24 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
         const sessionId = sdkSessionIdRef.current
         const finishedAssistantId = currentAssistantIdRef.current
         currentAssistantIdRef.current = null
+        // 立刻 flush 所有 pending delta，防止节流的 setTimeout 在 setStreaming(false) 之后才落地，
+        // 造成"看上去结束了但末尾字符没写进消息"或与 normalize 抢覆盖。
+        if (textDeltaTimerRef.current) {
+          clearTimeout(textDeltaTimerRef.current)
+          textDeltaTimerRef.current = null
+        }
+        const tailText = pendingTextDeltaRef.current
+        pendingTextDeltaRef.current = ''
+        if (thinkingDeltaTimerRef.current) {
+          clearTimeout(thinkingDeltaTimerRef.current)
+          thinkingDeltaTimerRef.current = null
+        }
+        pendingThinkingDeltaRef.current = ''
+        if (tailText && finishedAssistantId) {
+          setMessages((prev) => prev.map((msg) => (
+            msg.id === finishedAssistantId ? { ...msg, content: msg.content + tailText } : msg
+          )))
+        }
         if (sessionId) {
           void normalizeMessagesForSession(sessionId)
         }
@@ -853,6 +898,19 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
     return () => {
       eventSourceRef.current?.close()
       eventSourceRef.current = null
+      // 清理所有节流定时器，避免组件卸载后 setTimeout 回调还在跑触发 setState
+      if (textDeltaTimerRef.current) {
+        clearTimeout(textDeltaTimerRef.current)
+        textDeltaTimerRef.current = null
+      }
+      if (thinkingDeltaTimerRef.current) {
+        clearTimeout(thinkingDeltaTimerRef.current)
+        thinkingDeltaTimerRef.current = null
+      }
+      if (toolUpdateTimerRef.current) {
+        clearTimeout(toolUpdateTimerRef.current)
+        toolUpdateTimerRef.current = null
+      }
     }
   }, [])
 

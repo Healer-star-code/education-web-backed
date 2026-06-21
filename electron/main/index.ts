@@ -55,6 +55,8 @@ function createWindow(): void {
     autoHideMenuBar: true,
     title: '超级小金',
     icon: resolveAppIcon(),
+    // 暗色兜底背景：renderer 短暂卡顿/重载时窗口不会闪白
+    backgroundColor: '#14171f',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: false,
@@ -77,6 +79,45 @@ function createWindow(): void {
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
+  })
+
+  // ---- renderer 健康监听：长任务卡死时给用户选择，崩溃时自动恢复 ----
+  // 之前长时间任务（生成 Word 等）会让 renderer 主线程被打满，窗口变白屏；
+  // 用户没有任何反馈，只能强制结束进程。
+  mainWindow.webContents.on('unresponsive', () => {
+    console.warn('[main] renderer unresponsive')
+    if (!mainWindow) return
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: '页面无响应',
+      message: '页面似乎卡住了',
+      detail: '可能在处理大量内容（生成长文档、代码高亮等）。是否等待，还是重新加载页面？\n\n重新加载会刷新界面但保留会话历史。',
+      buttons: ['继续等待', '重新加载页面'],
+      defaultId: 0,
+      cancelId: 0,
+    }).then(({ response }) => {
+      if (response === 1) {
+        mainWindow?.webContents.reload()
+      }
+    }).catch((err) => {
+      console.warn('[main] unresponsive dialog failed', err)
+    })
+  })
+
+  mainWindow.webContents.on('responsive', () => {
+    console.info('[main] renderer responsive again')
+  })
+
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.error('[main] renderer process gone:', details.reason, details)
+    // clean-exit 是正常退出，跳过；其他原因（crashed/killed/oom）自动重载
+    if (details.reason !== 'clean-exit' && mainWindow && !mainWindow.isDestroyed()) {
+      try {
+        mainWindow.webContents.reload()
+      } catch (err) {
+        console.warn('[main] reload after crash failed', err)
+      }
+    }
   })
 
   if (isDev && process.env['ELECTRON_RENDERER_URL']) {

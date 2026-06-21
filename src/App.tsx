@@ -7,6 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { SkillsPanel } from './components/SkillsPanel'
 import { SuperKingBadge } from './components/SuperKingBadge'
 import { Typewriter } from './components/Typewriter'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import {
   listSessions, listRecentPaths, addRecentPath, deleteSession, renameSession,
   listLocalSkills, listModels, getConfig, switchModel,
@@ -379,6 +380,7 @@ export default function App() {
   const showChat = selectedSession !== null || newSessionCwd !== null
 
   return (
+    <ErrorBoundary>
     <>
       <div className="noise-overlay" aria-hidden="true" />
       <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: 'var(--bg)' }}>
@@ -562,5 +564,6 @@ export default function App() {
         </div>
       )}
     </>
+    </ErrorBoundary>
   )
 }

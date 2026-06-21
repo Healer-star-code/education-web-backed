@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -11,6 +11,15 @@ interface Props {
   isStreaming?: boolean
   showTimestamp?: boolean
 }
+
+/**
+ * 单条 assistant 消息超过此阈值时，默认只渲染前 N 字 + 折叠按钮。
+ *
+ * 原因：长任务（生成 Word/Excel 等）流式期间，每个 SSE delta 都会让 ReactMarkdown
+ * 重新解析整段文本，几千字以上的 markdown 会让主线程卡顿，最终窗口白屏。
+ * 截断后超长尾部需要用户点开才完整渲染，平时只渲染头部足够展示。
+ */
+const LONG_MESSAGE_THRESHOLD = 50_000
 
 function copyText(text: string): Promise<void> {
   if (navigator.clipboard?.writeText) {
@@ -31,7 +40,7 @@ function copyText(text: string): Promise<void> {
   }
 }
 
-export function MessageView({ message, isStreaming }: Props) {
+function MessageViewInner({ message, isStreaming }: Props) {
   if (message.role === 'user') {
     return <UserMessageView message={message} />
   }
@@ -40,6 +49,32 @@ export function MessageView({ message, isStreaming }: Props) {
   }
   return null
 }
+
+/**
+ * 自定义浅比较：只在真正影响显示的字段变化时才重渲染。
+ *
+ * 之前每次 setMessages(prev => prev.map(...)) 都会让所有 MessageView 重渲染，
+ * 长会话 + 流式 delta 高频更新时是性能灾难。
+ */
+function arePropsEqual(prev: Props, next: Props): boolean {
+  if (prev.isStreaming !== next.isStreaming) return false
+  if (prev.showTimestamp !== next.showTimestamp) return false
+  const a = prev.message
+  const b = next.message
+  if (a === b) return true
+  if (a.id !== b.id) return false
+  if (a.role !== b.role) return false
+  if (a.content !== b.content) return false
+  if (a.timestamp !== b.timestamp) return false
+  if ((a.attachments?.length ?? 0) !== (b.attachments?.length ?? 0)) return false
+  if ((a.artifacts?.length ?? 0) !== (b.artifacts?.length ?? 0)) return false
+  // 附件 / artifact 的引用变化也视为变化（FileCard 的 localPath 回填会换引用）
+  if (a.attachments !== b.attachments) return false
+  if (a.artifacts !== b.artifacts) return false
+  return true
+}
+
+export const MessageView = memo(MessageViewInner, arePropsEqual)
 
 function formatTime(dateStr: string): string {
   const d = new Date(dateStr)
@@ -174,6 +209,7 @@ function UserMessageView({ message }: { message: Message }) {
 function AssistantMessageView({ message, isStreaming }: { message: Message; isStreaming?: boolean }) {
   const [hovered, setHovered] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [expandFull, setExpandFull] = useState(false)
 
   const copyContent = () => {
     copyText(message.content).then(() => {
@@ -181,6 +217,51 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
       setTimeout(() => setCopied(false), 1500)
     })
   }
+
+  // 超长消息保护：默认只渲染头部 LONG_MESSAGE_THRESHOLD 字符。
+  // 流式期间也启用截断（这是白屏的主要源头之一）。
+  const fullContent = message.content
+  const isTooLong = fullContent.length > LONG_MESSAGE_THRESHOLD
+  const renderedContent = isTooLong && !expandFull
+    ? fullContent.slice(0, LONG_MESSAGE_THRESHOLD)
+    : fullContent
+
+  // 缓存 ReactMarkdown 节点：只有 renderedContent 变了才重新解析高亮。
+  // 这是性能修复的核心：之前每个 delta 都让整段重做 ReactMarkdown + Prism。
+  const markdownNode = useMemo(() => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ className, children, ...props }) {
+          const lang = className?.replace('language-', '').toLowerCase() ?? ''
+          const raw = String(children)
+          const isBlock = className?.includes('language-') || raw.includes('\n')
+          if (isBlock) {
+            return <CodeBlock code={raw.replace(/\n$/, '')} lang={lang} />
+          }
+          return (
+            <code
+              style={{
+                background: 'var(--bg-selected)',
+                padding: '1px 4px',
+                borderRadius: 3,
+                fontFamily: 'var(--font-mono)',
+                fontSize: '0.9em',
+              }}
+              {...props}
+            >
+              {children}
+            </code>
+          )
+        },
+        pre({ children }) {
+          return <>{children}</>
+        },
+      }}
+    >
+      {renderedContent}
+    </ReactMarkdown>
+  ), [renderedContent])
 
   return (
     <div
@@ -190,39 +271,27 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div className="markdown-body">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code({ className, children, ...props }) {
-                const lang = className?.replace('language-', '').toLowerCase() ?? ''
-                const raw = String(children)
-                const isBlock = className?.includes('language-') || raw.includes('\n')
-                if (isBlock) {
-                  return <CodeBlock code={raw.replace(/\n$/, '')} lang={lang} />
-                }
-                return (
-                  <code
-                    style={{
-                      background: 'var(--bg-selected)',
-                      padding: '1px 4px',
-                      borderRadius: 3,
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.9em',
-                    }}
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                )
-              },
-              pre({ children }) {
-                return <>{children}</>
-              },
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
+          {markdownNode}
         </div>
+        {isTooLong && !expandFull && (
+          <button
+            onClick={() => setExpandFull(true)}
+            style={{
+              alignSelf: 'flex-start',
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-panel)',
+              color: 'var(--text)',
+              fontSize: 'var(--font-xs)',
+              cursor: 'pointer',
+            }}
+            title="超长消息默认折叠，避免卡顿"
+          >
+            展开剩余 {(fullContent.length - LONG_MESSAGE_THRESHOLD).toLocaleString()} 字
+            {isStreaming ? '（流式中，建议生成完再展开）' : ''}
+          </button>
+        )}
         {message.artifacts && message.artifacts.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
             {message.artifacts.map((artifact) => <ArtifactCard key={artifact.id} artifact={artifact} />)}
@@ -273,7 +342,17 @@ function AssistantMessageView({ message, isStreaming }: { message: Message; isSt
   )
 }
 
-function CodeBlock({ code, lang }: { code: string; lang: string }) {
+/**
+ * 代码块组件：Prism 高亮非常重，必须 memo。
+ *
+ * 之前同一条 assistant 消息的多个代码块在每次 delta 后都会重新高亮一遍。
+ * memo 后只有 code 或 lang 真变化时才重做高亮。
+ *
+ * 此外，超长代码（> 20KB）禁用高亮以避免主线程长时间阻塞：直接用 <pre><code> 渲染。
+ */
+const CODE_HIGHLIGHT_MAX = 20_000
+
+const CodeBlock = memo(function CodeBlock({ code, lang }: { code: string; lang: string }) {
   const [copied, setCopied] = useState(false)
 
   const copy = () => {
@@ -282,6 +361,8 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
       setTimeout(() => setCopied(false), 1500)
     })
   }
+
+  const tooLong = code.length > CODE_HIGHLIGHT_MAX
 
   return (
     <div
@@ -307,7 +388,7 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           fontFamily: 'var(--font-mono)',
         }}
       >
-        <span>{lang || 'text'}</span>
+        <span>{lang || 'text'}{tooLong ? ' · 内容过长，已禁用高亮' : ''}</span>
         <button
           onClick={copy}
           title={copied ? '已复制' : '复制代码'}
@@ -344,22 +425,42 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           )}
         </button>
       </div>
-      <SyntaxHighlighter
-        language={lang || 'text'}
-        style={oneDark}
-        showLineNumbers={false}
-        customStyle={{
-          margin: 0,
-          padding: '14px 16px',
-          fontSize: '0.929rem',
-          lineHeight: 1.65,
-          borderRadius: 0,
-          background: '#1a1a2e',
-        }}
-        codeTagProps={{ style: { fontFamily: 'var(--font-mono)' } }}
-      >
-        {code}
-      </SyntaxHighlighter>
+      {tooLong ? (
+        <pre
+          style={{
+            margin: 0,
+            padding: '14px 16px',
+            fontSize: '0.929rem',
+            lineHeight: 1.65,
+            background: '#1a1a2e',
+            color: '#e6e8ef',
+            fontFamily: 'var(--font-mono)',
+            overflow: 'auto',
+            maxHeight: 480,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          <code>{code}</code>
+        </pre>
+      ) : (
+        <SyntaxHighlighter
+          language={lang || 'text'}
+          style={oneDark}
+          showLineNumbers={false}
+          customStyle={{
+            margin: 0,
+            padding: '14px 16px',
+            fontSize: '0.929rem',
+            lineHeight: 1.65,
+            borderRadius: 0,
+            background: '#1a1a2e',
+          }}
+          codeTagProps={{ style: { fontFamily: 'var(--font-mono)' } }}
+        >
+          {code}
+        </SyntaxHighlighter>
+      )}
     </div>
   )
-}
+})
