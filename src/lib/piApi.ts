@@ -271,6 +271,9 @@ async function localRequestJson<T>(path: string, init?: RequestInit, options?: {
 }
 
 export async function getLocalSkillsRoot(): Promise<{ path: string }> {
+  if (typeof window !== 'undefined' && window.piDesktop?.local?.getSkillsRoot) {
+    return window.piDesktop.local.getSkillsRoot()
+  }
   return localRequestJson<{ path: string }>('/api/local/skills/root')
 }
 
@@ -297,6 +300,17 @@ function setCachedLocalSkills(root: string, skills: SkillInfo[]) {
 }
 
 export async function listLocalSkills(): Promise<{ skills: SkillInfo[]; root: string }> {
+  if (typeof window !== 'undefined' && window.piDesktop?.local?.listSkills) {
+    const data = await window.piDesktop.local.listSkills()
+    const skills: SkillInfo[] = data.skills.map((s) => ({
+      name: s.name,
+      description: s.description,
+      source: s.source,
+      enabled: s.enabled,
+    }))
+    setCachedLocalSkills(data.root, skills)
+    return { skills, root: data.root }
+  }
   const data = await localRequestJson<{ skills: SkillInfo[]; root: string }>('/api/local/skills')
   setCachedLocalSkills(data.root, data.skills)
   return data
@@ -316,6 +330,13 @@ export async function listLocalSkillsWithCache(): Promise<{ skills: SkillInfo[];
 }
 
 export async function openLocalFolder(path?: string): Promise<void> {
+  if (typeof window !== 'undefined' && window.piDesktop?.local?.openFolder) {
+    const result = await window.piDesktop.local.openFolder(path)
+    if (!result.ok) {
+      throw new Error(result.error ?? '无法打开文件夹')
+    }
+    return
+  }
   await localRequestJson<{ ok: true }>('/api/local/open-folder', {
     method: 'POST',
     body: JSON.stringify(path ? { path } : {}),

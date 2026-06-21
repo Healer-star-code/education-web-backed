@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { join } from 'node:path'
+import { getDefaultSkillsRoot, scanLocalSkills } from './helper.js'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
@@ -79,6 +80,32 @@ function registerIpc(): void {
   ipcMain.handle('shell:openExternal', async (_e, url: string) => {
     try {
       await shell.openExternal(url)
+      return { ok: true }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
+  // ---- local helper (P1: skills 扫描 / 打开文件夹) ----
+  ipcMain.handle('local:health', async () => {
+    return { ok: true }
+  })
+
+  ipcMain.handle('local:getSkillsRoot', async () => {
+    return { path: getDefaultSkillsRoot() }
+  })
+
+  ipcMain.handle('local:listSkills', async (_e, rootOverride: string | null) => {
+    const root = rootOverride && rootOverride.trim() ? rootOverride : getDefaultSkillsRoot()
+    const skills = await scanLocalSkills(root)
+    return { skills, root }
+  })
+
+  ipcMain.handle('local:openFolder', async (_e, target: string | null) => {
+    const path = target && target.trim() ? target : getDefaultSkillsRoot()
+    try {
+      const err = await shell.openPath(path)
+      if (err) return { ok: false, error: err }
       return { ok: true }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }

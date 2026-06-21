@@ -1,5 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+export interface LocalSkillInfo {
+  name: string
+  description: string
+  source: string
+  enabled: boolean
+  path?: string
+}
+
 const api = {
   app: {
     getVersion: (): string => process.versions.electron ?? 'unknown',
@@ -15,6 +23,14 @@ const api = {
       ipcRenderer.invoke('shell:openPath', target),
     openExternal: (url: string): Promise<{ ok: boolean; error?: string }> =>
       ipcRenderer.invoke('shell:openExternal', url),
+  },
+  local: {
+    health: (): Promise<{ ok: true }> => ipcRenderer.invoke('local:health'),
+    getSkillsRoot: (): Promise<{ path: string }> => ipcRenderer.invoke('local:getSkillsRoot'),
+    listSkills: (rootOverride?: string): Promise<{ skills: LocalSkillInfo[]; root: string }> =>
+      ipcRenderer.invoke('local:listSkills', rootOverride ?? null),
+    openFolder: (target?: string): Promise<{ ok: boolean; error?: string }> =>
+      ipcRenderer.invoke('local:openFolder', target ?? null),
   },
 }
 
