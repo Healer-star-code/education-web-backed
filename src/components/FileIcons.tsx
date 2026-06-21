@@ -7,6 +7,10 @@ const WORD = 'var(--accent)'
 const PPT = '#ea580c'
 const EXCEL = '#16a34a'
 const PDF = '#dc2626'
+const IMAGE = '#8b5cf6'
+const ARCHIVE = '#a16207'
+const AUDIO = '#0891b2'
+const VIDEO = '#be185d'
 
 export function FolderIcon({ size = 14, open = false }: IconProps & { open?: boolean }) {
   if (open) {
@@ -75,6 +79,78 @@ function WordFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="W" c
 function PptFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="P" color={PPT} size={size} /> }
 function ExcelFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="X" color={EXCEL} size={size} /> }
 function PdfFileIcon({ size = 14 }: IconProps) { return <OfficeIcon label="PDF" color={PDF} size={size} /> }
+
+function ImageFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={IMAGE} fillOpacity="0.12" stroke={IMAGE} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={IMAGE} strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="5.2" y="8" width="6.8" height="5.5" rx="0.8" fill={IMAGE} />
+      <circle cx="7.2" cy="10" r="0.7" fill="#fff" />
+      <path d="M5.6 13l1.6-1.8 1.4 1.2 1.5-2.2 1.8 2.8" stroke="#fff" strokeWidth="0.7" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
+function ArchiveFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={ARCHIVE} fillOpacity="0.12" stroke={ARCHIVE} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={ARCHIVE} strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="7.4" y="2" width="1.4" height="1.4" fill={ARCHIVE} />
+      <rect x="9" y="3.4" width="1.4" height="1.4" fill={ARCHIVE} />
+      <rect x="7.4" y="4.8" width="1.4" height="1.4" fill={ARCHIVE} />
+      <rect x="9" y="6.2" width="1.4" height="1.4" fill={ARCHIVE} />
+      <rect x="7.4" y="7.6" width="1.4" height="1.4" fill={ARCHIVE} />
+      <rect x="6.4" y="10.5" width="5" height="3.8" rx="0.6" fill={ARCHIVE} />
+      <rect x="8.4" y="11.6" width="1" height="1.6" fill="#fff" />
+    </svg>
+  )
+}
+
+function AudioFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={AUDIO} fillOpacity="0.12" stroke={AUDIO} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={AUDIO} strokeWidth="1.2" strokeLinejoin="round" />
+      <circle cx="7.5" cy="12" r="1.4" fill={AUDIO} />
+      <path d="M8.9 12V7l3 0.8V12" stroke={AUDIO} strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <circle cx="10.5" cy="12" r="1.2" fill={AUDIO} />
+    </svg>
+  )
+}
+
+function VideoFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={VIDEO} fillOpacity="0.12" stroke={VIDEO} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={VIDEO} strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="5.2" y="8" width="7.6" height="5.5" rx="0.8" fill={VIDEO} />
+      <path d="M7.6 9.6v2.8L10.5 11l-2.9-1.4Z" fill="#fff" />
+    </svg>
+  )
+}
+
+function SvgFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <path d="M4 1.5h7l3 3V16H4V1.5Z" fill={IMAGE} fillOpacity="0.12" stroke={IMAGE} strokeWidth="1.2" strokeLinejoin="round" />
+      <path d="M11 1.5v3h3" stroke={IMAGE} strokeWidth="1.2" strokeLinejoin="round" />
+      <rect x="2.4" y="9" width="9.5" height="5" rx="0.8" fill={IMAGE} />
+      <text x="7.15" y="13" textAnchor="middle" fontSize="3.6" fontFamily="Arial, sans-serif" fontWeight="800" fill="#fff">SVG</text>
+    </svg>
+  )
+}
+
+function TextFileIcon({ size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 14 14" fill="none">
+      <path d="M2.5 1h6l3 3v9h-9V1Z" stroke={DIM} strokeWidth="0.9" fill={DIM} fillOpacity="0.07" strokeLinejoin="round" />
+      <path d="M8.5 1v3h3" stroke={DIM} strokeWidth="0.9" fill="none" strokeLinejoin="round" />
+      <path d="M4 6.5h6M4 8.5h6M4 10.5h4" stroke={DIM} strokeWidth="0.9" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 function MarkdownIcon({ size = 14 }: IconProps) {
   return (
@@ -192,6 +268,17 @@ export function getFileIcon(name: string, size = 14): React.ReactNode {
     case 'ppt': case 'pptx': return <PptFileIcon size={size} />
     case 'xls': case 'xlsx': case 'csv': return <ExcelFileIcon size={size} />
     case 'pdf': return <PdfFileIcon size={size} />
+    case 'png': case 'jpg': case 'jpeg': case 'gif': case 'webp': case 'bmp': case 'ico': case 'tiff': case 'tif': case 'avif':
+      return <ImageFileIcon size={size} />
+    case 'svg': return <SvgFileIcon size={size} />
+    case 'zip': case 'rar': case '7z': case 'tar': case 'gz': case 'bz2': case 'xz':
+      return <ArchiveFileIcon size={size} />
+    case 'mp3': case 'wav': case 'flac': case 'ogg': case 'm4a': case 'aac':
+      return <AudioFileIcon size={size} />
+    case 'mp4': case 'mov': case 'avi': case 'mkv': case 'webm': case 'flv': case 'wmv':
+      return <VideoFileIcon size={size} />
+    case 'txt': case 'log': case 'rtf':
+      return <TextFileIcon size={size} />
     case 'lock': return <LockFileIcon size={size} />
     default: return <GenericFileIcon size={size} />
   }

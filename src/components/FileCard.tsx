@@ -17,14 +17,31 @@ function extLabel(name: string): string {
 }
 
 function kindLabel(kind: ArtifactInfo['kind'], name: string): string {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
   switch (kind) {
     case 'word': return 'Word 文档'
-    case 'spreadsheet': return 'Excel 表格'
+    case 'spreadsheet': return ext === 'csv' ? 'CSV 表格' : 'Excel 表格'
     case 'presentation': return 'PPT 演示文稿'
     case 'pdf': return 'PDF 文档'
-    case 'image': return '图片'
-    case 'text': return '文本文件'
-    default: return extLabel(name)
+    case 'image': {
+      if (ext === 'svg') return 'SVG 矢量图'
+      if (ext === 'gif') return 'GIF 动图'
+      return `${ext.toUpperCase()} 图片`
+    }
+    case 'text': {
+      if (ext === 'md' || ext === 'mdx') return 'Markdown 文档'
+      if (ext === 'json' || ext === 'jsonl') return 'JSON 文件'
+      if (ext === 'html' || ext === 'htm') return 'HTML 文件'
+      if (ext === 'csv') return 'CSV 表格'
+      if (ext === 'txt' || ext === 'log') return '文本文件'
+      return `${ext.toUpperCase()} 文件`
+    }
+    default: {
+      if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return `${ext.toUpperCase()} 压缩包`
+      if (['mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac'].includes(ext)) return `${ext.toUpperCase()} 音频`
+      if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return `${ext.toUpperCase()} 视频`
+      return extLabel(name)
+    }
   }
 }
 

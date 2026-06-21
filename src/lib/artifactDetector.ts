@@ -11,13 +11,22 @@ import type { ArtifactInfo } from './piApi'
 
 // 我们关心的「成果文件」扩展名
 const ARTIFACT_EXTS = [
+  // Office
   'docx', 'doc',
   'xlsx', 'xls', 'csv',
   'pptx', 'ppt',
   'pdf',
-  'md', 'txt',
-  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg',
-  'zip', 'json', 'html',
+  // 文本
+  'md', 'mdx', 'txt', 'log', 'rtf',
+  // 图片
+  'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif',
+  // 音视频
+  'mp3', 'wav', 'flac', 'ogg', 'm4a', 'aac',
+  'mp4', 'mov', 'avi', 'mkv', 'webm',
+  // 压缩
+  'zip', 'rar', '7z', 'tar', 'gz',
+  // 数据
+  'json', 'jsonl', 'yaml', 'yml', 'toml', 'xml', 'html', 'htm',
 ] as const
 
 const EXT_GROUP = ARTIFACT_EXTS.join('|')
@@ -45,8 +54,8 @@ function pickKind(name: string): ArtifactInfo['kind'] {
   if (['xlsx', 'xls', 'csv'].includes(ext)) return 'spreadsheet'
   if (['pptx', 'ppt'].includes(ext)) return 'presentation'
   if (ext === 'pdf') return 'pdf'
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) return 'image'
-  if (['md', 'txt', 'json', 'html'].includes(ext)) return 'text'
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'tiff', 'tif', 'avif'].includes(ext)) return 'image'
+  if (['md', 'mdx', 'txt', 'log', 'rtf', 'json', 'jsonl', 'yaml', 'yml', 'toml', 'xml', 'html', 'htm'].includes(ext)) return 'text'
   return 'file'
 }
 
@@ -66,12 +75,41 @@ function mimeFor(name: string): string {
     gif: 'image/gif',
     webp: 'image/webp',
     svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+    ico: 'image/x-icon',
+    tiff: 'image/tiff',
+    tif: 'image/tiff',
+    avif: 'image/avif',
     txt: 'text/plain',
     md: 'text/markdown',
+    mdx: 'text/markdown',
     csv: 'text/csv',
+    log: 'text/plain',
+    rtf: 'application/rtf',
     json: 'application/json',
+    jsonl: 'application/json',
+    yaml: 'application/yaml',
+    yml: 'application/yaml',
+    toml: 'application/toml',
+    xml: 'application/xml',
     html: 'text/html',
+    htm: 'text/html',
     zip: 'application/zip',
+    rar: 'application/vnd.rar',
+    '7z': 'application/x-7z-compressed',
+    tar: 'application/x-tar',
+    gz: 'application/gzip',
+    mp3: 'audio/mpeg',
+    wav: 'audio/wav',
+    flac: 'audio/flac',
+    ogg: 'audio/ogg',
+    m4a: 'audio/mp4',
+    aac: 'audio/aac',
+    mp4: 'video/mp4',
+    mov: 'video/quicktime',
+    avi: 'video/x-msvideo',
+    mkv: 'video/x-matroska',
+    webm: 'video/webm',
   }
   return map[ext] ?? 'application/octet-stream'
 }
