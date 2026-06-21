@@ -87,7 +87,8 @@ export interface PermissionRequestInfo {
   kind: string
   message: string
   options?: unknown
-  diff?: string
+  /** super-king 后端推送的 diff 字段类型不固定：write=字符串，edit=对象 {path, operation, before, content, ...} */
+  diff?: unknown
 }
 
 export interface QuestionInfo {

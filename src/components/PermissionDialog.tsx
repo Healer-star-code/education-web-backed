@@ -7,12 +7,51 @@ interface Props {
 }
 
 function formatOptions(options: unknown): string {
-  if (!options || typeof options !== 'object') return ''
+  if (options === undefined || options === null) return ''
+  if (typeof options === 'string') {
+    return options.length > 600 ? options.slice(0, 600) + '…' : options
+  }
+  if (typeof options !== 'object') return String(options)
   try {
     const s = JSON.stringify(options, null, 2)
     return s.length > 600 ? s.slice(0, 600) + '…' : s
   } catch {
     return String(options)
+  }
+}
+
+/**
+ * super-king 后端推送的 diff 字段类型不固定：
+ *  - edit 工具：对象 { path, operation, before, content, totalLineCount, truncated }
+ *  - write 工具：字符串
+ * 这里统一安全字符串化，避免被当 React child 直接渲染抛 React error #31。
+ */
+function formatDiff(diff: unknown): string {
+  if (diff === undefined || diff === null) return ''
+  if (typeof diff === 'string') {
+    return diff.length > 4000 ? diff.slice(0, 4000) + '\n…(已截断)' : diff
+  }
+  if (typeof diff !== 'object') return String(diff)
+  try {
+    const obj = diff as Record<string, unknown>
+    // 友好展示：edit 工具结构 { path, operation, before, content, totalLineCount, truncated }
+    if ('content' in obj || 'before' in obj || 'path' in obj) {
+      const parts: string[] = []
+      if (obj.path) parts.push(`📄 ${String(obj.path)}`)
+      if (obj.operation) parts.push(`🔧 ${String(obj.operation)}`)
+      if (typeof obj.totalLineCount === 'number') parts.push(`📏 ${obj.totalLineCount} 行`)
+      if (obj.truncated) parts.push('⚠️ 已截断')
+      const header = parts.join('  ')
+      const before = obj.before != null ? `--- 修改前 ---\n${String(obj.before)}` : ''
+      const after = obj.content != null ? `--- 修改后 ---\n${String(obj.content)}` : ''
+      const body = [before, after].filter(Boolean).join('\n\n')
+      const full = header && body ? `${header}\n\n${body}` : header || body
+      return full.length > 4000 ? full.slice(0, 4000) + '\n…(已截断)' : full
+    }
+    const s = JSON.stringify(diff, null, 2)
+    return s.length > 4000 ? s.slice(0, 4000) + '\n…(已截断)' : s
+  } catch {
+    return String(diff)
   }
 }
 
@@ -120,7 +159,7 @@ export function PermissionDialog({ request, onResolve }: Props) {
                 wordBreak: 'break-all',
               }}
             >
-              {request.diff}
+              {formatDiff(request.diff)}
             </pre>
           </div>
         )}
