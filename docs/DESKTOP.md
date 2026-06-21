@@ -52,6 +52,10 @@ npm run typecheck
 
 ### 2.3 发版者（打包并发布新版本）
 
+> 完整流程见 [`docs/RELEASE.md`](./RELEASE.md)。
+
+简版（本地打包，不用 CI）：
+
 ```powershell
 cd E:\EducationalAgent\v4
 
@@ -66,10 +70,14 @@ npm run build:win
 #    - EducationalAgent-0.1.1-setup.exe.blockmap ← 差分更新元数据
 #    - EducationalAgent-0.1.1-portable.exe       ← 免安装版
 #    - latest.yml                                ← 自动更新清单
+```
 
-# 4) 把这 3 个文件上传到 electron-builder.yml 里 publish.url 指向的静态目录
-#    （示例：https://your-cdn/educational-agent/updates/）
-#    用户客户端启动 5 秒后会请求 latest.yml 检测新版本
+正式版（推荐，全自动 CI/CD）：
+
+```bash
+git tag v0.1.1
+git push origin v0.1.1
+# GitHub Actions 自动完成打包 + 发布 Release
 ```
 
 ---

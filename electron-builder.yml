@@ -43,12 +43,19 @@ linux:
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 publish:
-  # 自动更新源：发布版本时，把以下文件上传到这个 URL：
-  #   - EducationalAgent-X.Y.Z-setup.exe
-  #   - EducationalAgent-X.Y.Z-setup.exe.blockmap
-  #   - latest.yml
-  # 客户端启动后会去 ${url}/latest.yml 检查版本号。
-  # 替换 example.com 为你自己的 HTTPS 静态服务器或对象存储 URL。
-  - provider: generic
-    url: https://example.com/educational-agent/updates
-    channel: latest
+  # 主要分发渠道：GitHub Releases（由 .github/workflows/release.yml 自动发布）
+  # 当 push tag vX.Y.Z 时，Actions 会构建并把以下文件作为附件上传到 Release：
+  #   - EducationalAgent-X.Y.Z-setup.exe       （Windows nsis 一键安装器）
+  #   - EducationalAgent-X.Y.Z-setup.exe.blockmap （差分更新元数据）
+  #   - EducationalAgent-X.Y.Z-portable.exe    （Windows 便携版）
+  #   - EducationalAgent-X.Y.Z-x86_64.AppImage （Linux AppImage）
+  #   - latest.yml / latest-linux.yml         （electron-updater 清单）
+  - provider: github
+    owner: Healer-star-code
+    repo: education-web-backed
+    releaseType: release
+
+  # 备用分发：自建 HTTPS 静态服务器（如果不想用 GitHub Releases，把它放第一）
+  # - provider: generic
+  #   url: https://example.com/super-king-jin/updates
+  #   channel: latest
