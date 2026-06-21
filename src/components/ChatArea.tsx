@@ -1145,6 +1145,9 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
       void (async () => {
         const updates = new Map<string, ArtifactInfo[]>()
         for (const t of tasks) {
+          // 每次循环开头检查 cancelled：组件 unmount 后立刻退出，
+          // 避免继续做无用 stat，更避免把"已扫描"标记写入但又永远应用不到 UI。
+          if (cancelled) return
           try {
             const detected = await detectLocalArtifacts(
               t.content,
@@ -1152,9 +1155,12 @@ export function ChatArea({ session, selectedCwd, newSessionCwd, chatInputRef, on
               t.existing,
               (p) => bridge.file.stat(p),
             )
-            // 在记录"已扫描"前先标记，避免无限循环
-            scannedForArtifactsRef.current.set(t.id, t.content.length)
+            if (cancelled) return
+            // OCR 建议：先把结果放进 updates，确认 cancelled 后再标记"已扫描"；
+            // 否则 unmount 时机刚好夹在 set 和 setMessages 之间，
+            // 会把消息永久标记为"已扫描"但卡片永远不出现（重 mount 也跳过）。
             if (detected.length > 0) updates.set(t.id, detected)
+            scannedForArtifactsRef.current.set(t.id, t.content.length)
           } catch (err) {
             console.warn('[fallback-scan] failed for', t.id, err)
           }
