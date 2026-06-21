@@ -74,6 +74,7 @@ export interface PiDesktopBridge {
       isFile?: boolean
     }>
     saveAs: (src: string) => Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }>
+    saveText: (options: { content: string; defaultFileName?: string; filters?: { name: string; extensions: string[] }[] }) => Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }>
     reveal: (target: string) => Promise<{ ok: boolean; fallback?: string; error?: string }>
     openLocal: (target: string) => Promise<{ ok: boolean; error?: string }>
     writeBlobToTemp: (payload: { buffer: ArrayBuffer | Uint8Array; fileName: string }) => Promise<{

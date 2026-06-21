@@ -540,6 +540,95 @@ function formatSessionToMarkdown(session: SessionInfo, messages: WebMessage[]): 
   return lines.join('\n')
 }
 
+function formatSessionToTxt(session: SessionInfo, messages: WebMessage[]): string {
+  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const lines: string[] = []
+  lines.push(`会话：${title}`)
+  lines.push(`项目：${session.cwd}`)
+  lines.push(`时间：${formatDateTime(session.modified)}`)
+  if (session.model) {
+    lines.push(`模型：${session.model.provider}/${session.model.modelId}`)
+  }
+  lines.push(`消息数：${messages.length} 条`)
+  lines.push('')
+  lines.push('='.repeat(60))
+  lines.push('')
+
+  messages.forEach((message, idx) => {
+    const speaker = message.role === 'user' ? '用户' : '超级小金'
+    lines.push(`--- ${idx + 1}. ${speaker} ---`)
+    lines.push('')
+    lines.push(message.content || '（无内容）')
+    lines.push('')
+  })
+
+  return lines.join('\n')
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  }
+
+function formatSessionToHtml(session: SessionInfo, messages: WebMessage[]): string {
+  const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
+  const meta: string[] = [
+    `项目：${escapeHtml(session.cwd)}`,
+    `时间：${formatDateTime(session.modified)}`,
+  ]
+  if (session.model) {
+    meta.push(`模型：${escapeHtml(`${session.model.provider}/${session.model.modelId}`)}`)
+  }
+  meta.push(`消息数：${messages.length} 条`)
+
+  const messageHtml = messages.map((message, idx) => {
+    const isUser = message.role === 'user'
+    const speaker = isUser ? '用户' : '超级小金'
+    const content = escapeHtml(message.content || '（无内容）')
+    return `
+      <div class="message ${isUser ? 'user' : 'assistant'}">
+        <div class="message-header">${idx + 1}. ${speaker}</div>
+        <div class="message-body"><pre>${content}</pre></div>
+      </div>
+    `
+  }).join('\n')
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${escapeHtml(title)} - 超级小金</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #1a1a1a; line-height: 1.6; }
+  .container { max-width: 800px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 28px; }
+  h1 { margin: 0 0 12px; font-size: 22px; }
+  .meta { color: #666; font-size: 13px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #eee; }
+  .message { margin-bottom: 20px; }
+  .message-header { font-size: 12px; font-weight: 600; color: #666; margin-bottom: 6px; text-transform: uppercase; }
+  .message-body { background: #f8f9fa; border-radius: 8px; padding: 14px; }
+  .message.user .message-body { background: #eef4ff; }
+  .message.assistant .message-body { background: #f6f6f6; }
+  pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>${escapeHtml(title)}</h1>
+  <div class="meta">${meta.join(' · ')}</div>
+  ${messageHtml}
+</div>
+</body>
+</html>`
+}
+
+function safeFileName(name: string): string {
+  return name.replace(/[\\/:*?"<>|]/g, '_').trim() || 'share'
+}
+
 function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, isPinned, depth = 0, hasChildren = false, collapsed = false, onToggleCollapse, onToast }: {
   session: SessionInfo
   isSelected: boolean
@@ -559,6 +648,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [shareMode, setShareMode] = useState(false)
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12)
   const [draftTitle, setDraftTitle] = useState(title)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -570,17 +660,20 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
         setConfirming(false)
+        setShareMode(false)
       }
     }
     const keyHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setMenuOpen(false)
         setConfirming(false)
+        setShareMode(false)
       }
     }
     const resizeHandler = () => {
       setMenuOpen(false)
       setConfirming(false)
+      setShareMode(false)
     }
     document.addEventListener('mousedown', handler)
     document.addEventListener('keydown', keyHandler)
@@ -617,41 +710,6 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
     const next = draftTitle.trim()
     setEditing(false)
     if (next && next !== title) onRename?.(next)
-  }
-
-  const MAX_SHARE_BYTES = 2 * 1024 * 1024
-
-  async function handleShare() {
-    setMenuOpen(false)
-    onToast?.('正在加载对话...', 'success')
-    let messages: WebMessage[] = []
-    try {
-      messages = await getMessages(session.id, session.cwd)
-    } catch (err) {
-      console.warn('[handleShare] getMessages failed', err)
-      onToast?.('加载对话失败：' + (err instanceof Error ? err.message : String(err)), 'error')
-      return
-    }
-
-    const markdown = formatSessionToMarkdown(session, messages)
-    if (markdown.length > MAX_SHARE_BYTES) {
-      const mb = (markdown.length / (1024 * 1024)).toFixed(1)
-      onToast?.(`对话内容太长（${mb} MB），无法复制到剪贴板，请先导出为文件`, 'error')
-      return
-    }
-
-    if (!navigator.clipboard) {
-      onToast?.('当前环境不支持剪贴板操作，请使用导出为文件功能', 'error')
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(markdown)
-      onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
-    } catch (err) {
-      console.warn('[handleShare] clipboard write failed', err)
-      onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
-    }
   }
 
   const detailTitle = [
@@ -778,6 +836,7 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               if (menuOpen) {
                 setMenuOpen(false)
                 setConfirming(false)
+                setShareMode(false)
               } else {
                 openMenu()
               }
@@ -816,47 +875,57 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
               padding: 4,
             }}
           >
-            <MenuButton onClick={(e) => { e.stopPropagation(); onPin?.(); setMenuOpen(false) }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="17" x2="12" y2="22" />
-                <path d="M5 17h14v-2.4a1 1 0 0 0-.3-.7l-2.1-1.9V7.5a1 1 0 0 1 .3-.7l1.5-1.4a1 1 0 0 0 .3-.7V3H5v1.7a1 1 0 0 0 .3.7l1.5 1.4a1 1 0 0 1 .3.7V12l-2.1 1.9a1 1 0 0 0-.3.7Z" />
-              </svg>
-              {isPinned ? '取消顶置' : '顶置'}
-            </MenuButton>
-            <MenuButton onClick={(e) => { e.stopPropagation(); handleShare() }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-              </svg>
-              分享
-            </MenuButton>
-            <MenuButton onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setDraftTitle(title); setEditing(true) }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-              </svg>
-              重命名
-            </MenuButton>
-            <div style={{ height: 1, background: 'var(--border)', margin: '2px 6px' }} />
-            {!confirming ? (
-              <MenuButton onClick={(e) => { e.stopPropagation(); setConfirming(true) }} style={{ color: 'var(--danger)' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                删除
-              </MenuButton>
+            {!shareMode ? (
+              <>
+                <MenuButton onClick={(e) => { e.stopPropagation(); onPin?.(); setMenuOpen(false) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="17" x2="12" y2="22" />
+                    <path d="M5 17h14v-2.4a1 1 0 0 0-.3-.7l-2.1-1.9V7.5a1 1 0 0 1 .3-.7l1.5-1.4a1 1 0 0 0 .3-.7V3H5v1.7a1 1 0 0 0 .3.7l1.5 1.4a1 1 0 0 1 .3.7V12l-2.1 1.9a1 1 0 0 0-.3.7Z" />
+                  </svg>
+                  {isPinned ? '取消顶置' : '顶置'}
+                </MenuButton>
+                <MenuButton onClick={(e) => { e.stopPropagation(); setShareMode(true) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  分享
+                </MenuButton>
+                <MenuButton onClick={(e) => { e.stopPropagation(); setMenuOpen(false); setDraftTitle(title); setEditing(true) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                  </svg>
+                  重命名
+                </MenuButton>
+                <div style={{ height: 1, background: 'var(--border)', margin: '2px 6px' }} />
+                {!confirming ? (
+                  <MenuButton onClick={(e) => { e.stopPropagation(); setConfirming(true) }} style={{ color: 'var(--danger)' }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    </svg>
+                    删除
+                  </MenuButton>
+                ) : (
+                  <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
+                      确认
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
+                      取消
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
-              <div style={{ display: 'flex', gap: 4, padding: '2px 6px' }}>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(); setMenuOpen(false); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--danger)', color: '#fff', border: 'none', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
-                  确认
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setConfirming(false) }} style={{ flex: 1, padding: '3px 0', fontSize: 'var(--font-xs)', background: 'var(--bg-hover)', color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 'var(--radius-xs)', cursor: 'pointer' }}>
-                  取消
-                </button>
-              </div>
+              <SharePanel
+                session={session}
+                onToast={onToast}
+                onClose={() => { setMenuOpen(false); setShareMode(false) }}
+              />
             )}
           </div>
         )}
@@ -881,20 +950,171 @@ function SessionItem({ session, isSelected, onClick, onDelete, onRename, onPin, 
         </button>
       )}
     </div>
+)
+}
+
+const MAX_SHARE_BYTES = 2 * 1024 * 1024
+
+type ShareFormat = 'markdown' | 'html' | 'txt'
+
+function SharePanel({ session, onToast, onClose }: { session: SessionInfo; onToast?: (message: string, type?: 'success' | 'error') => void; onClose: () => void }) {
+  const [loading, setLoading] = useState(false)
+
+  async function loadMessages(): Promise<WebMessage[] | null> {
+    try {
+      return await getMessages(session.id, session.cwd)
+    } catch (err) {
+      console.warn('[SharePanel] getMessages failed', err)
+      onToast?.('加载对话失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+      return null
+    }
+  }
+
+  async function handleCopy() {
+    setLoading(true)
+    const messages = await loadMessages()
+    setLoading(false)
+    if (!messages) return
+
+    const markdown = formatSessionToMarkdown(session, messages)
+    if (markdown.length > MAX_SHARE_BYTES) {
+      const mb = (markdown.length / (1024 * 1024)).toFixed(1)
+      onToast?.(`对话内容太长（${mb} MB），无法复制到剪贴板，请先导出为文件`, 'error')
+      return
+    }
+
+    if (!navigator.clipboard) {
+      onToast?.('当前环境不支持剪贴板操作，请使用导出为文件功能', 'error')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(markdown)
+      onToast?.(`已复制完整对话（${messages.length} 条消息）`, 'success')
+      onClose()
+    } catch (err) {
+      console.warn('[SharePanel] clipboard write failed', err)
+      onToast?.('复制到剪贴板失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+    }
+  }
+
+  async function handleExport(format: ShareFormat) {
+    const bridge = typeof window !== 'undefined' ? window.piDesktop : undefined
+    if (!bridge?.file?.saveText) {
+      onToast?.('当前环境不支持导出文件', 'error')
+      return
+    }
+
+    setLoading(true)
+    const messages = await loadMessages()
+    setLoading(false)
+    if (!messages) return
+
+    const title = safeFileName(session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12))
+    let content = ''
+    let defaultFileName = ''
+    let filters: { name: string; extensions: string[] }[] = []
+
+    if (format === 'markdown') {
+      content = formatSessionToMarkdown(session, messages)
+      defaultFileName = `${title}.md`
+      filters = [{ name: 'Markdown', extensions: ['md'] }, { name: 'Text', extensions: ['txt'] }]
+    } else if (format === 'html') {
+      content = formatSessionToHtml(session, messages)
+      defaultFileName = `${title}.html`
+      filters = [{ name: 'HTML', extensions: ['html'] }]
+    } else {
+      content = formatSessionToTxt(session, messages)
+      defaultFileName = `${title}.txt`
+      filters = [{ name: 'Text', extensions: ['txt'] }]
+    }
+
+    if (content.length > MAX_SHARE_BYTES) {
+      const mb = (content.length / (1024 * 1024)).toFixed(1)
+      onToast?.(`对话内容太长（${mb} MB），无法导出`, 'error')
+      return
+    }
+
+    try {
+      const result = await bridge.file.saveText({ content, defaultFileName, filters })
+      if (result.canceled) return
+      if (result.ok && result.savedTo) {
+        onToast?.(`已保存到 ${result.savedTo}`, 'success')
+        onClose()
+      } else {
+        onToast?.('保存失败：' + (result.error || '未知错误'), 'error')
+      }
+    } catch (err) {
+      console.warn('[SharePanel] saveText failed', err)
+      onToast?.('保存失败：' + (err instanceof Error ? err.message : String(err)), 'error')
+    }
+  }
+
+  return (
+    <div style={{ minWidth: 170 }}>
+      <div style={{ padding: '4px 8px 8px', fontSize: 'var(--font-xs)', color: 'var(--text-dim)', fontWeight: 600 }}>
+        导出方式
+      </div>
+      <MenuButton onClick={(e) => { e.stopPropagation(); void handleCopy() }} disabled={loading}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+        {loading ? '加载中...' : '复制到剪贴板'}
+      </MenuButton>
+      <MenuButton onClick={(e) => { e.stopPropagation(); void handleExport('markdown') }} disabled={loading}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <line x1="10" y1="9" x2="8" y2="9" />
+        </svg>
+        Markdown 文件
+      </MenuButton>
+      <MenuButton onClick={(e) => { e.stopPropagation(); void handleExport('html') }} disabled={loading}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="10" y1="9" x2="8" y2="9" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+        </svg>
+        HTML 文件
+      </MenuButton>
+      <MenuButton onClick={(e) => { e.stopPropagation(); void handleExport('txt') }} disabled={loading}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+        </svg>
+        TXT 文件
+      </MenuButton>
+      <div style={{ height: 1, background: 'var(--border)', margin: '2px 6px' }} />
+      <MenuButton onClick={(e) => { e.stopPropagation(); onClose() }} style={{ color: 'var(--text-dim)' }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+        返回
+      </MenuButton>
+    </div>
   )
 }
 
-function MenuButton({ onClick, style, children }: { onClick: (e: React.MouseEvent) => void; style?: React.CSSProperties; children: React.ReactNode }) {
+function MenuButton({ onClick, style, disabled, children }: { onClick: (e: React.MouseEvent) => void; style?: React.CSSProperties; disabled?: boolean; children: React.ReactNode }) {
   const [hovered, setHovered] = useState(false)
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         ...menuItemStyle,
         ...style,
-        background: hovered ? 'var(--bg-hover)' : 'none',
+        background: hovered && !disabled ? 'var(--bg-hover)' : 'none',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       {children}

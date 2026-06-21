@@ -77,6 +77,8 @@ const api = {
     }> => ipcRenderer.invoke('file:stat', target),
     saveAs: (src: string): Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }> =>
       ipcRenderer.invoke('file:saveAs', src),
+    saveText: (options: { content: string; defaultFileName?: string; filters?: { name: string; extensions: string[] }[] }): Promise<{ ok: boolean; canceled?: boolean; savedTo?: string; error?: string }> =>
+      ipcRenderer.invoke('file:saveText', options),
     reveal: (target: string): Promise<{ ok: boolean; fallback?: string; error?: string }> =>
       ipcRenderer.invoke('file:reveal', target),
     openLocal: (target: string): Promise<{ ok: boolean; error?: string }> =>

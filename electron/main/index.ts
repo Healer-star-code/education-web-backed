@@ -310,6 +310,24 @@ function registerIpc(): void {
     }
   })
 
+  // 弹保存对话框 + 把文本内容写入用户选定位置（分享导出为文件）
+  ipcMain.handle('file:saveText', async (_e, options: { content: string; defaultFileName?: string; filters?: { name: string; extensions: string[] }[] }) => {
+    if (!mainWindow) return { ok: false, error: 'no main window' }
+    if (typeof options?.content !== 'string') return { ok: false, error: 'content is required' }
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: '保存到电脑',
+      defaultPath: options.defaultFileName ?? 'untitled.txt',
+      filters: options.filters ?? [{ name: 'Text', extensions: ['txt'] }],
+    })
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true }
+    try {
+      writeFileSync(result.filePath, options.content, 'utf8')
+      return { ok: true, savedTo: result.filePath }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    }
+  })
+
   // 在资源管理器中显示并选中该文件（不是打开文件夹）
   ipcMain.handle('file:reveal', async (_e, target: string) => {
     if (!target) return { ok: false, error: 'no path' }
