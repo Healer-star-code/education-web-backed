@@ -716,6 +716,14 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
+      const role = data.message?.role
+      // 只处理 assistant 消息；user / toolResult 等其他 role 后端会作为镜像广播，
+      // 若不过滤会被错误拼到 assistant 正文最前面（俗称"AI 复读用户输入"）。
+      // role 缺失时按 assistant 兼容处理。
+      if (role && role !== 'assistant') {
+        console.warn(`[piApi] ignored message_start for role=${role}`)
+        return
+      }
       const content = data.message?.content ?? []
       let text = ''
       let thinking = ''
@@ -739,6 +747,11 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
+      const role = data.message?.role
+      if (role && role !== 'assistant') {
+        console.warn(`[piApi] ignored message_update for role=${role}`)
+        return
+      }
       const content: SuperKingContent[] = data.message?.content ?? []
       let text = ''
       let thinking = ''
@@ -757,6 +770,11 @@ export function connectSessionEvents(sessionId: string, onEvent: (event: WebAgen
     markConnectedOnce()
     try {
       const data = JSON.parse((event as MessageEvent).data)
+      const role = data.message?.role
+      if (role && role !== 'assistant') {
+        console.warn(`[piApi] ignored message_end for role=${role}`)
+        return
+      }
       flushFinal(data.message)
       onEvent({ type: 'assistant_message_end' })
     } catch {
