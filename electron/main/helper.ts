@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+﻿import { readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 export interface LocalSkillInfo {

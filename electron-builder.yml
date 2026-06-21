@@ -1,0 +1,48 @@
+appId: com.educational-agent.desktop
+productName: EducationalAgent
+copyright: Copyright © 2025 EducationalAgent
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - "!**/node_modules/**/*"
+  - "!**/{.git,.gitignore,.vscode,.idea}"
+  - "!**/{*.map,*.ts,*.tsx}"
+asar: true
+asarUnpack:
+  - resources/**
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: 教育智能体
+  artifactName: ${productName}-${version}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
+
+linux:
+  target:
+    - AppImage
+  category: Development
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+publish:
+  - provider: generic
+    url: https://example.com/updates
+    channel: latest

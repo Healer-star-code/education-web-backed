@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+﻿import { app, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import type { SuperKingStatus } from './superking.js'
 
 let tray: Tray | null = null

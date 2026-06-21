@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+﻿import { spawn, type ChildProcess } from 'node:child_process'
 import { BrowserWindow } from 'electron'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'

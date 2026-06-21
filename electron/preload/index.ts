@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+﻿import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 
 export interface LocalSkillInfo {
   name: string
