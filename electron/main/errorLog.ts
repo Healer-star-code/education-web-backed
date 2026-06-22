@@ -26,14 +26,14 @@ function ensureLogDir(): string {
 }
 
 function ensureLogPaths(): { dir: string; path: string } {
-  if (logDirCached && rendererLogPathCached) return { dir: logDirCached, path: rendererLogPathCached }
+  if (rendererLogPathCached) return { dir: logDirCached!, path: rendererLogPathCached }
   const dir = ensureLogDir()
   rendererLogPathCached = join(dir, 'renderer-errors.log')
   return { dir, path: rendererLogPathCached }
 }
 
 function ensureMainLogPaths(): { dir: string; path: string } {
-  if (logDirCached && mainLogPathCached) return { dir: logDirCached, path: mainLogPathCached }
+  if (mainLogPathCached) return { dir: logDirCached!, path: mainLogPathCached }
   const dir = ensureLogDir()
   mainLogPathCached = join(dir, 'main-errors.log')
   return { dir, path: mainLogPathCached }
