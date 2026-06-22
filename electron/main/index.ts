@@ -146,17 +146,11 @@ function createWindow(): void {
 
 function buildStartOptions() {
   const settings = getSettings()
-  // 仅保留非空环境变量
-  const env: Record<string, string> = {}
-  for (const [k, v] of Object.entries(settings.superKingEnv ?? {})) {
-    if (v && v.trim()) env[k] = v
-  }
   return {
     exePath: settings.superKingExePath,
     port: settings.superKingPort,
     password: settings.superKingPassword,
     skillsRoot: settings.skillsRoot,
-    env,
   }
 }
 

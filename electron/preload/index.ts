@@ -23,7 +23,6 @@ export interface DesktopSettingsShape {
   superKingPort: number
   superKingPassword: string
   skillsRoot: string
-  superKingEnv: Record<string, string>
   autoStartSuperKing: boolean
   remoteUrl: string
   useRemote: boolean

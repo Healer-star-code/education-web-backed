@@ -20,7 +20,6 @@ export interface StartOptions {
   port: number
   password: string
   skillsRoot?: string
-  env?: Record<string, string>
   workingDir?: string
 }
 
@@ -141,7 +140,6 @@ export async function startSuperKing(opts: StartOptions): Promise<SuperKingStatu
           LOCAL_SKILLS_ROOT: opts.skillsRoot.trim(),
         }
       : {}),
-    ...(opts.env ?? {}),
   }
 
   try {

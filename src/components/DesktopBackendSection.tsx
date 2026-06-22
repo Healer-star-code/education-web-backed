@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getConfig, type ConfigInfo } from '../lib/piApi'
 import { getDesktopBridge, isDesktop, type DesktopSettingsShape, type SuperKingStatus } from '../lib/desktopBridge'
 
 interface Props {
@@ -6,19 +7,14 @@ interface Props {
   onApplyBackendUrl?: (url: string, password: string) => void
 }
 
-const ENV_KEYS: { key: string; label: string; placeholder?: string }[] = [
-  { key: 'SUPER_KING_API_KEY', label: 'API Key', placeholder: 'sk-...' },
-  { key: 'SUPER_KING_API_URL', label: 'API URL', placeholder: 'http://124.222.156.158:3000/v1/' },
-  { key: 'SUPER_KING_MODEL_ID', label: 'Model ID', placeholder: 'Qwen3.6-27B' },
-  { key: 'SUPER_KING_PROVIDER_NAME', label: 'Provider 名称', placeholder: 'custom-local' },
-]
-
 export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
   const [settings, setSettings] = useState<DesktopSettingsShape | null>(null)
   const [status, setStatus] = useState<SuperKingStatus | null>(null)
   const [savedFlash, setSavedFlash] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
   const [busy, setBusy] = useState<'start' | 'stop' | 'restart' | null>(null)
+  const [backendConfig, setBackendConfig] = useState<ConfigInfo | null>(null)
+  const [configLoading, setConfigLoading] = useState(false)
 
   useEffect(() => {
     if (!isDesktop) return
@@ -37,19 +33,29 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
     return () => { cancelled = true; unsub() }
   }, [])
 
+  // super-king 启动后查询后端配置状态
+  useEffect(() => {
+    if (!isDesktop) return
+    if (status?.state !== 'running' && status?.state !== 'external') {
+      setBackendConfig(null)
+      return
+    }
+
+    let cancelled = false
+    setConfigLoading(true)
+    getConfig()
+      .then((cfg) => { if (!cancelled) setBackendConfig(cfg) })
+      .catch(() => { if (!cancelled) setBackendConfig(null) })
+      .finally(() => { if (!cancelled) setConfigLoading(false) })
+
+    return () => { cancelled = true }
+  }, [status?.state])
+
   if (!isDesktop || !settings) return null
   const bridge = getDesktopBridge()!
 
   function patchSettings(patch: Partial<DesktopSettingsShape>) {
     setSettings((cur) => (cur ? { ...cur, ...patch } : cur))
-  }
-
-  function patchEnv(key: string, value: string) {
-    setSettings((cur) => {
-      if (!cur) return cur
-      const env = { ...(cur.superKingEnv ?? {}), [key]: value }
-      return { ...cur, superKingEnv: env }
-    })
   }
 
   async function handleSave() {
@@ -263,22 +269,38 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
             </div>
           </div>
 
-          {/* 环境变量 */}
+          {/* 后端配置状态 */}
           <div style={{ marginBottom: 12 }}>
-            <div style={{ ...lblStyle, marginBottom: 8 }}>模型注入环境变量（启动时传给 super-king.exe）</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {ENV_KEYS.map((field) => (
-                <div key={field.key} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ width: 130, fontSize: 12, color: 'var(--text-dim)' }}>{field.label}</div>
-                  <input
-                    type={field.key === 'SUPER_KING_API_KEY' ? (showPwd ? 'text' : 'password') : 'text'}
-                    value={settings.superKingEnv?.[field.key] ?? ''}
-                    onChange={(e) => patchEnv(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                </div>
-              ))}
+            <div style={{ ...lblStyle, marginBottom: 8 }}>后端模型配置</div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '10px 12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg)',
+                fontSize: 13,
+              }}
+            >
+              {status?.state !== 'running' && status?.state !== 'external' ? (
+                <span style={{ color: 'var(--text-dim)' }}>super-king 未启动，无法检测配置</span>
+              ) : configLoading ? (
+                <span style={{ color: 'var(--text-dim)' }}>检测中…</span>
+              ) : backendConfig?.defaultModel ? (
+                <>
+                  <span style={{ color: 'var(--success)' }}>✓</span>
+                  <span style={{ color: 'var(--text)' }}>
+                    已配置：{backendConfig.defaultModel.id}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span style={{ color: 'var(--danger)' }}>✗</span>
+                  <span style={{ color: 'var(--text)' }}>未配置默认模型，请检查 super-king 配置</span>
+                </>
+              )}
             </div>
           </div>
 
