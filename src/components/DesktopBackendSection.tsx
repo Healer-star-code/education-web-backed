@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { getConfig, type ConfigInfo } from '../lib/piApi'
 import { getDesktopBridge, isDesktop, type DesktopSettingsShape, type SuperKingStatus } from '../lib/desktopBridge'
 
@@ -15,6 +15,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
   const [busy, setBusy] = useState<'start' | 'stop' | 'restart' | null>(null)
   const [backendConfig, setBackendConfig] = useState<ConfigInfo | null>(null)
   const [configLoading, setConfigLoading] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isDesktop) return
@@ -33,23 +34,42 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
     return () => { cancelled = true; unsub() }
   }, [])
 
-  // super-king 启动后查询后端配置状态
-  useEffect(() => {
+  // 查询后端配置状态
+  const refreshBackendConfig = useCallback(async () => {
     if (!isDesktop) return
     if (status?.state !== 'running' && status?.state !== 'external') {
       setBackendConfig(null)
+      setConfigError(null)
       return
     }
 
-    let cancelled = false
     setConfigLoading(true)
-    getConfig()
-      .then((cfg) => { if (!cancelled) setBackendConfig(cfg) })
-      .catch(() => { if (!cancelled) setBackendConfig(null) })
-      .finally(() => { if (!cancelled) setConfigLoading(false) })
-
-    return () => { cancelled = true }
+    setConfigError(null)
+    try {
+      const cfg = await getConfig()
+      setBackendConfig(cfg)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error('[DesktopBackendSection] getConfig failed:', message)
+      setConfigError(`检测失败：${message}`)
+      setBackendConfig(null)
+    } finally {
+      setConfigLoading(false)
+    }
   }, [status?.state])
+
+  // super-king 启动/连接后自动查询一次
+  useEffect(() => {
+    let cancelled = false
+    refreshBackendConfig().then(() => {
+      // 组件卸载时避免状态泄露
+      if (cancelled) {
+        setBackendConfig(null)
+        setConfigError(null)
+      }
+    })
+    return () => { cancelled = true }
+  }, [refreshBackendConfig])
 
   if (!isDesktop || !settings) return null
   const bridge = getDesktopBridge()!
@@ -288,6 +308,11 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                 <span style={{ color: 'var(--text-dim)' }}>super-king 未启动，无法检测配置</span>
               ) : configLoading ? (
                 <span style={{ color: 'var(--text-dim)' }}>检测中…</span>
+              ) : configError ? (
+                <>
+                  <span style={{ color: 'var(--warning)' }}>!</span>
+                  <span style={{ color: 'var(--text)' }}>{configError}</span>
+                </>
               ) : backendConfig?.defaultModel ? (
                 <>
                   <span style={{ color: 'var(--success)' }}>✓</span>
@@ -300,6 +325,17 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                   <span style={{ color: 'var(--danger)' }}>✗</span>
                   <span style={{ color: 'var(--text)' }}>未配置默认模型，请检查 super-king 配置</span>
                 </>
+              )}
+              <div style={{ flex: 1 }} />
+              {(status?.state === 'running' || status?.state === 'external') && (
+                <button
+                  onClick={() => { void refreshBackendConfig() }}
+                  disabled={configLoading}
+                  className="btn-text"
+                  style={{ ...btnStyle, opacity: configLoading ? 0.5 : 1 }}
+                >
+                  刷新
+                </button>
               )}
             </div>
           </div>
