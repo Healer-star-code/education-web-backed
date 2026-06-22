@@ -643,7 +643,18 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               overflow: 'auto',
             }}
           />
-          {recording || !canSend ? (
+          {isStreaming ? (
+            <button
+              onClick={onAbort}
+              className="btn-danger"
+              style={{ alignSelf: 'flex-end', flexShrink: 0 }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                <rect x="3" y="3" width="8" height="8" rx="1" />
+              </svg>
+              停止
+            </button>
+          ) : recording || !canSend ? (
             <>
               <button
                 onClick={toggleMic}
@@ -701,17 +712,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 </svg>
               </button>
             </>
-          ) : isStreaming ? (
-            <button
-              onClick={onAbort}
-              className="btn-danger"
-              style={{ alignSelf: 'flex-end', flexShrink: 0 }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                <rect x="3" y="3" width="8" height="8" rx="1" />
-              </svg>
-              停止
-            </button>
           ) : (
             <button
               onClick={handleSend}
