@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect, type KeyboardEvent } from 'react'
+import { useRef, useState, useCallback, forwardRef, useImperativeHandle, useEffect, type KeyboardEvent, type DragEvent, type ClipboardEvent } from 'react'
 import type { LocalAttachment, MessageAttachment } from '../mockData'
 import { AttachmentCard } from './FileCard'
 import { getDesktopBridge, isDesktop } from '../lib/desktopBridge'
@@ -59,7 +59,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   const aliveProbeRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // micToast 自动消失的 timer：保留 ref 以兼容历史代码（当前 flashMicToast 已 no-op）
   const micToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 拖拽计数器：防止子元素 dragenter/dragleave 导致闪烁
+  const dragCounterRef = useRef(0)
   const [attachments, setAttachments] = useState<LocalAttachment[]>([])
+  const [isDragging, setIsDragging] = useState(false)
 
   // ⭐ 用户决定：麦克风按钮保留，但点击后不再弹任何错误提示（包括 Google 语音服务
   // 不可达、权限被拒、Electron 不支持等）。底层 SpeechRecognition / getUserMedia
@@ -365,8 +368,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     fileInputRef.current?.click()
   }, [])
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+  const processFiles = useCallback((files: FileList | File[] | null | undefined) => {
     if (!files || files.length === 0) return
     const bridge = isDesktop ? getDesktopBridge() : null
 
@@ -433,8 +435,61 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         }
       })()
     }
-    e.target.value = ''
   }, [])
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    processFiles(e.target.files)
+    e.target.value = ''
+  }, [processFiles])
+
+  const handleDragEnter = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current += 1
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current -= 1
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0
+      setIsDragging(false)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragCounterRef.current = 0
+    setIsDragging(false)
+    processFiles(e.dataTransfer.files)
+  }, [processFiles])
+
+  const handlePaste = useCallback((e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData?.items
+    if (!items || items.length === 0) return
+
+    const pastedFiles: File[] = []
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.kind === 'file') {
+        const file = item.getAsFile()
+        if (file) pastedFiles.push(file)
+      }
+    }
+
+    if (pastedFiles.length > 0) {
+      e.preventDefault()
+      processFiles(pastedFiles)
+    }
+  }, [processFiles])
 
   const removeAttachment = useCallback((index: number) => {
     setAttachments((prev) => {
@@ -449,6 +504,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     return () => {
       uploadTimersRef.current.forEach(clearTimeout)
       uploadTimersRef.current = []
+    }
+  }, [])
+
+  // 阻止拖拽文件到窗口其他区域时浏览器直接打开文件
+  useEffect(() => {
+    const handleWindowDragOver = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+    }
+    const handleWindowDrop = (e: globalThis.DragEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('dragover', handleWindowDragOver)
+    window.addEventListener('drop', handleWindowDrop)
+    return () => {
+      window.removeEventListener('dragover', handleWindowDragOver)
+      window.removeEventListener('drop', handleWindowDrop)
     }
   }, [])
 
@@ -552,13 +623,34 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         >
         <div
           className="chat-input-inner"
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
           style={{
+            position: 'relative',
             display: 'flex',
             flexDirection: 'column',
             borderRadius: 'var(--radius-xl)',
             padding: '14px 16px 14px 20px',
           }}
         >
+          {isDragging && (
+            <div style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 'var(--radius-xl)',
+              border: '2px dashed var(--accent)',
+              background: 'rgba(59, 130, 246, 0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              zIndex: 10,
+            }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>释放以上传文件</span>
+            </div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -626,6 +718,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
             onInput={handleInput}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
+            onPaste={handlePaste}
             placeholder={recording ? '正在听...' : (placeholder ?? (isStreaming ? '智能体运行中...' : '发消息...'))}
             rows={1}
             style={{
