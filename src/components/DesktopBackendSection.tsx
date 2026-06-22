@@ -310,7 +310,7 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                 <span style={{ color: 'var(--text-dim)' }}>检测中…</span>
               ) : configError ? (
                 <>
-                  <span style={{ color: 'var(--warning)' }}>!</span>
+                  <span style={{ color: 'var(--warning)' }} role="img" aria-label="警告">!</span>
                   <span style={{ color: 'var(--text)' }}>{configError}</span>
                 </>
               ) : backendConfig?.defaultModel ? (
