@@ -408,6 +408,34 @@ html.senior-mode .markdown-body td {
   outline-offset: 2px;
 }
 
+.btn-sidebar-reload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: var(--font-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-sidebar-reload:hover {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+}
+
+.btn-sidebar-reload:active {
+  transform: scale(0.97);
+}
+
+.btn-sidebar-reload:disabled {
+  opacity: 0.6;
+}
+
 /* SettingsPanel reusable pieces ------------------------------------------ */
 
 .btn-close {

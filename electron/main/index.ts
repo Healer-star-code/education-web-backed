@@ -24,7 +24,7 @@ import {
   initUpdater,
   quitAndInstall,
 } from './updater.js'
-import { appendRendererError, readRendererErrorTail, getRendererErrorLogPath, type RendererErrorPayload } from './errorLog.js'
+import { appendMainError, appendRendererError, readRendererErrorTail, getRendererErrorLogPath, type RendererErrorPayload } from './errorLog.js'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
@@ -36,6 +36,8 @@ process.on('uncaughtException', (err) => {
     // 静默忽略：这些通常是输出管道断开，不影响应用功能
     return
   }
+  // 生产环境把未捕获异常写入日志，便于用户反馈时定位问题
+  appendMainError(err)
   if (isDev) {
     console.error('[main] uncaughtException:', err)
   }

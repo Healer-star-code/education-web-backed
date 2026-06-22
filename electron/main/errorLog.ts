@@ -14,15 +14,29 @@ import { join } from 'node:path'
 const MAX_LOG_BYTES = 1 * 1024 * 1024 // 1MB
 
 let logDirCached: string | null = null
-let logPathCached: string | null = null
+let rendererLogPathCached: string | null = null
+let mainLogPathCached: string | null = null
 
-function ensureLogPaths(): { dir: string; path: string } {
-  if (logDirCached && logPathCached) return { dir: logDirCached, path: logPathCached }
+function ensureLogDir(): string {
+  if (logDirCached) return logDirCached
   const dir = join(app.getPath('userData'), 'logs')
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
   logDirCached = dir
-  logPathCached = join(dir, 'renderer-errors.log')
-  return { dir, path: logPathCached }
+  return dir
+}
+
+function ensureLogPaths(): { dir: string; path: string } {
+  if (logDirCached && rendererLogPathCached) return { dir: logDirCached, path: rendererLogPathCached }
+  const dir = ensureLogDir()
+  rendererLogPathCached = join(dir, 'renderer-errors.log')
+  return { dir, path: rendererLogPathCached }
+}
+
+function ensureMainLogPaths(): { dir: string; path: string } {
+  if (logDirCached && mainLogPathCached) return { dir: logDirCached, path: mainLogPathCached }
+  const dir = ensureLogDir()
+  mainLogPathCached = join(dir, 'main-errors.log')
+  return { dir, path: mainLogPathCached }
 }
 
 function rotateIfNeeded(path: string) {
@@ -104,6 +118,32 @@ export function readRendererErrorTail(maxBytes = 64 * 1024): { ok: boolean; path
 
 export function getRendererErrorLogPath(): string {
   return ensureLogPaths().path
+}
+
+export function appendMainError(err: unknown): { ok: boolean; path?: string; error?: string } {
+  try {
+    const { path } = ensureMainLogPaths()
+    rotateIfNeeded(path)
+    const now = new Date().toISOString()
+    const message = err instanceof Error ? err.message : String(err)
+    const stack = err instanceof Error && err.stack ? err.stack : ''
+    const block = [
+      `========== ${now} ==========`,
+      `message: ${message}`,
+      stack ? `stack:\n${stack}` : '',
+      '',
+    ].filter(Boolean).join('\n')
+    appendFileSync(path, block + '\n', 'utf8')
+    return { ok: true, path }
+  } catch (logErr) {
+    const msg = logErr instanceof Error ? logErr.message : String(logErr)
+    console.error('[errorLog] appendMainError failed:', msg)
+    return { ok: false, error: msg }
+  }
+}
+
+export function getMainErrorLogPath(): string {
+  return ensureMainLogPaths().path
 }
 
 function safeStringify(value: unknown): string {

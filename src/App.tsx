@@ -325,15 +325,10 @@ export default function App() {
   const refreshSessions = useCallback(() => loadSessionsForCwd(selectedCwd), [loadSessionsForCwd, selectedCwd])
   useEffect(() => {
     if (!sessionLoadError) return
-    let timeoutId: ReturnType<typeof setTimeout>
-    const schedule = () => {
-      timeoutId = setTimeout(() => {
-        refreshSessions()
-        schedule()
-      }, 5000)
-    }
-    schedule()
-    return () => clearTimeout(timeoutId)
+    const intervalId = setInterval(() => {
+      refreshSessions()
+    }, 5000)
+    return () => clearInterval(intervalId)
   }, [sessionLoadError, refreshSessions])
 
   const handleSelectSession = useCallback((session: SessionInfo) => {

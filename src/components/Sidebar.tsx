@@ -406,16 +406,8 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               <button
                 onClick={onRefreshSessions}
                 disabled={sessionsLoading}
-                className="btn-text"
-                style={{
-                  padding: '6px 14px',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--font-xs)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-hover)',
-                  color: 'var(--text)',
-                  cursor: sessionsLoading ? 'wait' : 'pointer',
-                }}
+                className="btn-sidebar-reload"
+                style={{ cursor: sessionsLoading ? 'wait' : 'pointer' }}
               >
                 {sessionsLoading ? '正在刷新…' : '重新加载'}
               </button>
