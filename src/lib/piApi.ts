@@ -173,7 +173,7 @@ function toBase64(str: string): string {
 function ensurePassword(): string {
   const password = getPassword()
   if (!password) {
-    throw new Error('未设置访问密码，请先在设置面板中填写并保存服务器密码')
+    throw new Error('还没有设置访问密码，请在「设置」里填写密码后保存。')
   }
   return password
 }
@@ -224,7 +224,7 @@ async function requestJson<T>(path: string, init?: RequestInit, options?: { time
     if (!res.ok) {
       const msg = extractErrorMessage(data) ?? `HTTP ${res.status}`
       if (res.status === 401) {
-        throw new Error(`认证失败：请检查设置面板中的「访问密码」是否正确并已保存。当前服务器：${getApiBase()}`)
+        throw new Error('访问密码不对，请检查「设置」里的访问密码是否正确。')
       }
       throw new Error(msg)
     }
@@ -235,7 +235,7 @@ async function requestJson<T>(path: string, init?: RequestInit, options?: { time
     }
     const message = err instanceof Error ? err.message : String(err)
     if (message.toLowerCase().includes('fetch') || message.toLowerCase().includes('network') || err instanceof TypeError) {
-      throw new Error(`无法连接到服务器 ${getApiBase()}。请检查：1. 后端是否已启动；2. 服务器地址是否正确；3. 当前后端是否为 super-king（旧版 v3-web 后端不支持当前 API 认证头）。`)
+      throw new Error('暂时连接不上超级小金服务。请检查：1. 超级小金是否已经启动；2. 服务器地址是否填对；3. 访问密码是否设置正确。如果刚修改过设置，稍等几秒会自动重试。')
     }
     throw normalizeError(err)
   } finally {

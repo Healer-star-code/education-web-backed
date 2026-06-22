@@ -49,21 +49,19 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
     })
   }, [isDark, fontSize, mode, serverUrl, password, localHelperUrl, autoApproveAllTools])
 
-  const saveAndClose = useCallback(() => {
-    if (!draftPassword) {
-      setPasswordError('必须设置访问密码才能连接 super-king 后端')
-      return
-    }
-    const trimmedUrl = draftServerUrl.trim()
-    const trimmedLocalHelperUrl = draftLocalHelperUrl.trim()
+  // 把服务器地址/密码立即应用到 App state 并持久化，不关闭设置面板。
+  // 测试连接成功和保存时都会调用。
+  const applyServerSettings = useCallback((url: string, pwd: string, helperUrl?: string) => {
+    const trimmedUrl = url.trim()
+    const trimmedHelperUrl = (helperUrl ?? draftLocalHelperUrl).trim()
     try {
       localStorage.setItem('pi-server-url', trimmedUrl)
-      localStorage.setItem('pi-server-password', draftPassword)
-      localStorage.setItem('pi-local-helper-url', trimmedLocalHelperUrl)
+      localStorage.setItem('pi-server-password', pwd)
+      localStorage.setItem('pi-local-helper-url', trimmedHelperUrl)
     } catch (err) {
       console.error('Failed to save server settings to localStorage:', err)
-      setPasswordError('保存失败，请检查浏览器是否允许 localStorage')
-      return
+      setPasswordError('保存失败，请检查浏览器是否允许本地存储')
+      return false
     }
     // Electron 模式下，同步把密码 / URL 写回 electron-store（权威数据源）。
     // 失败不阻塞，因为 localStorage 已经写成功了。
@@ -73,7 +71,7 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
         // 解析 trimmedUrl：远程地址 (非 127.0.0.1/localhost) 视为 remoteUrl + useRemote=true
         const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/?$/.test(trimmedUrl)
         const patch: Record<string, unknown> = {
-          superKingPassword: draftPassword,
+          superKingPassword: pwd,
         }
         if (isLocal) {
           patch.useRemote = false
@@ -90,15 +88,25 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
       }
     }
     setPasswordError(null)
+    onServerUrlChange(trimmedUrl)
+    onPasswordChange(pwd)
+    onLocalHelperUrlChange(trimmedHelperUrl)
+    return true
+  }, [draftLocalHelperUrl, onServerUrlChange, onPasswordChange, onLocalHelperUrlChange])
+
+  const saveAndClose = useCallback(() => {
+    if (!draftPassword) {
+      setPasswordError('必须设置访问密码才能连接超级小金')
+      return
+    }
+    if (!applyServerSettings(draftServerUrl, draftPassword, draftLocalHelperUrl)) return
+    setPasswordError(null)
     onThemeChange(draftTheme)
     onFontSizeChange(draftFontSize)
     onModeChange(draftMode)
-    onServerUrlChange(trimmedUrl)
-    onPasswordChange(draftPassword)
-    onLocalHelperUrlChange(trimmedLocalHelperUrl)
     onAutoApproveAllToolsChange(draftAutoApproveAll)
     onClose()
-  }, [draftPassword, draftServerUrl, draftLocalHelperUrl, draftTheme, draftFontSize, draftMode, draftAutoApproveAll, onThemeChange, onFontSizeChange, onModeChange, onServerUrlChange, onPasswordChange, onLocalHelperUrlChange, onAutoApproveAllToolsChange, onClose])
+  }, [draftPassword, draftServerUrl, draftLocalHelperUrl, draftTheme, draftFontSize, draftMode, draftAutoApproveAll, applyServerSettings, onThemeChange, onFontSizeChange, onModeChange, onAutoApproveAllToolsChange, onClose])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -230,10 +238,17 @@ export function SettingsPanel({ isDark, onThemeChange, fontSize, onFontSizeChang
                   setPasswordError(null)
                   setTestStatus({ loading: true })
                   try {
+                    // 先把草稿设置写下去再测试，确保 testConnection 读到最新地址/密码
                     localStorage.setItem('pi-server-url', draftServerUrl.trim())
                     localStorage.setItem('pi-server-password', draftPassword)
                     await testConnection()
-                    setTestStatus({ loading: false, ok: true, message: '连接成功' })
+                    // 测试通过立即应用到 App state，让侧边栏会话列表自动刷新
+                    const applied = applyServerSettings(draftServerUrl, draftPassword)
+                    setTestStatus({
+                      loading: false,
+                      ok: true,
+                      message: applied ? '连接成功，设置已应用' : '连接成功，但保存设置时出错',
+                    })
                   } catch (err) {
                     const message = err instanceof Error ? err.message : String(err)
                     setTestStatus({ loading: false, ok: false, message })

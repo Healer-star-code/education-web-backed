@@ -20,6 +20,7 @@ interface Props {
   sessionsLoading?: boolean
   onOpenSkills?: () => void
   onToast?: (message: string, type?: 'success' | 'error') => void
+  onRefreshSessions?: () => void
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -107,7 +108,7 @@ function PiAgentTitle() {
   )
 }
 
-export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, sessionsLoading, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds, onToast }: Props) {
+export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, selectedCwd, recentCwds, onCwdChange, sessionLoadError, sessionsLoading, onOpenSkills, onDeleteSession, onRenameSession, onPinSession, pinnedIds, onToast, onRefreshSessions }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectingDirectory, setSelectingDirectory] = useState(false)
   const [directoryError, setDirectoryError] = useState<string | null>(null)
@@ -394,11 +395,31 @@ export function Sidebar({ sessions, selectedId, onSelectSession, onNewSession, s
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <div style={{ fontSize: 'var(--font-sm)', fontWeight: 500, marginBottom: 4, color: 'var(--text)' }}>
-              {sessionLoadError ? '连接失败' : '暂无会话'}
+              {sessionLoadError ? '暂时连接不上' : '暂无会话'}
             </div>
-            <div style={{ fontSize: 'var(--font-xs)', lineHeight: 1.5 }}>
-              {sessionLoadError ? `无法加载历史会话：${sessionLoadError}` : '点击上方「新建对话」开始'}
+            <div style={{ fontSize: 'var(--font-xs)', lineHeight: 1.5, marginBottom: sessionLoadError ? 10 : 0 }}>
+              {sessionLoadError
+                ? '还没连上超级小金服务。请检查服务是否已启动、地址和密码是否填对。'
+                : '点击上方「新建对话」开始'}
             </div>
+            {sessionLoadError && onRefreshSessions && (
+              <button
+                onClick={onRefreshSessions}
+                disabled={sessionsLoading}
+                className="btn-text"
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: 'var(--font-xs)',
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)',
+                  color: 'var(--text)',
+                  cursor: sessionsLoading ? 'wait' : 'pointer',
+                }}
+              >
+                {sessionsLoading ? '正在刷新…' : '重新加载'}
+              </button>
+            )}
           </div>
         )}
         {!sessionsLoading && sessionTree.map((node) => (

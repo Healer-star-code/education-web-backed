@@ -5,6 +5,25 @@ import type { SuperKingStatus } from './superking.js'
 
 let tray: Tray | null = null
 let currentStatus: SuperKingStatus | null = null
+let lastIconPath: string | null = null
+
+// 安全的 console.log：Windows 下父进程退出后 stdout 管道可能断开，
+// 写入 EPIPE 会触发 uncaughtException 弹窗；这里吞掉这类错误。
+function safeLog(...args: unknown[]): void {
+  try {
+    console.log(...args)
+  } catch {
+    // ignore EPIPE etc.
+  }
+}
+
+function safeWarn(...args: unknown[]): void {
+  try {
+    console.warn(...args)
+  } catch {
+    // ignore EPIPE etc.
+  }
+}
 
 interface TrayCallbacks {
   showWindow: () => void
@@ -52,7 +71,10 @@ function loadTrayIcon(_running: boolean): Electron.NativeImage {
       if (existsSync(p)) {
         const img = nativeImage.createFromPath(p)
         if (!img.isEmpty()) {
-          console.log('[tray] icon loaded from:', p)
+          if (lastIconPath !== p) {
+            lastIconPath = p
+            safeLog('[tray] icon loaded from:', p)
+          }
           return img
         }
       }
@@ -61,7 +83,10 @@ function loadTrayIcon(_running: boolean): Electron.NativeImage {
     }
   }
 
-  console.warn('[tray] no icon file found, falling back to base64 placeholder. Tried:', candidates)
+  if (lastIconPath !== 'fallback') {
+    lastIconPath = 'fallback'
+    safeWarn('[tray] no icon file found, falling back to base64 placeholder. Tried:', candidates)
+  }
   // 兜底：1x1 透明像素（至少不空白文本）
   const fallback =
     'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAEElEQVR42mNk+M9QzwAEjAwACdoBVS6mvtcAAAAASUVORK5CYII='

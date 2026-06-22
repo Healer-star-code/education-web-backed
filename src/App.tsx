@@ -320,6 +320,22 @@ export default function App() {
   // 不需要切目录、不需要刷新整个 App。
   useEffect(() => loadSessionsForCwd(selectedCwd), [loadSessionsForCwd, selectedCwd])
 
+  // 连接失败后自动重试：用户可能正在启动 super-king，
+  // 每隔 5 秒刷新一次会话列表，直到连接成功。
+  const refreshSessions = useCallback(() => loadSessionsForCwd(selectedCwd), [loadSessionsForCwd, selectedCwd])
+  useEffect(() => {
+    if (!sessionLoadError) return
+    let timeoutId: ReturnType<typeof setTimeout>
+    const schedule = () => {
+      timeoutId = setTimeout(() => {
+        refreshSessions()
+        schedule()
+      }, 5000)
+    }
+    schedule()
+    return () => clearTimeout(timeoutId)
+  }, [sessionLoadError, refreshSessions])
+
   const handleSelectSession = useCallback((session: SessionInfo) => {
     setNewSessionCwd(null)
     setSelectedSession(session)
@@ -440,6 +456,7 @@ export default function App() {
               sessionsLoading={sessionsLoading}
               onOpenSkills={() => setSkillsOpen(true)}
               onToast={(message, type) => setToast({ message, type })}
+              onRefreshSessions={refreshSessions}
             />
           </div>
         </div>

@@ -28,6 +28,19 @@ import { appendRendererError, readRendererErrorTail, getRendererErrorLogPath, ty
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 
+// 防止 stdout/stderr 被重定向到已关闭的管道时弹出未捕获异常窗口
+// （常见于 Windows 下由脚本/服务启动 electron，父进程退出后 console.log 写 EPIPE）
+process.on('uncaughtException', (err) => {
+  const message = err && typeof err === 'object' && 'message' in err ? String((err as Error).message) : String(err)
+  if (message.includes('EPIPE') || message.includes('ECONNRESET')) {
+    // 静默忽略：这些通常是输出管道断开，不影响应用功能
+    return
+  }
+  if (isDev) {
+    console.error('[main] uncaughtException:', err)
+  }
+})
+
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
 
