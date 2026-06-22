@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
-import { getConfig, type ConfigInfo } from '../lib/piApi'
+import { useEffect, useState } from 'react'
 import { getDesktopBridge, isDesktop, type DesktopSettingsShape, type SuperKingStatus } from '../lib/desktopBridge'
 
 interface Props {
@@ -13,9 +12,6 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
   const [savedFlash, setSavedFlash] = useState(false)
   const [showPwd, setShowPwd] = useState(false)
   const [busy, setBusy] = useState<'start' | 'stop' | 'restart' | null>(null)
-  const [backendConfig, setBackendConfig] = useState<ConfigInfo | null>(null)
-  const [configLoading, setConfigLoading] = useState(false)
-  const [configError, setConfigError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isDesktop) return
@@ -33,43 +29,6 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
     })
     return () => { cancelled = true; unsub() }
   }, [])
-
-  // 查询后端配置状态
-  const refreshBackendConfig = useCallback(async () => {
-    if (!isDesktop) return
-    if (status?.state !== 'running' && status?.state !== 'external') {
-      setBackendConfig(null)
-      setConfigError(null)
-      return
-    }
-
-    setConfigLoading(true)
-    setConfigError(null)
-    try {
-      const cfg = await getConfig()
-      setBackendConfig(cfg)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.error('[DesktopBackendSection] getConfig failed:', message)
-      setConfigError(`检测失败：${message}`)
-      setBackendConfig(null)
-    } finally {
-      setConfigLoading(false)
-    }
-  }, [status?.state])
-
-  // super-king 启动/连接后自动查询一次
-  useEffect(() => {
-    let cancelled = false
-    refreshBackendConfig().then(() => {
-      // 组件卸载时避免状态泄露
-      if (cancelled) {
-        setBackendConfig(null)
-        setConfigError(null)
-      }
-    })
-    return () => { cancelled = true }
-  }, [refreshBackendConfig])
 
   if (!isDesktop || !settings) return null
   const bridge = getDesktopBridge()!
@@ -286,57 +245,6 @@ export function DesktopBackendSection({ onApplyBackendUrl }: Props) {
                   {showPwd ? '隐藏' : '显示'}
                 </button>
               </div>
-            </div>
-          </div>
-
-          {/* 后端配置状态 */}
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ ...lblStyle, marginBottom: 8 }}>后端模型配置</div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '10px 12px',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                fontSize: 13,
-              }}
-            >
-              {status?.state !== 'running' && status?.state !== 'external' ? (
-                <span style={{ color: 'var(--text-dim)' }}>super-king 未启动，无法检测配置</span>
-              ) : configLoading ? (
-                <span style={{ color: 'var(--text-dim)' }}>检测中…</span>
-              ) : configError ? (
-                <>
-                  <span style={{ color: 'var(--warning)' }} role="img" aria-label="警告">!</span>
-                  <span style={{ color: 'var(--text)' }}>{configError}</span>
-                </>
-              ) : backendConfig?.defaultModel ? (
-                <>
-                  <span style={{ color: 'var(--success)' }}>✓</span>
-                  <span style={{ color: 'var(--text)' }}>
-                    已配置：{backendConfig.defaultModel.id}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span style={{ color: 'var(--danger)' }}>✗</span>
-                  <span style={{ color: 'var(--text)' }}>未配置默认模型，请检查 super-king 配置</span>
-                </>
-              )}
-              <div style={{ flex: 1 }} />
-              {(status?.state === 'running' || status?.state === 'external') && (
-                <button
-                  onClick={() => { void refreshBackendConfig() }}
-                  disabled={configLoading}
-                  className="btn-text"
-                  style={{ ...btnStyle, opacity: configLoading ? 0.5 : 1 }}
-                >
-                  刷新
-                </button>
-              )}
             </div>
           </div>
 
