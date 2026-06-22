@@ -514,6 +514,10 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     }
     const handleWindowDrop = (e: globalThis.DragEvent) => {
       e.preventDefault()
+      // 如果用户把文件拖到输入框附近又丢到窗口其他区域，
+      // 这里需要兜底重置拖拽状态，避免高亮遮罩卡住。
+      dragCounterRef.current = 0
+      setIsDragging(false)
     }
     window.addEventListener('dragover', handleWindowDragOver)
     window.addEventListener('drop', handleWindowDrop)
